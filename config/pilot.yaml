@@ -1,0 +1,258 @@
+# Phase 1 pilot: Florida / Gulf of Mexico. Everything the acquisition pipeline searches for
+# is defined here; scripts read nothing else. Collection names, versions and archive cutoffs
+# were checked against NASA CMR and the Copernicus Marine catalogue on 2026-11-11
+# (see docs/dataset_inventory.md). `python -m oefm catalog` re-checks them.
+
+project: ocean_ecology_foundation_model
+phase: pilot_florida_gulf
+
+# Relative to the repo root unless absolute. Override with OEFM_DATA_ROOT.
+data_root: data
+
+# ---------------------------------------------------------------------------
+# Regions: [west, south, east, north] in degrees (WGS84). Boxes are generous on purpose:
+# they include surrounding ocean for later tile extraction and are not clipped to coasts.
+# Run `python -m oefm regions` to print their areas.
+# ---------------------------------------------------------------------------
+regions:
+  swfl_shelf:
+    name: Southwest Florida shelf
+    bbox: [-84.5, 24.8, -80.9, 28.3]
+    notes: >-
+      Tampa Bay (27.6-28.0 N) south to Cape Sable and the Ten Thousand Islands, west across
+      the inner and middle shelf to about the 100-200 m isobath. Karenia brevis red-tide waters.
+  florida_keys:
+    name: Florida Keys and reef tract
+    bbox: [-83.3, 23.8, -79.8, 25.95]
+    notes: >-
+      Dry Tortugas to Biscayne Bay, including Florida Bay, the reef tract and the Florida
+      Straits (Loop Current / Florida Current), stopping north of the Cuban shelf. Shares a
+      strip with swfl_shelf (24.8-25.95 N, 83.3-80.9 W) so the Keys-shelf gradient is in both.
+  offshore_gulf:
+    name: Offshore eastern-central Gulf of Mexico
+    bbox: [-91.0, 24.0, -86.5, 27.0]
+    notes: >-
+      Deep oligotrophic basin away from the Mississippi plume (north of 28 N) and the
+      Campeche Bank (south of 24 N). Loop Current and its eddies pass through it.
+
+# Physical products are subset to the union of the regions plus this margin (degrees).
+domain_margin_deg: 1.0
+
+# ---------------------------------------------------------------------------
+# Time sampling
+# ---------------------------------------------------------------------------
+time:
+  # All four instrument families overlap: take every available day.
+  core:
+    start: 2024-01-01
+    end: today          # resolved at run time (UTC date)
+
+  # 2018-2023: three continuous 45-day windows per year across seasons. Set full_years: true
+  # to take the whole of every year once throughput and storage allow.
+  historical:
+    years: [2018, 2019, 2020, 2021, 2022, 2023]
+    full_years: false
+    windows:
+      - {name: winter, start: "02-01", end: "03-17"}   # cold fronts, deep winter mixing
+      - {name: summer, start: "06-01", end: "07-15"}   # Sargassum season, stratification
+      - {name: fall,   start: "09-15", end: "10-29"}   # red-tide onset, late hurricane season
+
+  # Extra coverage around storms and blooms. Windows that touch a seasonal window are merged
+  # into one continuous window. Edit freely; dates are inclusive.
+  events:
+    - {name: red_tide_2018_peak,   start: 2018-07-15, end: 2018-09-14, why: "2017-2019 K. brevis bloom, peak Aug-Sep 2018 (joins the fall window; Hurricane Michael 2018-10-10 is inside it)"}
+    - {name: piney_point_2021,     start: 2021-04-01, end: 2021-05-31, why: "Piney Point release into Tampa Bay (Apr 2021) and the summer 2021 red tide (joins the summer window)"}
+    - {name: hurricane_idalia_2023, start: 2023-08-20, end: 2023-09-14, why: "Idalia crossed the eastern Gulf 2023-08-29/30 (joins the fall window)"}
+    # Ian (2022-09-28) falls inside the 2022 fall window; Helene and Milton (2024) inside core.
+
+  # Physical/atmospheric products also cover this many days before each window.
+  physical_lead_days: 90
+
+# ---------------------------------------------------------------------------
+# Products. origin: observed | observation_based_analysis | model_reanalysis.
+# Satellite L2 products are whole swath granules (as distributed); physical products are
+# global daily files (NASA) or regional subsets (Copernicus Marine, which serves ARCO stores).
+# ---------------------------------------------------------------------------
+satellite:
+  modisa_oc:
+    family: MODIS
+    platform: Aqua
+    short_name: MODISA_L2_OC
+    version: "2022.0"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 1000
+    nominal_bands: 10
+    notes: "Aqua L2 ends 2026-05-31 in CMR. CMR lists most 2021-07..2025-11 files twice (two GranuleURs, one file); deduplicated by file name."
+  viirsn_oc:
+    family: VIIRS
+    platform: Suomi-NPP
+    short_name: VIIRSN_L2_OC
+    version: "2022.0"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 750
+    nominal_bands: 5
+  viirsj1_oc:
+    family: VIIRS
+    platform: NOAA-20 (JPSS-1)
+    short_name: VIIRSJ1_L2_OC
+    version: "2022.0"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 750
+    nominal_bands: 5
+  viirsj2_oc:
+    family: VIIRS
+    platform: NOAA-21 (JPSS-2)
+    short_name: VIIRSJ2_L2_OC
+    version: "2025.0"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 750
+    nominal_bands: 5
+    notes: "Processing version 2025.0, unlike R2022.0 for SNPP/NOAA-20: check band-to-band consistency before harmonising."
+  olcia_efr_oc:
+    family: OLCI
+    platform: Sentinel-3A
+    short_name: OLCIS3A_L2_EFR_OC
+    version: "2022.0"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 300
+    nominal_bands: 11
+    notes: "NASA-processed OLCI full resolution (EFR, non-time-critical). CMR coverage ends 2026-04-14 (checked 2026-11-11); later dates need NRT or EUMETSAT OL_2_WFR (see docs)."
+  olcib_efr_oc:
+    family: OLCI
+    platform: Sentinel-3B
+    short_name: OLCIS3B_L2_EFR_OC
+    version: "2022.0"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 300
+    nominal_bands: 11
+    notes: "Few S3B granules Apr-Jul 2025 (2 in Jun 2025) and essentially none after Mar 2026."
+  pace_oci_aop:
+    family: PACE
+    platform: PACE
+    short_name: PACE_OCI_L2_AOP
+    version: "3.2"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: Rrs
+    nominal_resolution_m: 1200
+    nominal_bands: 172
+    notes: "Hyperspectral Rrs. Data from 2024-03-05."
+  pace_oci_sfrefl:
+    family: PACE
+    platform: PACE
+    short_name: PACE_OCI_L2_SFREFL
+    version: "3.1"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: rhos
+    nominal_resolution_m: 1200
+    nominal_bands: 122
+    separate_product: true
+    notes: "Surface reflectance (rhos) incl. red/NIR/SWIR for floating Sargassum. Version 3.1, unlike AOP 3.2; tracked separately. ~730 MB per granule."
+
+physical:
+  mur_sst:
+    variable: sea-surface temperature
+    source: nasa_earthdata
+    short_name: MUR-JPL-L4-GLOB-v4.1
+    version: "4.1"
+    provider: POCLOUD
+    origin: observation_based_analysis
+    resolution: "0.01 deg, daily"
+    notes: "Global daily file ~680 MB, downloaded whole (original preserved); regional extraction later. CMR carries MD5 checksums."
+  ccmp_wind:
+    variable: 10 m wind vector (u, v), speed
+    source: nasa_earthdata
+    short_name: CCMP_WINDS_10M6HR_L4_V3.1
+    version: "3.1"
+    provider: POCLOUD
+    origin: observation_based_analysis
+    resolution: "0.25 deg, 6-hourly (one file per day)"
+    notes: "Satellite radiometer/scatterometer winds blended onto an ERA5 background. Latest file in CMR 2026-09-30 (checked 2026-11-11). Longitude 0-360."
+  imerg_final:
+    variable: precipitation
+    source: nasa_earthdata
+    short_name: GPM_3IMERGDF
+    version: "07"
+    provider: GES_DISC
+    origin: observation_based_analysis
+    resolution: "0.1 deg, daily"
+    notes: "Final run (gauge-calibrated); collection ends 2025-09-30 in CMR. Needs the 'NASA GESDISC DATA ARCHIVE' app approved in the Earthdata profile."
+  imerg_late:
+    variable: precipitation
+    source: nasa_earthdata
+    short_name: GPM_3IMERGDL
+    version: "07"
+    provider: GES_DISC
+    origin: observation_based_analysis
+    resolution: "0.1 deg, daily"
+    only_after: imerg_final
+    notes: "Late run (satellite-only climatological calibration), used only for days after the last Final file."
+  cmems_sealevel:
+    variable: sea level (ADT, SLA) and geostrophic currents
+    source: copernicus_marine
+    product_id: SEALEVEL_GLO_PHY_L4_MY_008_047 / SEALEVEL_GLO_PHY_L4_NRT_008_046
+    datasets:   # multi-year (reprocessed) first; NRT only after the MY dataset ends
+      - cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D
+      - cmems_obs-sl_glo_phy-ssh_nrt_allsat-l4-duacs-0.125deg_P1D
+    variables: all
+    origin: observation_based_analysis
+    resolution: "0.125 deg, daily"
+  cmems_globcurrent:
+    variable: total surface and 15 m currents (geostrophic + Ekman + tidal components)
+    source: copernicus_marine
+    product_id: MULTIOBS_GLO_PHY_MYNRT_015_003
+    datasets:
+      - cmems_obs-mob_glo_phy-cur_my_0.25deg_P1D-m
+      - cmems_obs-mob_glo_phy-cur_nrt_0.25deg_P1D-m
+    variables: all
+    origin: observation_based_analysis
+    resolution: "0.25 deg, daily mean"
+    notes: "Ekman part is fitted to drifters and driven by ERA5 wind stress (reanalysis forcing). Hourly datasets (PT1H-i) also exist."
+  gebco:
+    variable: bathymetry / elevation
+    source: http
+    url: https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2026/ice_surface_elevation/netcdf/GEBCO_2026.nc
+    version: GEBCO_2026
+    origin: observation_based_analysis
+    resolution: "15 arc-second, static"
+    static: true
+    notes: "Single global netCDF, 7.47 GB (Content-Length 7466018396 on 2026-11-11)."
+
+# Identified but not downloaded in bulk yet.
+deferred:
+  armor3d_mld:
+    variable: mixed-layer depth (mlotst), 3D T/S, geostrophic currents
+    product_id: MULTIOBS_GLO_PHY_TSUV_3D_MYNRT_015_012
+    datasets: [cmems_obs-mob_glo_phy_my_0.125deg_P1D-m, cmems_obs-mob_glo_phy_nrt_0.125deg_P1D-m]
+    origin: observation_based_analysis
+    notes: "ARMOR3D: Argo/CTD profiles + satellite SST/SSH/SSS. MY ends 2025-06-30, NRT from 2024-09-08."
+  glorys_mld:
+    variable: mixed-layer depth (mlotst), full physics
+    product_id: GLOBAL_MULTIYEAR_PHY_001_030
+    datasets: [cmems_mod_glo_phy_my_0.083deg_P1D-m]
+    origin: model_reanalysis
+    notes: "GLORYS12 1/12 deg reanalysis. Model-derived; candidate only."
+  multiobs_sss:
+    variable: sea-surface salinity and density
+    product_id: MULTIOBS_GLO_PHY_S_SURFACE_MYNRT_015_013
+    origin: observation_based_analysis
+    notes: "Broader physical footprint, under consideration."
+
+# Never used as pretraining inputs.
+excluded:
+  - modelled chlorophyll, primary production, nitrate, phosphate and other ecosystem-model
+    outputs (e.g. GLOBAL_MULTIYEAR_BGC_001_029, GLOBAL_ANALYSISFORECAST_BGC_001_028)
+  - Level-1 data and custom Rayleigh-corrected reflectance (not in phase 1)

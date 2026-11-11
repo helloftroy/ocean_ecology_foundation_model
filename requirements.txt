@@ -1,0 +1,12 @@
+# Phase 1 (acquisition + QC). Python >= 3.10.
+earthaccess>=0.13
+copernicusmarine>=2.1
+requests
+numpy
+pandas
+pyarrow
+xarray
+netCDF4
+h5py
+matplotlib
+pyyaml

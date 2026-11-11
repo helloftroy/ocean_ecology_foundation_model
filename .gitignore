@@ -1,0 +1,16 @@
+# Credentials
+credentials.sh
+.netrc
+
+# Data, manifests, reports and caches live on Ptolemy scratch next to the code
+data/
+data_smoke/
+.cache/
+logs/*
+!logs/.gitkeep
+
+# Python / OS
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
