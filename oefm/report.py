@@ -145,16 +145,28 @@ def write(cfg: Config, log=print) -> Path:
         for r in runs:
             add(f"| {r['run_id']} | {r['host']} | {r['connections']} | {r['files_ok']}/{r['files_failed']} | "
                 f"{_gb(r['bytes'])} | {(r['wall_seconds'] or 0) / 60:,.1f} | {(r['bytes'] or 0) / max(r['wall_seconds'] or 1, 1) / 1e6:,.1f} |")
-        per = man.db.execute("""SELECT source, COUNT(*) n, SUM(bytes) b, SUM(seconds) s FROM transfers WHERE ok=1
-                                GROUP BY source""").fetchall()
-        add("\n| source | files | GB | per-connection MB/s |\n|---|---|---|---|")
-        for r in per:
-            add(f"| {r['source']} | {r['n']:,} | {_gb(r['b'])} | {(r['b'] or 0) / max(r['s'] or 1, 1) / 1e6:,.1f} |")
-        best = man.db.execute("SELECT MAX(1.0 * bytes / wall_seconds) FROM runs WHERE bytes >= 1e9 AND wall_seconds > 0").fetchone()[0]
-        left = man.db.execute("SELECT SUM(size_bytes) FROM granules WHERE status != 'verified'").fetchone()[0] or 0
-        if best:
-            add(f"\nRemaining {left / 1e12:,.2f} TB at the best measured aggregate {best / 1e6:,.1f} MB/s: about "
-                f"{left / best / 3600:,.1f} hours ({left / best / 86400:,.1f} days of transfer).\n")
+        per = {r["source"]: r for r in man.db.execute(
+            """SELECT source, COUNT(*) n, SUM(bytes) b, SUM(seconds) s FROM transfers GROUP BY source""")}
+        left = {r["source"]: r["b"] or 0 for r in man.db.execute(
+            "SELECT source, SUM(size_bytes) b FROM granules WHERE status != 'verified' GROUP BY source")}
+        conns = runs[-1]["connections"] or 8
+        add(f"\nProjection: remaining bytes per source / (measured per-connection rate x connections; "
+            f"{conns} for NASA and HTTP, 2 for Copernicus Marine). Sources are fetched in parallel, so the "
+            f"pilot takes about as long as the slowest source. Servers may throttle at higher concurrency; "
+            f"the next large run's aggregate rate is the better number.\n")
+        add("| source | files fetched | GB fetched | per-connection MB/s | remaining GB | projected hours |\n|---|---|---|---|---|---|")
+        worst = 0.0
+        for src in sorted(set(per) | set(left)):
+            r = per.get(src)
+            rate = (r["b"] or 0) / r["s"] if r and r["s"] else 0
+            c = min(2, conns) if src == "copernicus_marine" else conns
+            hours = left.get(src, 0) / (rate * c) / 3600 if rate else float("nan")
+            worst = max(worst, hours) if hours == hours else worst
+            add(f"| {src} | {r['n'] if r else 0:,} | {_gb(r['b'] if r else 0)} | {rate / 1e6:,.1f} | "
+                f"{_gb(left.get(src, 0))} | {hours:,.1f} |")
+        total_left = sum(left.values())
+        add(f"\nRemaining {total_left / 1e12:,.2f} TB; projected about {worst:,.1f} hours "
+            f"({worst / 24:,.1f} days) if the per-connection rates hold.\n")
     else:
         add("_No download runs recorded yet._\n")
 

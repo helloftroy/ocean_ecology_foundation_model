@@ -185,9 +185,14 @@ def run(cfg: Config, products: dict[str, dict], args, log=print) -> dict[str, An
         dest = cfg.data_root / row["local_path"]
         t0 = time.time()
         got = 0
+        active = 0.0  # seconds spent transferring (excludes retry back-off sleeps)
         error = None
         info: dict[str, Any] = {}
+        part = dest.with_name(dest.name + ".part")
         for attempt in range(1, args.retries + 1):
+            before = part.stat().st_size if part.exists() else 0
+            a0 = time.time()
+            fetched = False
             try:
                 expected_len = None
                 hashes = None
@@ -196,23 +201,33 @@ def run(cfg: Config, products: dict[str, dict], args, log=print) -> dict[str, An
                 elif row["source"] == "copernicus_marine":
                     man.update(key, status="downloading", attempts=(row["attempts"] or 0) + attempt)
                     cmems.download(row, dest)
-                    got = dest.stat().st_size
+                    got += dest.stat().st_size
+                    fetched = True
                 else:
                     man.update(key, status="downloading", attempts=(row["attempts"] or 0) + attempt)
                     sess = nasa.session() if row["source"] == "nasa_earthdata" else _plain_session()
                     algo = (row["checksum_algo"] or "").lower()
                     algos = ["sha256"] + ([algo] if algo in hashlib.algorithms_available and algo not in ("", "sha256") else [])
+                    fetched = True
                     n, hashes, expected_len = http_fetch(row["url"], dest, sess, args.timeout, algos)
                     got += n
+                    before = None  # counted exactly
                 info = verify(row, dest, hashes, expected_len)
                 error = None
                 break
             except Exception as exc:  # noqa: BLE001 - every failure is retried, then recorded
                 error = f"{type(exc).__name__}: {exc}"[:500]
+                # Bytes an interrupted attempt left in .part still crossed the network (and are
+                # resumed from), so they count towards throughput.
+                if fetched and before is not None and part.exists():
+                    got += max(0, part.stat().st_size - before)
                 if isinstance(exc, DownloadError) and dest.exists():
                     dest.unlink()  # a complete file that failed verification: fetch it cleanly next attempt
-                if attempt < args.retries:
-                    time.sleep(min(args.retry_sleep * 2 ** (attempt - 1), 600))
+            finally:
+                if fetched:
+                    active += time.time() - a0
+            if error is not None and attempt < args.retries:
+                time.sleep(min(args.retry_sleep * 2 ** (attempt - 1), 600))
         secs = time.time() - t0
         if error is None:
             man.update(key, status="verified", last_error=None, download_seconds=secs, downloaded_at=utcnow(),
@@ -223,7 +238,7 @@ def run(cfg: Config, products: dict[str, dict], args, log=print) -> dict[str, An
             man.update(key, status="failed", last_error=error, download_seconds=secs)
         if got:
             man.add_transfer(run_id=run_id, granule_key=key, product=row["product"], source=row["source"], host=host,
-                             bytes=got, seconds=secs, started_at=utcnow(), ok=int(error is None))
+                             bytes=got, seconds=active or secs, started_at=utcnow(), ok=int(error is None))
         with lock:
             stats["ok" if error is None else "failed"] += 1
             stats["bytes"] += got
