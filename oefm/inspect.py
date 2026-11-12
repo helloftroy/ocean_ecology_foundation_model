@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -375,7 +376,12 @@ def map_l2(path: Path, product: dict, cfg: Config, out_png: Path, stride: int = 
                 ["#2a7fbf", "#f2b134", "#d95f02", "#d9d9d9", "#6b6b6b"]), "vmin": -0.5, "vmax": 4.5}),
         ]:
             fig, ax = plt.subplots(figsize=(7.2, 4.0), dpi=150)
-            m = ax.pcolormesh(lon[::s, ::s], lat[::s, ::s], data[::s, ::s], shading="nearest", rasterized=True, **kw)
+            with warnings.catch_warnings():
+                # Swath coordinates are not monotonic (bow-tie rows, curved edges); "nearest"
+                # cells are fine for a diagnostic map, so matplotlib's warning is just noise.
+                warnings.filterwarnings("ignore", message="The input coordinates to pcolormesh")
+                m = ax.pcolormesh(lon[::s, ::s], lat[::s, ::s], data[::s, ::s], shading="nearest",
+                                  rasterized=True, **kw)
             cb = fig.colorbar(m, ax=ax, fraction=0.03, pad=0.01)
             if suffix == "flags":
                 cb.set_ticks(range(5))
