@@ -3,6 +3,9 @@
 A multisensor ocean foundation model: MODIS, VIIRS, Sentinel-3 OLCI and PACE OCI reflectance,
 plus ocean physics and atmospheric forcing, for plankton, eDNA, HAB and Sargassum applications.
 
+**Running it on Ptolemy: start with [cluster_instructions.md](cluster_instructions.md)** (order of
+operations, status of each step, decision log, and what to paste back for review).
+
 **Phase 1 (now):** acquire and check a pilot dataset over Florida and the Gulf of Mexico. There is
 no training code and no architecture-dependent preprocessing yet. The brief is in
 [docs/phase1_instructions.md](docs/phase1_instructions.md), and archive findings are in

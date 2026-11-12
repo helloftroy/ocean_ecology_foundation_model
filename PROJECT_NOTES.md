@@ -1,6 +1,10 @@
 # Project notes (state for the next session)
 
 ## Where things are
+- **cluster_instructions.md**: the user's run order, step status, decision log (with evidence)
+  and paste-back list. Update it whenever steps, decisions or results change.
+- Briefs: docs/phase1_instructions.md, docs/phase2_instructions.md (Phase 2 received 2026-11-12;
+  its storage revision overrides Obj. 1: keep global MUR in raw/, crops in processed/regional/).
 - Repo: https://github.com/helloftroy/ocean_ecology_foundation_model (local:
   ~/multimodal_seusmbol/ocean_ecology_foundation_model). Clone on Ptolemy into
   /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model.
@@ -25,7 +29,8 @@
 2. qc.sbatch once status shows 0 failed. Review report section 4 (incl. the HISATZEN diagnostic:
    decode check, coverage recovered, angle effect from same-day matchups) and data/reports/zenith/.
 3. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
-4. Then the next-phase brief (user will provide).
+4. Phase 2 (docs/phase2_instructions.md): planned order in cluster_instructions.md; start with
+   2.0 processed/ layout + processing manifest, 2.2 regional physical crops, 2.3 tile grid/Zarr.
 
 ## Decisions
 - Copernicus Marine products are stored as monthly domain subsets with all variables (the service
