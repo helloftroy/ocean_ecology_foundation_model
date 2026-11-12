@@ -36,8 +36,13 @@ class WindowTests(unittest.TestCase):
     def test_pilot_config(self):
         cfg = load_config(today=date(2026, 11, 11))
         sw = cfg.satellite_windows()
-        self.assertEqual(sw[-1].start, date(2024, 1, 1))
+        # The core window runs to today; an eDNA cruise window may extend it back into Dec 2023.
+        self.assertLessEqual(sw[-1].start, date(2024, 1, 1))
+        self.assertIn("core", sw[-1].names)
         self.assertEqual(sw[-1].end, date(2026, 11, 11))
+        # Events from time.event_files are loaded (generated eDNA cruise windows).
+        self.assertTrue(any(e["name"].startswith("edna_") for e in cfg.events))
+        self.assertTrue(any(n.startswith("edna_") for w in sw for n in w.names))
         # every historical year has at least three windows' worth of days
         for y in range(2018, 2024):
             self.assertGreaterEqual(sum(w.days for w in sw if w.start.year == y), 135)

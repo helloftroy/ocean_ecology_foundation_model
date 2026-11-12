@@ -132,9 +132,21 @@ class Config:
                 start = date.fromisoformat(f"{year}-{w['start']}")
                 end = date.fromisoformat(f"{year}-{w['end']}")
                 windows.append(Window(start, end, (f"{year}_{w['name']}",)))
-        for ev in t.get("events", []) or []:
+        for ev in self.events:
             windows.append(Window(self._date(ev["start"]), self._date(ev["end"]), (ev["name"],)))
         return merge_windows(windows)
+
+    @property
+    def events(self) -> list[dict]:
+        """time.events plus the events in every file listed under time.event_files (paths relative
+        to the config file), e.g. the generated eDNA cruise windows."""
+        t = self.raw["time"]
+        out = list(t.get("events", []) or [])
+        for name in t.get("event_files", []) or []:
+            f = (self.path.parent / name) if not Path(name).is_absolute() else Path(name)
+            with open(f) as fh:
+                out += list((yaml.safe_load(fh) or {}).get("events", []) or [])
+        return out
 
     def physical_windows(self) -> list[Window]:
         """Satellite windows extended back by physical_lead_days, merged again."""
