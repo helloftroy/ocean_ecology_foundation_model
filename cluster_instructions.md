@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (Phase 2 revision).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (eDNA cruise windows, evaluation inventory).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -44,9 +44,9 @@ run. Verified files are never fetched again. Resubmit the same command.
 | 1.2 | Inventory: search the archives, fill the manifest | ✅ (first run stopped before PACE; re-run fixed it) |
 | 1.3 | Download MODIS, VIIRS, OLCI (2018–2026) | ✅ 1.79 TB, 0 failed |
 | 1.4 | Download PACE, MUR, CCMP, IMERG, Copernicus Marine, GEBCO | ▶️ ~4.2 TB |
-| 1.5 | QC, observation index, matchups, HISATZEN diagnostic, report | ⏳ after 1.4 |
+| 1.4b | Satellite windows around the Florida eDNA cruises: inventory, then download (+487 satellite days, ~0.45 TB) | ⏳ after 1.4 finishes |
+| 1.5 | QC, observation index, matchups, HISATZEN diagnostic, report | ⏳ after 1.4b |
 | 1.6 | Paste back the QC results for review | ⏳ after 1.5 |
-| 1.7 | *Proposed:* satellite windows around the Florida eDNA cruises, 2018–2023 (~467 days, ~420 GB) | ❓ awaiting your OK; see decision log |
 
 ### 1.0 Environment ✅
 ```bash
@@ -89,6 +89,25 @@ sbatch --account=191001-366746 --export=ALL,CHAIN=2 cluster/download.sbatch
 **Done when** `python -m oefm status` shows every product with `verified` = `files` and
 `failed` = 0, about 5.96 TB on disk.
 
+### 1.4b eDNA cruise windows ⏳ (approved 2026-11-12)
+Adds a window from 30 days before to 3 days after every SEUS MBON surface sampling day in the pilot
+regions, 2018 to January 2024 (`config/edna_cruise_windows.yaml`, 21 cruises). This gives all 915
+surface samples from 2018 on their full 30-day satellite context.
+Wait until the 1.4 job has finished (`squeue -u hmp278` shows no `oefm_download`), then:
+```bash
+git pull
+sbatch --account=191001-366746 cluster/inventory.sbatch
+# when it has finished:
+sbatch --account=191001-366746 --export=ALL,CHAIN=1 cluster/download.sbatch
+```
+- The inventory only adds the new files; download state is kept. Expect roughly +0.45 TB of
+  MODIS/VIIRS/OLCI (estimated from ~0.9 GB per historical day) and a few GB of physical files for
+  13 extra days. PACE starts in 2024, so it is barely affected.
+- **Check:** `python -m oefm windows | grep -o 'edna_[0-9]*' | sort -u | wc -l` prints 21, and `status` shows the higher
+  file counts with 0 failed after the download.
+- Regenerate the windows only if the eDNA metadata changes (see `scripts/make_edna_windows.py`;
+  the eDNA tables are not on Ptolemy, so this is done on the laptop and committed).
+
 ### 1.5 QC ⏳
 ```bash
 git pull
@@ -129,7 +148,7 @@ and been reviewed.**
 | 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | 🛠 |
 | 2.5 | Sequence builder and loader (causal 30 d / ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types), grouped train/validation splits by tile and time block | 2.3 | service | 🛠 |
 | 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs | 2.3 | service | 🛠 |
-| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training: Florida 16S/18S (NMF components, dominant taxa, community composition, measured nutrients); SaWS Sargassum; HPLC pigments; Gulf fish | 2.3 | service | 🛠 |
+| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Sargassum and HPLC are optional and must not delay Stage 1 | 2.3 | service | 🛠 |
 
 ### 2-II Stage 1: choose the optical objective (optical inputs only, matched data and capacity)
 
@@ -153,8 +172,8 @@ and been reviewed.**
 | # | Evaluation | Status |
 |---|---|---|
 | 2.15 | **Florida metabarcoding:** per NMF component (16S and 18S), dominant taxa, overall composition. Splits grouped by station and by cruise/time. Baselines: metadata only, direct physical variables, Granite. Per-component gains, so it is visible which components benefit from physics vs nutrient supervision. Measured SFER nutrients as an independent target | 🛠 |
-| 2.16 | **Sargassum (SaWS):** same-period occurrence/density first, then a 7-day forecast from past inputs only, against persistence and current-driven transport baselines. Separate test areas and periods. SaWS never enters pretraining | 🛠 |
-| 2.17 | **HPLC pigments and Gulf fish:** optical-only vs physical-only vs combined | 🛠 |
+| 2.16 | **Sargassum (optional, blocked on data):** the 7-day forecast first (inputs end before the target week), against persistence, seasonal climatology and current-driven transport; same-period detection second. A separate Sargassum evaluation region if needed; SaWS never enters pretraining | ❌ needs numerical SaWS grids from USF |
+| 2.17 | **Fish (CRCP Keys, video MaxN shelf/Keys) and pigments:** optical-only vs physical-only vs combined. SFER fluorometric Chl is the main phytoplankton target; HPLC only if SeaBASS adds enough | 🛠 |
 | 2.18 | OLCI 300 m branch proof of concept vs upsampled 1.2 km | 🛠 |
 | 2.19 | Consolidated report on the six configurations: failure cases, negative results, recommendation, questions for Andre | 🛠 |
 
@@ -169,33 +188,27 @@ without re-downloading.
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
 
-### Florida eDNA coverage: add satellite windows around the cruises? *Proposed, awaiting your OK.*
-
-**Finding (2026-11-12).** Of the SEUS MBON samples (1,207 replicate-averaged groups, the same
-groups for 16S and 18S, 2015-06 to 2024-07, 75 stations):
-
-| Subset | Samples |
-|---|---|
-| Surface samples inside the pilot regions | 1,088 (shelf 888, Keys 639, overlapping; offshore Gulf 0) |
-| … from 2018 on | 915 |
-| … inside the satellite windows already downloaded | 447 |
-| … from 2024 on (core window, fully covered) | 184 |
-| … in the PACE era (from 2024-03-05) | 115 |
-| … with SFER measured PO₄/NO₃/Si (same `keyfield`), 2018+ | 553 (274 inside current windows) |
-| 2018–2023 samples whose full 30-day causal context is downloaded | **119 of 731** |
-
-The cruises sample mostly in January, March, May, July/August, October and December. The seasonal
-windows (Feb 1–Mar 17, Jun 1–Jul 15, Sep 15–Oct 29) miss most of them.
-
-**Proposal.** Add a window from 30 days before to 3 days after each cruise date for 2018–2023:
-467 extra days of MODIS/VIIRS/OLCI, about 420 GB raw (~2 h at the measured rate). The physical
-products already run nearly continuously from 2017-11, so they need little or nothing extra. This
-roughly multiplies the usable 2018–2023 eDNA evaluation set by six (119 → ~730 samples), and it
-does it with real observations instead of a looser time match.
+### Florida eDNA cruise windows: added (2026-11-12, approved)
+Only 119 of 731 surface samples from 2018–2023 had their full 30-day satellite context, because
+the cruises (mostly January, March, May, July/August, October and December) fall outside the
+seasonal windows. You approved adding a window from 30 days before to 3 days after each surface
+sampling day in the pilot regions. Generated by `scripts/make_edna_windows.py` into
+`config/edna_cruise_windows.yaml` (21 cruises, 2018 – January 2024; the January 2024 cruise needed
+context from December 2023). Result: **all 915 surface samples from 2018 on are covered**. Cost:
++487 satellite days (2,006 → 2,493) and +13 physical days. Downloaded in step 1.4b.
 
 **Data note.** In `eDNA_data_sources/seusmbon_16S_metadata.tsv` and `..._18S_metadata.tsv`, the
-`decimalLatitude` and `decimalLongitude` columns are swapped (latitude holds ~−82). The pipeline
-will detect and correct this; other analyses using those files should too.
+`decimalLatitude` and `decimalLongitude` columns are swapped (latitude holds ~−82). The script
+detects and corrects this; other analyses using those files should too.
+
+### Evaluation inventory and scope (2026-11-12)
+Full table: [docs/evaluation_inventory.md](docs/evaluation_inventory.md). In short:
+- **Ready:** Florida 16S/18S (915 matched samples, shelf and Keys only), measured nutrients (553
+  at eDNA samples; ~2,550 SFER samples overall), SFER fluorometric Chl (2,139), reef fish (CRCP
+  Keys 2,606 events; video MaxN 1,517).
+- **Microbial evaluation is restricted to the shelf and Keys** (your instruction). The offshore
+  Gulf box has no eDNA, SFER or fish data; it stays in pretraining and serves other benchmarks.
+- **Do not delay Stage 1** for Sargassum or HPLC; both are optional.
 
 ### Evaluation targets: Florida metabarcoding replaces Bio-GO-SHIP (2026-11-12)
 Your adjustment 1. The microbial evaluation uses the SEUS MBON 16S/18S tables. Inputs: the
@@ -217,20 +230,29 @@ auxiliary *targets*; they never enter the encoder. Candidate: Copernicus Marine
 after the reanalysis ends. At 0.25° (~25 km), a 38.4 km tile holds only one or two PISCES cells,
 so the target is a tile-level value, not per-pixel. Measured SFER nutrients are the independent check.
 
-### Sargassum benchmark: Florida SaWS (2026-11-12)
-Your adjustment 3. **Still to check before building:** that the historical SaWS products are
-downloadable in a usable gridded form, and that they hold enough Sargassum-positive examples
-inside our regions. Mats are most common in spring–summer in the eastern Gulf and Florida Straits.
-If the current boxes rarely see them, the Gulf test area needs widening (the brief says it should
-include waters where mats are regularly observed). One caveat to design around: SaWS density is
-derived from the same MODIS/VIIRS/OLCI reflectance the encoder sees, so same-period detection
-partly measures whether the embedding keeps the floating-algae signal. The 7-day forecast against
-persistence and current-transport baselines is the more informative test.
+### Sargassum benchmark: blocked on numerical data (2026-11-12)
+**Finding.** SaWS's weekly `FA_UNET_DENSITY` is public only as colour-mapped PNGs (georeferenced
+by world files, 1 km, scale 0–0.4). The files sit under a `subscription` path with no download
+listing, and there are no public numerical grids. Alternatives checked:
+- NOAA AOML ERDDAP serves USF **AFAI** grids (1/3/7-day, 0.015°, 2016 – now). That is the
+  floating-algae *index*, not classified Sargassum.
+- NCEI 0190272 has gridded density only for 2001–2010 at 0.5°.
+- The USF biomass dataset is monthly sub-region totals (its only Gulf sub-region is the NW Gulf).
 
-### HPLC pigments and fish: sources to confirm (2026-11-12)
-SFER has fluorometric chlorophyll and phaeopigments, not HPLC. HPLC needs another source (e.g.
-SeaBASS); to be checked in step 2.7. Gulf fish observations: the existing fish folders
-(`eDNA_data_sources/fish_other_data_sources`, `multimodal_granite/fish`) will be inventoried in 2.7.
+**Decision (per your instructions).** No labels from PNGs, and no approximate labels from AFAI.
+The positive-count check by region, month and year waits for real data.
+**Next action:** request numerical weekly `FA_UNET_DENSITY` (or daily classified maps) for the Gulf
+and Florida Straits, 2018–2026, from the USF Optical Oceanography Lab (Chuanmin Hu).
+If the pilot boxes see too few mats, add a separate Sargassum evaluation region; don't enlarge the
+offshore control box. The forecast has priority over same-period detection: inputs end before the
+target week, with persistence, seasonal-climatology and current-advection baselines.
+
+### HPLC pigments: too sparse so far; SFER Chl is the main target (2026-11-12)
+BCO-DMO 851250 has 18 surface casts (May 2017 and May 2018, central-eastern Gulf; 11 in the
+offshore box), all outside our satellite windows. SeaBASS Gulf HPLC found so far: `LAMONT_GOM`
+(2016, 2019) and Lohrenz 2017 (northern Gulf); nothing on the Florida shelf or Keys. SeaBASS has no
+search API; the remaining check is a manual SeaBASS file search (instructions in the evaluation
+inventory). HPLC stays optional. SFER fluorometric Chl is a separate, main target.
 
 ### HISATZEN (high sensor-zenith flag): tag, don't mask. *Under evaluation.*
 
@@ -329,6 +351,7 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | any failed job | `tail -40 logs/<name>_<id>.err` and `tail -20 logs/<name>_<id>.out` | the error, and whether it is safe to resubmit |
 | 1.2 inventory | `source cluster/env.sh && python -m oefm status` | all 15 products present, TOTAL ≈ 5,960 GB expected |
 | 1.4 downloads | `source cluster/env.sh && python -m oefm status` | every product verified, 0 failed, the measured rate |
+| 1.4b inventory | `python -m oefm status` and `python -m oefm windows \| grep -o 'edna_[0-9]*' \| sort -u \| wc -l` | the new files are in and 21 eDNA windows are loaded |
 | 1.4, if failures | `sqlite3 data/manifest/manifest.sqlite "SELECT product,status,filename,last_error FROM granules WHERE status!='verified' LIMIT 30"` | why those files fail |
 | 1.5 QC | Sections 4–6 of `data/reports/pilot_acquisition_report.md`: `sed -n '/^## 4\./,$p' data/reports/pilot_acquisition_report.md` | mask scenarios, matchups, HISATZEN tables, coverage counts |
 | 1.5 QC | `cat data/reports/zenith/decode_check.csv data/reports/zenith/angle_effect_by_target.csv` | the HISATZEN acceptance rule, per sensor |

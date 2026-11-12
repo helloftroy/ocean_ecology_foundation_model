@@ -33,9 +33,12 @@
    adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical
    A/B/C, Stage 2 = physics / PISCES-nutrient targets / both; evaluations = Florida SEUS MBON
    16S/18S (NMF components, taxa, composition, SFER nutrients), SaWS Sargassum, HPLC, fish.
-5. Awaiting the user's OK: satellite windows around the eDNA cruises 2018-2023 (+467 days,
-   ~420 GB). Only 119 of 731 2018-23 surface samples have a full 30-day context now.
-   NB the SEUS MBON metadata TSVs have decimalLatitude/decimalLongitude swapped.
+5. eDNA cruise windows approved and added (config/edna_cruise_windows.yaml via
+   scripts/make_edna_windows.py; +487 satellite days); the user runs inventory + download as step
+   1.4b. NB the SEUS MBON metadata TSVs have decimalLatitude/decimalLongitude swapped.
+6. Evaluation inventory in docs/evaluation_inventory.md. Sargassum is blocked: no public numerical
+   SaWS FA_UNET_DENSITY; ask USF (Hu lab). HPLC is sparse; SeaBASS manual search pending. Neither
+   may delay Stage 1.
 
 ## Decisions
 - Copernicus Marine products are stored as monthly domain subsets with all variables (the service
