@@ -38,8 +38,12 @@ the smoke test and QC runs.
   default L3 mask. **Decision (2026-11-12):** HISATZEN is kept as a lower-confidence tag, not a hard
   mask (`l3_no_hisatzen`). On the smoke day that took PACE on the shelf from 0% to 34% valid and
   SNPP from 3% to 35%. The first single-day matchups show blue-green bands within ~5% at > 60 deg
-  but a falling red band (NOAA-20 665 nm 0.70x; SNPP 665 nm half negative at 65-75 deg). Confirm
-  with `oefm zenith` on the full data before choosing per-sensor weights.
+  but a falling red band (NOAA-20 665 nm 0.70x; SNPP 665 nm half negative at 65-75 deg).
+  **Full QC run (2026-11-12):** PACE and the three VIIRS pass (412-555 nm within 10% of low angle
+  at 60-90 deg, 31-45 matchup pairs each), so HISATZEN stays a tag for them. MODIS keeps it as a
+  hard mask (412 nm 1.11 at 60-65 deg, and relaxing gains only 1-7% of pixels). 665 nm is
+  angle-dependent from ~45 deg and gets per-sensor weights (step 2.1). Details in the
+  cluster_instructions.md decision log.
 - **Negative red/NIR Rrs in clear water:** in one clear-water granule, 10-35% of PACE values at
   689-703 nm were negative. This is retained as-is.
 - **Red-band disagreement between sensors:** on the first same-day matchups, blue-green Rrs agreed

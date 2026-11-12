@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (eDNA cruise windows, evaluation inventory).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (1.5 QC reviewed; HISATZEN settled per sensor; 8 MUR files to re-fetch).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -43,10 +43,11 @@ run. Verified files are never fetched again. Resubmit the same command.
 | 1.1 | Smoke test: one day of every product | ✅ 23/23 verified |
 | 1.2 | Inventory: search the archives, fill the manifest | ✅ (first run stopped before PACE; re-run fixed it) |
 | 1.3 | Download MODIS, VIIRS, OLCI (2018–2026) | ✅ 1.79 TB, 0 failed |
-| 1.4 | Download PACE, MUR, CCMP, IMERG, Copernicus Marine, GEBCO | ▶️ ~4.2 TB |
-| 1.4b | Satellite windows around the Florida eDNA cruises: inventory, then download (+487 satellite days, ~0.45 TB) | ⏳ after 1.4 finishes |
-| 1.5 | QC, observation index, matchups, HISATZEN diagnostic, report | ⏳ after 1.4b |
-| 1.6 | Paste back the QC results for review | ⏳ after 1.5 |
+| 1.4 | Download PACE, MUR, CCMP, IMERG, Copernicus Marine, GEBCO | ✅ except 8 MUR files (md5 mismatch), see 1.7 |
+| 1.4b | Satellite windows around the Florida eDNA cruises: inventory, then download (+487 satellite days, ~0.45 TB) | ✅ 21 windows loaded, all files verified |
+| 1.5 | QC, observation index, matchups, HISATZEN diagnostic, report | ✅ |
+| 1.6 | Paste back the QC results for review | ✅ reviewed 2026-11-12 (see the HISATZEN decision) |
+| 1.7 | Re-fetch the 8 MUR files that failed md5 verification | ▶️ |
 
 ### 1.0 Environment ✅
 ```bash
@@ -73,7 +74,7 @@ CCMP, IMERG Final and Late, 2 Copernicus Marine, GEBCO) with TOTAL ≈ 5,960 GB 
 ### 1.3 Satellite downloads ✅
 Done with `START=2024-01-01` and then without it. Nothing to re-run.
 
-### 1.4 Remaining downloads ▶️
+### 1.4 Remaining downloads ✅
 ```bash
 git pull
 squeue -u hmp278                      # nothing else downloading?
@@ -89,7 +90,7 @@ sbatch --account=191001-366746 --export=ALL,CHAIN=2 cluster/download.sbatch
 **Done when** `python -m oefm status` shows every product with `verified` = `files` and
 `failed` = 0, about 5.96 TB on disk.
 
-### 1.4b eDNA cruise windows ⏳ (approved 2026-11-12)
+### 1.4b eDNA cruise windows ✅ (approved 2026-11-12)
 Adds a window from 30 days before to 3 days after every SEUS MBON surface sampling day in the pilot
 regions, 2018 to January 2024 (`config/edna_cruise_windows.yaml`, 21 cruises). This gives all 915
 surface samples from 2018 on their full 30-day satellite context.
@@ -108,7 +109,7 @@ sbatch --account=191001-366746 --export=ALL,CHAIN=1 cluster/download.sbatch
 - Regenerate the windows only if the eDNA metadata changes (see `scripts/make_edna_windows.py`;
   the eDNA tables are not on Ptolemy, so this is done on the laptop and committed).
 
-### 1.5 QC ⏳
+### 1.5 QC ✅
 ```bash
 git pull
 sbatch --account=191001-366746 cluster/qc.sbatch
@@ -124,8 +125,28 @@ Outputs, under `data/`:
 - `reports/overlap/`: sensor matchup plots
 - `reports/zenith/`: HISATZEN diagnostic CSVs and figures
 
-### 1.6 Paste back ⏳
-See [What to paste back](#what-to-paste-back), row 1.5.
+### 1.6 Paste back ✅
+See [What to paste back](#what-to-paste-back), row 1.5. Reviewed 2026-11-12: the HISATZEN rule is
+applied per sensor (decision log); the QC tables, maps and observation counts raise no blockers.
+
+### 1.7 Re-fetch 8 MUR files ▶️
+The report lists 8 `mur_sst` files as `failed` with `verify: md5 mismatch` (5.9 GB). Every other
+file of all 15 products is verified. A failed file is deleted and fetched cleanly on the next run:
+```bash
+git pull
+squeue -u hmp278                      # nothing else downloading?
+sbatch --account=191001-366746 --export=ALL,CHAIN=0 cluster/download.sbatch
+```
+**Done when** `python -m oefm status` shows `mur_sst` with 3,290 verified and 0 failed.
+If the same 8 fail again, the checksum in the manifest is probably stale (PO.DAAC republished the
+files after our inventory). Refresh it, then download again:
+```bash
+sbatch --account=191001-366746 --export=ALL,PRODUCTS="mur_sst" cluster/inventory.sbatch
+# when it has finished:
+sbatch --account=191001-366746 --export=ALL,CHAIN=0 cluster/download.sbatch
+```
+and paste `sqlite3 data/manifest/manifest.sqlite "SELECT filename,last_error FROM granules WHERE product='mur_sst' AND status!='verified'"`.
+This does not block Phase 2 work (MUR is cropped in 2.2; 8 missing days would only be gaps).
 
 ---
 
@@ -134,15 +155,14 @@ See [What to paste back](#what-to-paste-back), row 1.5.
 Briefs: `docs/phase2_instructions.md` holds the original brief, its storage revision, and the
 physics/nutrient revision with your three adjustments (Florida metabarcoding replaces Bio-GO-SHIP;
 nutrient supervision kept; Florida SaWS for Sargassum). Below is the planned order. Each step gets
-exact commands once it is built and tested locally. **Do not start Phase 2 jobs until 1.5 has run
-and been reviewed.**
+exact commands once it is built and tested locally. 1.5 has run and been reviewed (2026-11-12), so Phase 2 can start.
 
 ### 2-I Data preparation
 
 | # | Step | Needs | Runs on | Status |
 |---|---|---|---|---|
 | 2.0 | `data/processed/regional/` and `data/processed/global/` (global stays empty), plus a processing manifest (source files, code version, subset, transformations) | – | login node | 🛠 |
-| 2.1 | Final QC policy: hard rejects per sensor, HISATZEN as a tag, a strict subset for spectral evaluation, SFREFL rules kept separate | 1.5 reviewed | – | 🛠 |
+| 2.1 | Final QC policy: hard rejects per sensor, HISATZEN as a tag (not for MODIS), 665 nm angle weights from 45°, a strict subset for spectral evaluation, SFREFL rules kept separate | 1.5 reviewed ✅ | – | 🛠 |
 | 2.2 | Regional crops of MUR and the other physical fields, with a context margin (raw global files kept) | 1.4 | service | 🛠 |
 | 2.3 | Tile grid (38.4 km tiles, 32×32 at 1.2 km, OLCI 128×128 at 300 m, local equal-area projection, fixed tile IDs) and per-overpass gridding to Zarr | 2.1 | service | 🛠 |
 | 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | 🛠 |
@@ -254,7 +274,47 @@ offshore box), all outside our satellite windows. SeaBASS Gulf HPLC found so far
 search API; the remaining check is a manual SeaBASS file search (instructions in the evaluation
 inventory). HPLC stays optional. SFER fluorometric Chl is a separate, main target.
 
-### HISATZEN (high sensor-zenith flag): tag, don't mask. *Under evaluation.*
+### HISATZEN (high sensor-zenith flag): tag, don't mask, except MODIS. *Settled on the full QC run (2026-11-12).*
+
+**Result of the full QC run (1.5, reviewed in 1.6).** 40 granules per product for the decode
+check; same-day matchups against a reference sensor viewing at < 45°. Numbers are
+`ratio vs < 45°`, median over reference sensors (range in brackets). Source:
+`data/reports/zenith/decode_check.csv`, `angle_effect_by_target.csv`, report section 4.
+
+| Sensor | Decode: flag edge (granules), agreement median (min) | Valid share, L3 → without HISATZEN (shelf / Keys / offshore) | 412–555 nm at 60–90° (pairs) | 665 nm at 45–60° / 60–90° | Rule | Policy |
+|---|---|---|---|---|---|---|
+| PACE OCI AOP | 59.86° (34), 0.997 (0.981) | 0.30→0.33 / 0.23→0.26 / 0.23→0.26 | 1.03, 1.02, 1.02, 1.08 (31) | 1.20 / 1.47 | ✅ pass | tag; 665 nm weighted from 45° |
+| PACE OCI SFREFL | 59.83° (32), 0.997 (0.980) | 0.47→0.51 / 0.42→0.47 / 0.24→0.29 | not tested (matchups use Rrs) | – | decode ✅ | tag; its own rules (2.1) |
+| VIIRS SNPP | 60.15° (28), 0.996 (0.988) | 0.19→0.28 / 0.14→0.23 / 0.14→0.16 | 0.97, 0.98, 0.97, 0.94 (45) | 0.78 / 0.64 | ✅ pass | tag; 665 nm weighted from 45° |
+| VIIRS NOAA-20 | 60.17° (25), 0.996 (0.990) | 0.16→0.20 / 0.14→0.18 / 0.15→0.16 | 0.99, 0.99, 0.97, 0.95 (39) | 0.95 / 0.86 | ✅ pass | tag; 665 nm weighted from 60° |
+| VIIRS NOAA-21 | 60.15° (23), 0.997 (0.982) | 0.20→0.26 / 0.18→0.24 / 0.09→0.11 | 1.02, 1.00, 0.99, 0.91 (42) | 0.81 / 0.70 | ✅ pass (555 nm at the limit) | tag; 665 nm weighted from 45° |
+| MODIS Aqua | 59.91° (29), 0.999 (0.981) | 0.30→0.31 / 0.26→0.27 / 0.18→0.19 | **1.11** (0.90–1.31), 0.99, 0.95, 0.91 (37) | 0.92 / 0.95 (0.37–1.48) | ❌ 412 nm just outside ±10% | **HISATZEN stays a hard mask** |
+| OLCI S3A / S3B | never flagged (max zenith 54.3° / 56.9°) | unchanged | no 60–90° class | S3A 0.87, S3B 0.73 at 45–60° | n/a | nothing to decide |
+
+Maps (`*_example_zenith.png`, `*_example_Rrs*.png`, `*_reflectance_vs_zenith.png`): no stripes or
+discontinuities at the swath edge. Reflectance is continuous across the 60° contour in the PACE,
+VIIRS and SFREFL examples. SNPP 665 nm falls toward zero above 60° in the zenith-bin plot (the
+lower quartile goes negative), the same signal the matchups show.
+
+**Why MODIS goes back to the hard mask.** It fails the stated rule only narrowly (412 nm 1.11 at
+60–65°, one reference as high as 1.31), and relaxing the flag recovers only 1–7% more pixels
+(relaxed/L3 = 1.01–1.07), against 9–56% for VIIRS and 10–20% for PACE. Little to gain, so we follow
+the rule. MODIS never exceeds 65.4° here.
+
+**Red band.** 665 nm is angle-dependent from about 45° in four sensors (SNPP 0.78, NOAA-21 0.81,
+OLCI-B 0.73, PACE 1.20), not only above 60°. It also disagrees between sensors at low angles. So
+the red band gets an angle-dependent uncertainty/weight starting at 45° (NOAA-20: 60°), set in 2.1
+from these ratios, and is never dropped. The sign differs (PACE high, VIIRS low), so it is a
+per-sensor term, not one shared curve.
+
+**OLCI-B at 45–57°** also shows 412 nm 0.91 and 555 nm 0.86, but only from 13 pairs against 3
+references. Not a HISATZEN question; recheck with more pairs once tiles exist (2.3).
+
+**Applied in 2.1:** the training mask is `l3_no_hisatzen` for PACE and the three VIIRS, and
+`l3_default` (HISATZEN included) for MODIS. The strict spectral-evaluation subset uses
+`l3_default` for every sensor. The zenith angle and the flag stay with every observation.
+
+The text below is the reasoning from before the full run, kept for the record.
 
 **Decision so far (2026-11-12, confirmed by the Phase 2 brief):** HISATZEN is removed from the
 hard mask for the pilot. The flag and the sensor zenith angle are kept with every observation, so
@@ -352,6 +412,7 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 1.2 inventory | `source cluster/env.sh && python -m oefm status` | all 15 products present, TOTAL ≈ 5,960 GB expected |
 | 1.4 downloads | `source cluster/env.sh && python -m oefm status` | every product verified, 0 failed, the measured rate |
 | 1.4b inventory | `python -m oefm status` and `python -m oefm windows \| grep -o 'edna_[0-9]*' \| sort -u \| wc -l` | the new files are in and 21 eDNA windows are loaded |
+| 1.7 MUR re-fetch | `python -m oefm status` (and the sqlite query in 1.7 if they fail again) | mur_sst 3,290 verified, 0 failed |
 | 1.4, if failures | `sqlite3 data/manifest/manifest.sqlite "SELECT product,status,filename,last_error FROM granules WHERE status!='verified' LIMIT 30"` | why those files fail |
 | 1.5 QC | Sections 4–6 of `data/reports/pilot_acquisition_report.md`: `sed -n '/^## 4\./,$p' data/reports/pilot_acquisition_report.md` | mask scenarios, matchups, HISATZEN tables, coverage counts |
 | 1.5 QC | `cat data/reports/zenith/decode_check.csv data/reports/zenith/angle_effect_by_target.csv` | the HISATZEN acceptance rule, per sensor |
@@ -373,6 +434,8 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-12 | qc.sbatch | QC run on all data, reviewed (1.6). 34,000+ files verified across 15 products, 6.44 TB; 8 MUR files failed md5 (step 1.7). 21 eDNA windows loaded. HISATZEN settled per sensor (MODIS keeps the hard mask). 7,245 region-days with 2+ instrument families, 2,610 with PACE |
+| 2026-11-12 | download (1.4, 1.4b) | PACE, physical products and the eDNA-window days downloaded; ~220–270 MB/s aggregate |
 | 2026-11-11 | 116027–116029 | Three download jobs ran at once and found nothing to do; the six satellite products are fully verified (1.79 TB) |
 | 2026-11-11 | 116018 | Satellite download crashed at 9103/9129 (thread-unsafe manifest writes; fixed in `01d3ed4`); follow-on 116019 finished the rest |
 | 2026-11-11 | 116016 | Smoke test, 23/23 verified; ~25 MB/s per NASA connection |

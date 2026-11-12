@@ -24,10 +24,14 @@
 - Fixed: thread-unsafe manifest writes (job 116018 crashed at 9103/9129), throughput accounting.
 - New: `python -m oefm zenith` (HISATZEN diagnostic), run by qc.sbatch after `overlap`.
 
+- (2026-11-12) Steps 1.4, 1.4b, 1.5 and 1.6 done: all 15 products downloaded (6.44 TB) except 8
+  MUR files that failed md5 (step 1.7, re-fetch). QC reviewed; HISATZEN settled per sensor (see
+  Decisions). The user's QC paste-back is in `onepoint5/` (untracked).
+
 ## Next steps
-1. download.sbatch without START (PACE, MUR, CCMP, IMERG, CMEMS, GEBCO; ~4.2 TB). One job at a time.
-2. qc.sbatch once status shows 0 failed. Review report section 4 (incl. the HISATZEN diagnostic:
-   decode check, coverage recovered, angle effect from same-day matchups) and data/reports/zenith/.
+1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
+2. Phase 2 build, starting with 2.0 (processed layout + processing manifest), 2.1 (QC policy
+   below), 2.2 (regional physical crops), 2.3 (tile grid / Zarr).
 3. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
 4. Phase 2 (docs/phase2_instructions.md, incl. the physics/nutrient revision and the user's three
    adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical
@@ -57,3 +61,10 @@
   Sensor zenith is not in the L2 files; it is reconstructed from geolocation + orbit altitude
   (OLCI: nadir = minimum-spacing column) and validated against the flag: the HISATZEN edge falls
   at 59.4-60.2 deg on the smoke files, and l2gen satzen = 60, masksatzen = 0 in every file.
+- (2026-11-12, full QC run) **HISATZEN per sensor:** relaxed (tag only) for PACE and the three
+  VIIRS, which pass the rule (decode edge 59.8-60.2 deg, >= 0.996 agreement; 412-555 nm within
+  +/-10% of low angle at 60-90 deg with 31-45 pairs). **MODIS keeps HISATZEN in the hard mask**
+  (412 nm 1.11 at 60-65 deg; relaxing gains only 1-7% of pixels). OLCI never exceeds 57 deg.
+  665 nm is angle-dependent from ~45 deg (SNPP 0.78, NOAA-21 0.81, OLCI-B 0.73, PACE 1.20 at
+  45-60 deg) -> per-sensor angle weights from 45 deg in step 2.1. Strict spectral subset uses
+  l3_default for all sensors. Table in cluster_instructions.md decision log.
