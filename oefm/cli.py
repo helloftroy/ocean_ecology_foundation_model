@@ -11,6 +11,15 @@
   overlap     compare closest-in-time PACE vs OLCI/MODIS/VIIRS swaths
   status      manifest summary by product and status
   report      write the pilot acquisition report (markdown) from everything above
+
+Phase 2 preprocessing (writes only to data/processed/, never to data/raw/):
+  layout      create processed/regional and processed/global and the processing manifest (2.0)
+  crop        regional crops of the physical fields (2.2)
+  grid        build the fixed tile grid and static per-cell fields (2.3)
+  tiles       regrid every satellite granule onto the tiles, one zipped Zarr per granule (2.3)
+  examples    multisensor tile figures for the visual check (2.4)
+  evalcover   which evaluation samples (eDNA, SFER, fish) have usable PACE/OLCI/MODIS/VIIRS pixels (2.4b)
+  processed   summary of the processing manifest
 """
 
 from __future__ import annotations
@@ -78,11 +87,31 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("status")
     sub.add_parser("report")
 
+    sub.add_parser("layout")
+    cr = sub.add_parser("crop")
+    cr.add_argument("--products", nargs="*")
+    cr.add_argument("--workers", type=int, default=0)
+    cr.add_argument("--limit", type=int, default=0, help="only the first N files (testing)")
+    sub.add_parser("grid")
+    tl = sub.add_parser("tiles")
+    tl.add_argument("--products", nargs="*")
+    tl.add_argument("--workers", type=int, default=0)
+    tl.add_argument("--limit", type=int, default=0, help="only the first N granules (testing)")
+    tl.add_argument("--start", help="only granules starting on/after this date (YYYY-MM-DD)")
+    tl.add_argument("--end", help="only granules starting on/before this date")
+    ex = sub.add_parser("examples")
+    ex.add_argument("--n", type=int, default=4, help="number of tile-days to draw")
+    ex.add_argument("--max-dt-hours", type=float, default=4.0)
+    sub.add_parser("evalcover")
+    sub.add_parser("processed")
+
     args = p.parse_args(argv)
     cfg = load_config(args.config, date.fromisoformat(args.today) if args.today else None)
     {"regions": cmd_regions, "windows": cmd_windows, "catalog": cmd_catalog, "inventory": cmd_inventory,
      "download": cmd_download, "verify": cmd_verify, "inspect": cmd_inspect, "index": cmd_index,
-     "overlap": cmd_overlap, "zenith": cmd_zenith, "status": cmd_status, "report": cmd_report}[args.cmd](cfg, args)
+     "overlap": cmd_overlap, "zenith": cmd_zenith, "status": cmd_status, "report": cmd_report,
+     "layout": cmd_layout, "crop": cmd_crop, "grid": cmd_grid, "tiles": cmd_tiles, "examples": cmd_examples, "evalcover": cmd_evalcover,
+     "processed": cmd_processed}[args.cmd](cfg, args)
 
 
 def log(msg: str) -> None:
@@ -359,6 +388,64 @@ def cmd_report(cfg, args) -> None:
 
     dest = report.write(cfg, log)
     log(f"Report: {dest}")
+
+
+# ----------------------------------------------------------------------------- phase 2 preprocessing
+def cmd_layout(cfg, args) -> None:
+    from .provenance import make_layout
+
+    make_layout(cfg, log)
+
+
+def cmd_crop(cfg, args) -> None:
+    from . import crop
+    from .provenance import make_layout
+
+    make_layout(cfg, log)
+    stats = crop.run(cfg, args.products, args.workers, args.limit, log)
+    log(f"crop: {stats}")
+
+
+def cmd_grid(cfg, args) -> None:
+    from .grid import TileGrid, write_static
+    from .provenance import make_layout
+    from .tiling import tiles_root
+
+    make_layout(cfg, log)
+    write_static(cfg, TileGrid(cfg), tiles_root(cfg) / "grid", log)
+
+
+def cmd_tiles(cfg, args) -> None:
+    from . import tiling
+    from .provenance import make_layout
+
+    make_layout(cfg, log)
+    stats = tiling.run(cfg, args.products, args.workers, args.limit, args.start, args.end, log)
+    log(f"tiles: {stats}")
+
+
+def cmd_examples(cfg, args) -> None:
+    from . import examples
+
+    for p in examples.draw(cfg, args.n, args.max_dt_hours, log):
+        log(f"  {p}")
+
+
+def cmd_evalcover(cfg, args) -> None:
+    from . import evalcoverage
+
+    evalcoverage.run(cfg, log=log)
+
+
+def cmd_processed(cfg, args) -> None:
+    from .provenance import ProcessingManifest
+
+    pm = ProcessingManifest(cfg)
+    log(f"{'step':8s} {'product':18s} {'status':7s} {'outputs':>8s} {'GB':>8s} {'records':>9s}")
+    for r in pm.summary():
+        log(f"{r['step']:8s} {r['product'] or '-':18s} {r['status']:7s} {r['n']:8,d} {(r['b'] or 0) / 1e9:8.2f} "
+            f"{r['r'] or 0:9,d}")
+    pm.close()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (1.5 QC reviewed; HISATZEN settled per sensor; 8 MUR files to re-fetch).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (Phase 2 steps 2.0–2.4 built and tested; PACE-era evaluation counts and the proposed PACE years).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -150,23 +150,62 @@ This does not block Phase 2 work (MUR is cropped in 2.2; 8 missing days would on
 
 ---
 
-## Phase 2: preprocessing and pilot experiments (🛠 not built yet)
+## Phase 2: preprocessing and pilot experiments (2.0–2.4 built; the rest 🛠)
 
 Briefs: `docs/phase2_instructions.md` holds the original brief, its storage revision, and the
 physics/nutrient revision with your three adjustments (Florida metabarcoding replaces Bio-GO-SHIP;
 nutrient supervision kept; Florida SaWS for Sargassum). Below is the planned order. Each step gets
 exact commands once it is built and tested locally. 1.5 has run and been reviewed (2026-11-12), so Phase 2 can start.
 
+### Running 2.0–2.4b on Ptolemy
+
+**P.0, once (new dependency `zarr`):**
+```bash
+git pull
+sbatch --account=191001-366746 cluster/setup_env.sbatch
+```
+**Copy the private evaluation points once** (video MaxN locations are kept out of the public repo):
+```bash
+# on your laptop, from multimodal_seusmbol/ocean_ecology_foundation_model
+scp config/eval_points_private.csv hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/config/
+```
+Without it, 2.4b still runs on eDNA, SFER and CRCP.
+**Then a short trial** (first 40 files of crop and of tiles, ~10 min), to check speed and output before the full run:
+```bash
+sbatch --account=191001-366746 --export=ALL,LIMIT=40 cluster/prep.sbatch
+```
+Paste back: `tail -40 logs/oefm_prep_<id>.out` (and `.err` if it failed).
+**Then the full run** (the trial's outputs are reused; it continues where the trial stopped):
+```bash
+sbatch --account=191001-366746 cluster/prep.sbatch
+```
+Runs layout → grid → crop → tiles → examples → evalcover. Measured locally: ~0.5–1.5 s per granule per
+worker, so ~35,000 granules on 12 workers should take a few hours; physical crops are minutes.
+Resumable: resubmit the same command after a crash or the 48 h limit. Only `data/processed/` is
+written. Expected size: ~120 GB of tiles (OLCI 300 m and PACE dominate) + ~15 GB of physical crops.
+Run 1.7 (MUR re-fetch) first if you can; otherwise the 8 missing MUR days are cropped on a later re-run.
+
+Outputs, under `data/processed/regional/`:
+- `processing.sqlite`: every output with its raw sources (sha256), git commit, parameters, transformations
+- `physical/<product>/<year>/*.nc`: cropped physical files, values and encoding unchanged
+- `tiles/v1/grid/`: `tiles.csv` (272 tiles, fixed IDs like `X+05Y-07`), `static.zarr.zip` (lon/lat/GEBCO depth per cell), `grid.json`
+- `tiles/v1/<product>/<year>/<granule>.zarr.zip`: one per overpass (layout in `oefm/tiling.py`)
+- `tiles/v1/index/tile_observations.parquet` (the loader's entry point), `summary_by_product.csv`,
+  `eval_coverage.csv` and `eval_coverage_summary.csv` (2.4b)
+- `tiles/v1/examples/*.png` with `*_panels.csv` (2.4)
+
 ### 2-I Data preparation
 
 | # | Step | Needs | Runs on | Status |
 |---|---|---|---|---|
-| 2.0 | `data/processed/regional/` and `data/processed/global/` (global stays empty), plus a processing manifest (source files, code version, subset, transformations) | – | login node | 🛠 |
-| 2.1 | Final QC policy: hard rejects per sensor, HISATZEN as a tag (not for MODIS), 665 nm angle weights from 45°, a strict subset for spectral evaluation, SFREFL rules kept separate | 1.5 reviewed ✅ | – | 🛠 |
-| 2.2 | Regional crops of MUR and the other physical fields, with a context margin (raw global files kept) | 1.4 | service | 🛠 |
-| 2.3 | Tile grid (38.4 km tiles, 32×32 at 1.2 km, OLCI 128×128 at 300 m, local equal-area projection, fixed tile IDs) and per-overpass gridding to Zarr | 2.1 | service | 🛠 |
-| 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | 🛠 |
-| 2.5 | Sequence builder and loader (causal 30 d / ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types), grouped train/validation splits by tile and time block | 2.3 | service | 🛠 |
+| P.0 | Rebuild the Python environment (adds `zarr`) | – | service | ▶️ |
+| 2.0 | `data/processed/regional/` and `data/processed/global/` (global stays empty), plus a processing manifest (source files, code version, subset, transformations) | – | service | ▶️ built, run in `prep.sbatch` |
+| 2.1 | Final QC policy: hard rejects per sensor, HISATZEN as a tag (not for MODIS), 665 nm angle weights from 45°, a strict subset for spectral evaluation, SFREFL rules kept separate | 1.5 reviewed ✅ | – | ✅ in `config/pilot.yaml` (`processing.qc`), applied by 2.3 |
+| 2.2 | Regional crops of MUR and the other physical fields, with a context margin (raw global files kept) | 1.4 | service | ▶️ built, run in `prep.sbatch` |
+| 2.3 | Tile grid (38.4 km tiles, 32×32 at 1.2 km, OLCI 128×128 at 300 m, local equal-area projection, fixed tile IDs) and per-overpass gridding to Zarr | 2.1 | service | ▶️ built, run in `prep.sbatch` |
+| 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | ▶️ built, run in `prep.sbatch` |
+| 2.4b | Which evaluation samples have usable PACE (and OLCI/MODIS/VIIRS) pixels, per dataset and year | 2.3 | service | ▶️ built, run in `prep.sbatch` |
+| 2.5 | Sequence builder and loader (causal 30 d / ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types), grouped train/validation splits by tile and time block. **PACE years per the PACE-era decision below (needs your OK)** | 2.3 | service | 🛠 |
 | 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs | 2.3 | service | 🛠 |
 | 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Sargassum and HPLC are optional and must not delay Stage 1 | 2.3 | service | 🛠 |
 
@@ -207,6 +246,42 @@ without re-downloading.
 ## Decision log
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
+
+### PACE era vs the 2024 hold-out year. *Proposed (2026-11-12), needs your OK before 2.5.*
+**The constraint (your note).** PACE data start 2024-03-05. Counting every evaluation sample in the
+pilot regions from 2018 on (`config/eval_points.csv`, from `scripts/make_eval_points.py`) by date:
+
+| Dataset | Samples 2018+ | In PACE era (≥ 2024-03-05) | With a full 30-day PACE history | PACE-era years | PACE-era cruises / survey blocks |
+|---|---|---|---|---|---|
+| eDNA 16S (18S identical) | 913 | **115** (13%) | **92** | 2024 only (Mar–Jul) | 3 (Mar 5–9, May 18–24, Jul 23–30, 2024); the March cruise has almost no PACE history |
+| SFER nutrients / Chl (≤ 5 m) | 3,174 | 860 | 797 | 2024 (395), 2025 (465) | 11 (5 in 2024, 6 in 2025) |
+| Fish, CRCP visual census | 3,018 | 1,057 | 1,057 | 2024 only | 6 |
+| Fish, video MaxN | 3,805 | 616 | 616 | 2024 only | 5 (dates are the 15th of each month: month precision only) |
+
+These are dates only. How many of them have a **usable** (cloud-free, valid) PACE pixel at the
+sample is counted by step 2.4b on Ptolemy (`eval_coverage_summary.csv`); expect well under half.
+
+**What this means.** If 2024 is the eDNA test year, *every* PACE-era eDNA sample is a test sample:
+the eDNA probes are trained without any PACE-era sample, and a 2024 PACE hold-out from pretraining
+would remove 31% of all PACE observations (2024: 2,480 of 8,093 PACE region-observations; 2025: 3,211; 2026: 2,402).
+
+**Proposal.**
+1. **Encoder pretraining (self-supervised, no labels) uses PACE from 2024 and 2025.** Imagery from a
+   test year is not label leakage; holding 2024 out of pretraining as well costs 31% of PACE. A
+   sensitivity run with 2024 excluded from pretraining can be added if a reviewer asks.
+2. **PACE spectral-retention test (Objective 6) years:** train on PACE 2024-03-05 – 2025-12-31,
+   validation 2026-01-01 – 2026-02-28, a 30-day gap (March 2026, unused), **test 2026-04-01 – 2026-10-01**
+   (the last PACE file). Every season is in training; the test lacks winter, so a second test holds out
+   20% of tiles (spatial blocks) across all PACE dates, and errors are reported by wavelength and month.
+3. **eDNA:** keep 2024 as the temporal hold-out (184 samples, incl. the January 2024 cruise). The
+   PACE question is answered *on the same 2024 test samples* by a paired ablation: embeddings with
+   PACE visible vs PACE masked (the loader's sensor masking), so the probe never needs PACE-era
+   training samples. A within-PACE cruise-left-out check (92 samples, 2 cruises) is reported only as
+   exploratory.
+4. **SFER is the one dataset with PACE-era samples in two years:** PACE-vs-no-PACE probes there use
+   train 2024 / test 2025 (395 / 465 samples).
+5. Every evaluation table reports, per dataset and year, the number of samples with usable PACE
+   (from 2.4b) next to the totals.
 
 ### Florida eDNA cruise windows: added (2026-11-12, approved)
 Only 119 of 731 surface samples from 2018–2023 had their full 30-day satellite context, because
@@ -412,6 +487,9 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 1.2 inventory | `source cluster/env.sh && python -m oefm status` | all 15 products present, TOTAL ≈ 5,960 GB expected |
 | 1.4 downloads | `source cluster/env.sh && python -m oefm status` | every product verified, 0 failed, the measured rate |
 | 1.4b inventory | `python -m oefm status` and `python -m oefm windows \| grep -o 'edna_[0-9]*' \| sort -u \| wc -l` | the new files are in and 21 eDNA windows are loaded |
+| P.0 env | `tail -5 logs/oefm_env_<id>.out` | zarr installed |
+| 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
+| 2.0–2.4b full | `tail -60 logs/oefm_prep_<id>.out`; `cat data/processed/regional/tiles/v1/index/summary_by_product.csv data/processed/regional/tiles/v1/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v1/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |
 | 1.7 MUR re-fetch | `python -m oefm status` (and the sqlite query in 1.7 if they fail again) | mur_sst 3,290 verified, 0 failed |
 | 1.4, if failures | `sqlite3 data/manifest/manifest.sqlite "SELECT product,status,filename,last_error FROM granules WHERE status!='verified' LIMIT 30"` | why those files fail |
 | 1.5 QC | Sections 4–6 of `data/reports/pilot_acquisition_report.md`: `sed -n '/^## 4\./,$p' data/reports/pilot_acquisition_report.md` | mask scenarios, matchups, HISATZEN tables, coverage counts |

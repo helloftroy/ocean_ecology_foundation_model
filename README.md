@@ -27,6 +27,14 @@ oefm/                  python -m oefm <command>
   inspect.py           file structure, wavelengths, flags, mask scenarios, maps
   index.py             observation index, coincidences, sensor matchups
   report.py            pilot acquisition report (markdown)
+  zenith.py            sensor-zenith reconstruction and the HISATZEN diagnostic
+  provenance.py        processed-data layout and processing manifest (Phase 2)
+  qcpolicy.py          per-sensor training/strict masks, red-band angle weights
+  crop.py              regional crops of physical fields
+  grid.py              fixed LAEA tile grid (38.4 km tiles, 1.2 km and 300 m cells)
+  tiling.py            granule -> tiles regridding, one zipped Zarr per granule, index
+  examples.py          multisensor tile figures
+  evalcoverage.py      usable PACE/OLCI/MODIS/VIIRS pixels at each evaluation sample
 cluster/               Ptolemy SLURM jobs
 docs/                  brief, archive inventory, readiness notes
 tests/                 python -m unittest discover -s tests
@@ -34,7 +42,8 @@ tests/                 python -m unittest discover -s tests
 
 Data are written to `data/` next to the repo on scratch (gitignored):
 `data/raw/<product>/<YYYY>/<MM>/<original file>`, `data/manifest/manifest.sqlite` (+ `manifest.csv`),
-`data/index/`, `data/reports/`.
+`data/index/`, `data/reports/`. Phase 2 writes only to `data/processed/regional/` (with
+`processing.sqlite`) and creates an empty `data/processed/global/`.
 
 ## Commands
 
@@ -50,6 +59,7 @@ Data are written to `data/` next to the repo on scratch (gitignored):
 | `index` | `data/index/observations.csv` (+ parquet), counts, multisensor coincidences | no |
 | `overlap` | PACE vs OLCI/MODIS/VIIRS matchups on a temporary 0.02° grid | no |
 | `status` / `report` | manifest summary / `data/reports/pilot_acquisition_report.md` | no |
+| `layout` / `crop` / `grid` / `tiles` / `examples` / `evalcover` / `processed` | Phase 2 steps 2.0–2.4b (see cluster_instructions.md) | no |
 
 How resumption works. The manifest has one row per file, keyed by `<product>:<filename>`, so a
 swath that crosses two regions is downloaded once. Files are written to `.part`, resumed with

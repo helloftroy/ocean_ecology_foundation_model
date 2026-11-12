@@ -10,3 +10,6 @@ netCDF4
 h5py
 matplotlib
 pyyaml
+# Phase 2 preprocessing: tiles are zipped Zarr v2 stores (one per granule).
+zarr>=2.18,<3
+numcodecs>=0.12

@@ -14,3 +14,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .ipynb_checkpoints/
+
+# Evaluation points from datasets not cleared for a public repo (scripts/make_eval_points.py)
+config/eval_points_private.csv
+# QC paste-backs from Ptolemy
+onepoint5/

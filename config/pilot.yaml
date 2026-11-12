@@ -262,3 +262,56 @@ excluded:
   - modelled chlorophyll, primary production, nitrate, phosphate and other ecosystem-model
     outputs (e.g. GLOBAL_MULTIYEAR_BGC_001_029, GLOBAL_ANALYSISFORECAST_BGC_001_028)
   - Level-1 data and custom Rayleigh-corrected reflectance (not in phase 1)
+
+# ---------------------------------------------------------------------------
+# Phase 2 preprocessing (steps 2.0-2.4 in cluster_instructions.md). Raw files are never
+# changed; everything below writes to data/processed/regional/ with a processing manifest.
+# ---------------------------------------------------------------------------
+processing:
+  version: v1            # bump when a change alters processed values; outputs go to a new folder
+
+  grid:
+    # Spherical Lambert azimuthal equal-area centred on the pilot domain. Equivalent PROJ string:
+    # +proj=laea +lat_0=26.05 +lon_0=-85.4 +R=6371007.181 +units=m  (authalic radius).
+    # Tile (ix, iy) covers x in [ix, ix+1) * tile_m, y in [iy, iy+1) * tile_m, so tile IDs are
+    # fixed by this block alone. Changing it means a new processing version.
+    lat_0: 26.05
+    lon_0: -85.4
+    cell_m: 1200         # shared representation grid
+    tile_cells: 32       # 32 x 1.2 km = 38.4 km tiles
+    olci_cell_m: 300     # native OLCI grid: 128 x 128 per tile
+    # A tile is in the pilot set if any of its 1.2 km cell centres lies inside a pilot region.
+
+  physical_crop:
+    # Global products (MUR, CCMP, IMERG, GEBCO) are cropped to the pilot domain plus this extra
+    # margin, for physical context beyond the tiles. Copernicus Marine files were already
+    # downloaded as domain subsets, so they are copied at their full (domain) extent.
+    extra_margin_deg: 2.0
+
+  qc:
+    # Step 2.1, decided 2026-11-12 from the full QC run (cluster_instructions.md, decision log).
+    # Mask names refer to oefm/inspect.py MASKS. Masked pixels are not averaged into a cell, but
+    # they still count in the cell's coverage, and every pixel's l2_flags are OR-ed into the cell.
+    training_mask:
+      default: l3_no_hisatzen        # NASA's L3 set minus HISATZEN (kept as a tag)
+      modisa_oc: l3_default          # MODIS fails the high-angle rule: HISATZEN stays a hard mask
+      pace_oci_sfrefl: sfrefl        # surface reflectance has its own rules
+    strict_mask:                     # the independent spectral-evaluation subset
+      default: l3_default
+      pace_oci_sfrefl: sfrefl_strict
+    # Red-band angle effect: target/reference ratio relative to < 45 deg from same-day matchups
+    # (data/reports/zenith/angle_effect_by_target.csv, 665 nm, median over references). Bands at
+    # or above 600 nm get weight min(1, tolerance / |ratio - 1|) in the loader (step 2.5); blue-green
+    # bands, and red bands within the tolerance, keep weight 1. Classes are sensor zenith in deg.
+    red_angle:
+      min_wavelength_nm: 600
+      tolerance: 0.10
+      classes_deg: [0, 30, 45, 60, 90]
+      ratio:
+        modisa_oc:    [0.97, 1.024, 0.92, 0.948]
+        viirsn_oc:    [1.055, 0.894, 0.782, 0.636]
+        viirsj1_oc:   [0.988, 1.014, 0.951, 0.865]
+        viirsj2_oc:   [1.055, 0.984, 0.814, 0.697]
+        olcia_efr_oc: [1.051, 0.843, 0.869, 0.869]
+        olcib_efr_oc: [0.998, 1.009, 0.73, 0.73]
+        pace_oci_aop: [0.996, 0.998, 1.2, 1.471]

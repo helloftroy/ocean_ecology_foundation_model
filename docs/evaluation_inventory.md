@@ -24,6 +24,25 @@ The offshore Gulf box has no eDNA, SFER or fish observations. As agreed, it stay
 and is used for benchmarks that cover it (HPLC if enough is found; Sargassum in a separate
 evaluation region).
 
+## PACE-era coverage of the evaluation samples (2026-11-12)
+
+PACE starts 2024-03-05. From `config/eval_points.csv` (all samples in the pilot regions, 2018+;
+`scripts/make_eval_points.py`), by date only:
+
+| Dataset | Samples 2018+ | By year (2018–2025) | In PACE era | Full 30-day PACE history | PACE-era cruises / blocks |
+|---|---|---|---|---|---|
+| eDNA 16S (18S the same) | 913 | 5 / 0 / 82 / 157 / 225 / 261 / 183 / 0 | 115 (all 2024) | 92 | 3 (Mar, May, Jul 2024) |
+| SFER ≤ 5 m, nutrients or Chl | 3,174 | 301 / 298 / 257 / 438 / 422 / 482 / 511 / 465 | 860 (2024: 395, 2025: 465) | 797 | 11 |
+| Fish, CRCP | 3,018 | 772 / 0 / 0 / 364 / 825 / 0 / 1,057 / 0 | 1,057 (all 2024) | 1,057 | 6 |
+| Fish, video MaxN | 3,805 | 346 / 554 / 584 / 554 / 581 / 570 / 616 / 0 | 616 (all 2024) | 616 | 5 |
+
+Counts of samples with a *usable* PACE pixel (valid under the training mask, in the sample's
+cell or its 3 × 3 neighbourhood, within the 30 days before or ± 1 day) come from step 2.4b
+(`tiles/v1/index/eval_coverage_summary.csv`) and will be added here. The year plan for PACE
+(pretraining, spectral-retention test, eDNA 2024 hold-out) is in the cluster_instructions.md
+decision log. MaxN event dates are all the 15th of a month, i.e. month precision only; same-day
+matching is not meaningful for that dataset.
+
 ## Microbial communities (Florida metabarcoding)
 
 - Restricted to the SW Florida shelf and Keys, where the samples are (your item 4).

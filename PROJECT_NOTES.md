@@ -28,11 +28,24 @@
   MUR files that failed md5 (step 1.7, re-fetch). QC reviewed; HISATZEN settled per sensor (see
   Decisions). The user's QC paste-back is in `onepoint5/` (untracked).
 
+- (2026-11-12) Phase 2 steps 2.0-2.4b built and tested on the local smoke day:
+  oefm/provenance.py (layout + processing.sqlite), oefm/qcpolicy.py (config processing.qc),
+  oefm/crop.py (physical crops, values identical to raw), oefm/grid.py (spherical LAEA, 272 tiles,
+  IDs X+iiY+jj), oefm/tiling.py (area-weighted footprint regridding, one zipped Zarr per granule,
+  index parquet), oefm/examples.py, oefm/evalcoverage.py (usable PACE per evaluation sample);
+  cluster/prep.sbatch runs them. OLCI EFR geolocation repeats each lon over 2-3 columns:
+  tiling.dequantise() fixes it (else 300 m stripes). zarr pinned <3 (setup_env rerun needed).
+- PACE era: all PACE-era eDNA/fish samples are 2024 (eDNA 115, 92 with full 30-d PACE history);
+  SFER has 2024+2025. Proposed PACE year plan (pretrain 2024-2025, retention test 2026-04..10,
+  eDNA PACE value via paired masking on the 2024 test set) awaits the user's OK.
+
 ## Next steps
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
-2. Phase 2 build, starting with 2.0 (processed layout + processing manifest), 2.1 (QC policy
-   below), 2.2 (regional physical crops), 2.3 (tile grid / Zarr).
-3. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
+2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
+   eval_coverage_summary.csv (usable PACE per evaluation sample).
+3. Next build: 2.5 loader + splits (after the PACE year plan is confirmed), 2.6 PISCES targets,
+   2.7 evaluation matching.
+4. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
 4. Phase 2 (docs/phase2_instructions.md, incl. the physics/nutrient revision and the user's three
    adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical
    A/B/C, Stage 2 = physics / PISCES-nutrient targets / both; evaluations = Florida SEUS MBON
