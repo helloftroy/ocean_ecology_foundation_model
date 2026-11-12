@@ -69,6 +69,12 @@ def main(argv: list[str] | None = None) -> None:
     o.add_argument("--max-pairs", type=int, default=6)
     o.add_argument("--max-dt-hours", type=float, default=3.0)
 
+    z = sub.add_parser("zenith", help="HISATZEN / sensor-zenith diagnostic (needs the index)")
+    z.add_argument("--per-product", type=int, default=40, help="granules per product, spread over time")
+    z.add_argument("--max-pairs", type=int, default=30, help="same-day pairs per sensor pair")
+    z.add_argument("--max-dt-hours", type=float, default=3.0)
+    z.add_argument("--workers", type=int, default=0)
+
     sub.add_parser("status")
     sub.add_parser("report")
 
@@ -76,7 +82,7 @@ def main(argv: list[str] | None = None) -> None:
     cfg = load_config(args.config, date.fromisoformat(args.today) if args.today else None)
     {"regions": cmd_regions, "windows": cmd_windows, "catalog": cmd_catalog, "inventory": cmd_inventory,
      "download": cmd_download, "verify": cmd_verify, "inspect": cmd_inspect, "index": cmd_index,
-     "overlap": cmd_overlap, "status": cmd_status, "report": cmd_report}[args.cmd](cfg, args)
+     "overlap": cmd_overlap, "zenith": cmd_zenith, "status": cmd_status, "report": cmd_report}[args.cmd](cfg, args)
 
 
 def log(msg: str) -> None:
@@ -339,6 +345,13 @@ def cmd_overlap(cfg, args) -> None:
 
     dest = index.auto_matchups(cfg, args.max_pairs, args.max_dt_hours, log)
     log(f"Matchups: {dest}")
+
+
+def cmd_zenith(cfg, args) -> None:
+    from . import zenith
+
+    dest = zenith.run(cfg, args.per_product, args.max_pairs, args.max_dt_hours, args.workers, log)
+    log(f"Zenith summary: {dest}")
 
 
 def cmd_report(cfg, args) -> None:

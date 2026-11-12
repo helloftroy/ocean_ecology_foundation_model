@@ -35,8 +35,11 @@ the smoke test and QC runs.
   little extra.
 - **Swath-edge geometry dominates the mask choice** (smoke test, 2025-06-10). When the Keys and
   shelf fall near a swath edge, HISATZEN removes 99-100% of PACE and NOAA-21 pixels under the
-  default L3 mask. The minimal mask keeps about half. Decide the HISATZEN policy per sensor before
-  computing coverage statistics for training.
+  default L3 mask. **Decision (2026-11-12):** HISATZEN is kept as a lower-confidence tag, not a hard
+  mask (`l3_no_hisatzen`). On the smoke day that took PACE on the shelf from 0% to 34% valid and
+  SNPP from 3% to 35%. The first single-day matchups show blue-green bands within ~5% at > 60 deg
+  but a falling red band (NOAA-20 665 nm 0.70x; SNPP 665 nm half negative at 65-75 deg). Confirm
+  with `oefm zenith` on the full data before choosing per-sensor weights.
 - **Negative red/NIR Rrs in clear water:** in one clear-water granule, 10-35% of PACE values at
   689-703 nm were negative. This is retained as-is.
 - **Red-band disagreement between sensors:** on the first same-day matchups, blue-green Rrs agreed

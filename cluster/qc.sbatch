@@ -24,5 +24,6 @@ python -m oefm verify --products physical          # cheap: size/signature/check
 python -m oefm inspect --per-product "${PER_PRODUCT:-3}"
 python -m oefm index --workers "${SLURM_CPUS_PER_TASK:-8}"
 python -m oefm overlap
+python -m oefm zenith --workers "${SLURM_CPUS_PER_TASK:-8}"   # HISATZEN diagnostic
 python -m oefm report
 echo "Job finished: $(date)"

@@ -136,6 +136,40 @@ def write(cfg: Config, log=print) -> Path:
                 add(f"| {m['region']} | {m['a']} | {m['b']} | {m.get('dt_h')} | {b['a_nm']:.0f}/{b['b_nm']:.0f} | "
                     f"{b['n_cells']} | {b.get('pearson_r', '')} | {b.get('median_ratio_b_over_a', '')} |")
         add("")
+    zs = cfg.reports_dir / "zenith" / "zenith_summary.json"
+    if zs.exists():
+        z = json.loads(zs.read_text())
+        add("### HISATZEN / sensor-zenith diagnostic\n")
+        add("Pilot policy: HISATZEN is kept as a lower-confidence tag, not masked (mask `l3_no_hisatzen` = L3 "
+            "default minus HISATZEN). Sensor zenith is reconstructed from each file's geolocation and orbit "
+            "altitude; the HISATZEN flag edge should fall at l2gen's threshold if decoding and geometry agree. "
+            f"Figures and CSVs: `{zs.parent}`.\n")
+        add("Decode check:\n")
+        add("| product | granules | HISATZEN bit | l2gen satzen / masksatzen | flag = (zen ≥ thr), median (min) | "
+            "zen at flag edge | max zen |\n|---|---|---|---|---|---|---|")
+        for d in z.get("decode", []):
+            add(f"| {d['product']} | {d['granules']} | {d['hisatzen_bits']} | {d['l2gen_satzen']} / "
+                f"{d['l2gen_masksatzen']} | {_f(d['flag_matches_angle_median'])} ({_f(d['flag_matches_angle_min'])}) | "
+                f"{_f(d['flag_edge_zen_median'])} ({d['granules_with_flag_edge']} granules) | {_f(d['zen_max'])} |")
+        add("\nValid water pixels per region (share of water pixels; `x` = relaxed / L3 default):\n")
+        add("| product | region | granules | HISATZEN share | L3 default | L3 without HISATZEN | minimal | x | "
+            "granules empty under L3 only |\n|---|---|---|---|---|---|---|---|---|")
+        for c in z.get("coverage", []):
+            add(f"| {c['product']} | {c['region']} | {c['granules']} | {_f(c['hisatzen_fraction'])} | "
+                f"{_f(c['valid_l3_default'])} | {_f(c['valid_l3_no_hisatzen'])} | {_f(c['valid_minimal'])} | "
+                f"{_f(c['recovered_x'])} | {c['granules_l3_empty_relaxed_not']} |")
+        eff = [e for e in z.get("angle_effect_by_target", []) if e["target_zen_class"] in ("45-60", "60-90")]
+        if eff:
+            add("\nAngle effect from same-day matchups against a reference sensor viewing at < 45°: the "
+                "target/reference ratio in each target-zenith class divided by the same ratio when the target "
+                "views at < 45° (1.0 = no angle dependence; median and range over reference sensors):\n")
+            add("| target | band nm | target zenith | references | pairs | cells | ratio vs < 45° (range) |\n"
+                "|---|---|---|---|---|---|---|")
+            for e in eff:
+                add(f"| {e['target']} | {e['band']} | {e['target_zen_class']} | {e['references']} | {e['pairs']} | "
+                    f"{e['cells']:,} | {_f(e['ratio_vs_low_median'])} ({_f(e['ratio_vs_low_min'])}-"
+                    f"{_f(e['ratio_vs_low_max'])}) |")
+        add("")
 
     # -------------------------------------------------------------- 5 benchmarks
     add("## 5. Transfer benchmarks\n")

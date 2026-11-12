@@ -26,6 +26,9 @@ MASKS: dict[str, list[str]] = {
     "l3_default": ["ATMFAIL", "LAND", "HIGLINT", "HILT", "HISATZEN", "STRAYLIGHT", "CLDICE", "COCCOLITH",
                    "HISOLZEN", "LOWLW", "CHLFAIL", "NAVWARN", "MAXAERITER", "ATMWARN", "NAVFAIL"],
 }
+# Pilot decision (2026-11-12): HISATZEN is a lower-confidence tag, not a hard mask. Everything else
+# in the L3 default (ATMFAIL, NAVFAIL, HILT, cloud, land, ...) still applies. See oefm/zenith.py.
+MASKS["l3_no_hisatzen"] = [f for f in MASKS["l3_default"] if f != "HISATZEN"]
 DEPTH_CLASSES = [("coastal_0_20m", 0, 20), ("shelf_20_200m", 20, 200), ("offshore_gt200m", 200, 1e5)]
 GLOBAL_ATTRS = ["title", "product_name", "processing_version", "processing_level", "instrument", "platform",
                 "time_coverage_start", "time_coverage_end", "spatialResolution", "date_created",

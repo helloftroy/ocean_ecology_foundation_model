@@ -11,24 +11,36 @@
 - An agent cannot SSH in (password + Duo). The workflow is: push, the user pulls and submits, the
   user pastes logs back.
 
-## Status (2026-11-11)
-- Phase 1 pipeline written and tested locally: 13 unit tests, a full dry-run inventory (5.96 TB),
-  and a one-day real-data smoke test of every NASA product (download → verify → inspect → index
-  → matchup → report). Results are in docs/dataset_inventory.md.
-- Not yet run on Ptolemy: setup_env, smoke_test, inventory, downloads, Copernicus Marine downloads
-  (need COPERNICUSMARINE_SERVICE_* credentials), GEBCO.
+## Status (2026-11-12)
+- Ptolemy: env, smoke test (23/23 verified, incl. Copernicus Marine and GEBCO), inventory and the
+  satellite downloads are done. All six MODIS/VIIRS/OLCI products are verified (1.79 TB, 0 failed,
+  2018-2026). The first inventory stopped before PACE; the user fixed and re-ran it, so PACE and the
+  physical products are now in the manifest but not yet downloaded.
+- Measured on ptolemy-dtn-1: ~200 MB/s aggregate with 8 connections (NASA ~25 MB/s each).
+- Fixed: thread-unsafe manifest writes (job 116018 crashed at 9103/9129), throughput accounting.
+- New: `python -m oefm zenith` (HISATZEN diagnostic), run by qc.sbatch after `overlap`.
 
 ## Next steps
-1. Ptolemy: setup_env.sbatch → smoke_test.sbatch. Paste back logs/oefm_smoke_*.out and
-   data_smoke/reports/pilot_acquisition_report.md.
-2. inventory.sbatch, then download.sbatch with START=2024-01-01 (core first), then physical, then
-   history.
-3. qc.sbatch once a few weeks of core data are on disk; review mask scenarios and matchups.
-4. Decide: OLCI after 2026-04 (EUMETSAT/CDSE OL_2_WFR?), HISATZEN policy, whether MUR stays as
-   whole global files (2.2 TB) or is subset.
+1. download.sbatch without START (PACE, MUR, CCMP, IMERG, CMEMS, GEBCO; ~4.2 TB). One job at a time.
+2. qc.sbatch once status shows 0 failed. Review report section 4 (incl. the HISATZEN diagnostic:
+   decode check, coverage recovered, angle effect from same-day matchups) and data/reports/zenith/.
+3. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
+4. Then the next-phase brief (user will provide).
 
 ## Decisions
 - Copernicus Marine products are stored as monthly domain subsets with all variables (the service
   is ARCO; there are no "original files"). NASA products are stored as original granules.
 - The manifest is SQLite on GPFS with DELETE journalling: run one download job at a time.
 - Diagnostic grids (0.05° coverage, 0.02° matchups) are for QC only; no training grid is chosen.
+- (2026-11-12) **OLCI stops at OB.DAAC's end (2026-04).** No EUMETSAT/CDSE OL_2_WFR backfill.
+- (2026-11-12) **MUR stays as whole global daily files** (2.2 TB) so global training needs no
+  re-download. Regional crops will be made soon, as derived files; the originals are kept.
+- (2026-11-12) **HISATZEN is a lower-confidence tag, not a hard mask.** Pilot mask
+  `l3_no_hisatzen` = L3 default minus HISATZEN; ATMFAIL, NAVFAIL, HILT, cloud, land, missing
+  reflectance etc. still apply. The flag and the reconstructed sensor zenith are kept per
+  observation (index columns `hisatzen_fraction`, `senz_median`, `senz_max`) so high-angle data
+  can be excluded from strict spectral-validation subsets or down-weighted in training. No
+  arbitrary new angle threshold; revisit per sensor once `oefm zenith` has run on the full data.
+  Sensor zenith is not in the L2 files; it is reconstructed from geolocation + orbit altitude
+  (OLCI: nadir = minimum-spacing column) and validated against the flag: the HISATZEN edge falls
+  at 59.4-60.2 deg on the smoke files, and l2gen satzen = 60, masksatzen = 0 in every file.

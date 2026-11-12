@@ -21,8 +21,11 @@ import numpy as np
 from .config import Config, Region, load_config
 from .inspect import MASKS, L2Swath, mask_bits
 from .manifest import Manifest
+from .zenith import sensor_zenith
 
 COVER_CELL_DEG = 0.05
+# Bump when granule_stats gains fields, so cached statistics are recomputed.
+STATS_VERSION = 2
 MATCH_BIN_DEG = 0.02
 
 
@@ -57,6 +60,17 @@ def granule_stats(args: tuple[str, str, dict, str]) -> list[dict[str, Any]]:
                 "geometric_coverage": _cell_fraction(region, lon[inreg], lat[inreg]),
                 "n_bands": len(wls), "wl_min": min(wls) if wls else None, "wl_max": max(wls) if wls else None,
             }
+            # High-angle tag (HISATZEN is kept, not masked): share of water pixels flagged, and the
+            # reconstructed sensor zenith over the region's water.
+            hz = (bits & fmap.get("HISATZEN", 0)) != 0
+            rec["hisatzen_fraction"] = round(float(hz[water].mean()), 4) if water.any() else None
+            try:
+                zen = sensor_zenith(sw, cfg.satellite_products[row["product"]]["family"], rs, cs)
+                zw = zen[water & np.isfinite(zen)]
+                rec["senz_median"] = round(float(np.median(zw)), 2) if zw.size else None
+                rec["senz_max"] = round(float(zw.max()), 2) if zw.size else None
+            except Exception:  # noqa: BLE001 - geometry is a tag, not a requirement
+                rec["senz_median"] = rec["senz_max"] = None
             for mname, flist in MASKS.items():
                 keep = water & finite & ((bits & mask_bits(fmap, flist)) == 0)
                 rec[f"valid_{mname}"] = round(float(keep.sum() / max(water.sum(), 1)), 4)
@@ -94,7 +108,8 @@ def build(cfg: Config, workers: int = 0, log=print) -> dict[str, Path]:
     if cache_path.exists():
         for line in cache_path.read_text().splitlines():
             rec = json.loads(line)
-            cache[rec["_sha256"]].append(rec)
+            if rec.get("_v") == STATS_VERSION:
+                cache[rec["_sha256"]].append(rec)
     todo = [r for r in rows if r["sha256"] not in cache]
     log(f"{len(rows):,} verified satellite files; {len(todo):,} need statistics ({len(rows) - len(todo):,} cached)")
     workers = workers or max(1, min(32, (os.cpu_count() or 2) - 1))
@@ -103,6 +118,7 @@ def build(cfg: Config, workers: int = 0, log=print) -> dict[str, Path]:
         for i, (r, recs) in enumerate(zip(todo, pool.map(granule_stats, jobs, chunksize=4)), 1):
             for rec in recs:
                 rec["_sha256"] = r["sha256"]
+                rec["_v"] = STATS_VERSION
                 fh.write(json.dumps(rec) + "\n")
                 cache[r["sha256"]].append(rec)
             if i % 100 == 0 or i == len(todo):
@@ -123,7 +139,7 @@ def build(cfg: Config, workers: int = 0, log=print) -> dict[str, Path]:
                 "platform": p.get("platform"), "variable": p.get("reflectance"),
                 "time_start": t0, "time_end": r["time_end"], "date": day,
                 "year": int(day[:4]), "month": int(day[5:7]),
-                **{k: v for k, v in st.items() if k not in ("granule_key", "region", "_sha256", "error")},
+                **{k: v for k, v in st.items() if k not in ("granule_key", "region", "_sha256", "_v", "error")},
                 "processing_version": r["version"], "path": r["local_path"], "granule_key": r["granule_key"],
             }
             for key, path in phys_by_day(day).items():
@@ -143,7 +159,9 @@ def build(cfg: Config, workers: int = 0, log=print) -> dict[str, Path]:
         counts = (df.groupby(["family", "product", "region", "year", "month"])
                     .agg(observations=("granule_key", "size"),
                          with_valid_l3=("valid_l3_default", lambda s: int((s > 0).sum())),
-                         mean_valid_cover_l3=("valid_cover_l3_default", "mean"))
+                         mean_valid_cover_l3=("valid_cover_l3_default", "mean"),
+                         with_valid_l3_no_hisatzen=("valid_l3_no_hisatzen", lambda s: int((s > 0).sum())),
+                         mean_valid_cover_l3_no_hisatzen=("valid_cover_l3_no_hisatzen", "mean"))
                     .reset_index())
         counts.to_csv(out_dir / "counts_by_sensor_region_month.csv", index=False)
         paths["counts"] = out_dir / "counts_by_sensor_region_month.csv"

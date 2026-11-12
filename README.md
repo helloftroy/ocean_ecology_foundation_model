@@ -80,7 +80,7 @@ sbatch --account=191001-366746 --export=ALL,START=2024-01-01,CHAIN=3 cluster/dow
 sbatch --account=191001-366746 --export=ALL,PRODUCTS=physical cluster/download.sbatch
 sbatch --account=191001-366746 --export=ALL,END=2023-12-31,CHAIN=3 cluster/download.sbatch
 
-# 4. QC, observation index, matchups, report (any time; reruns only process new files)
+# 4. QC, observation index, matchups, HISATZEN diagnostic, report (any time; reruns only process new files)
 sbatch --account=191001-366746 cluster/qc.sbatch
 ```
 
