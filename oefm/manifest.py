@@ -16,6 +16,7 @@ from __future__ import annotations
 import csv
 import json
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,6 +104,9 @@ class Manifest:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.path, timeout=120, check_same_thread=False)
+        # One connection is shared by the download threads; sqlite3 connections are not safe for
+        # concurrent use, so every statement and commit goes through this lock.
+        self._lock = threading.RLock()
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=DELETE")  # WAL is unsafe on network filesystems
         self._create("granules", COLUMNS)
@@ -122,12 +126,13 @@ class Manifest:
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
-        try:
-            yield self.db
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
+        with self._lock:
+            try:
+                yield self.db
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                raise
 
     # ------------------------------------------------------------ inventory
     def upsert_inventory(self, rows: Iterable[dict[str, Any]]) -> tuple[int, int]:
@@ -160,7 +165,9 @@ class Manifest:
 
     # ------------------------------------------------------------- queries
     def rows(self, where: str = "1=1", params: tuple = ()) -> list[sqlite3.Row]:
-        return self.db.execute(f"SELECT * FROM granules WHERE {where} ORDER BY product, time_start", params).fetchall()
+        with self._lock:
+            return self.db.execute(f"SELECT * FROM granules WHERE {where} ORDER BY product, time_start",
+                                   params).fetchall()
 
     def update(self, key: str, **values: Any) -> None:
         sets = ", ".join(f"{k}=?" for k in values)
@@ -197,7 +204,8 @@ class Manifest:
         return dest
 
     def close(self) -> None:
-        self.db.close()
+        with self._lock:
+            self.db.close()
 
 
 def _merge_list(a: str | None, b: str | None) -> str:

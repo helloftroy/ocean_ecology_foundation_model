@@ -258,7 +258,12 @@ def run(cfg: Config, products: dict[str, dict], args, log=print) -> dict[str, An
             ThreadPoolExecutor(max_workers=max(1, min(2, args.connections))) as cm_pool:
         futures = [pool.submit(one, r) for r in http_rows] + [cm_pool.submit(one, r) for r in cm_rows]
         for f in as_completed(futures):
-            f.result()
+            try:
+                f.result()
+            except Exception as exc:  # noqa: BLE001 - a bookkeeping error must not stop the run
+                with lock:
+                    stats["failed"] += 1
+                log(f"ERROR in worker (file left for the next run): {type(exc).__name__}: {exc}")
 
     wall = time.time() - started
     man.save_run(run_id=run_id, host=host, products=",".join(products), connections=args.connections,
