@@ -236,3 +236,115 @@ Maintain separate processed-data directories:
 Both datasets should reference the same immutable raw-data archive rather than duplicate original downloads. Maintain manifests documenting source files, processing versions, spatial/temporal subsets, and transformations so that datasets can be regenerated consistently.
 
 Apply this principle to other downloaded satellite and physical products as well: preserve reusable originals, and keep regional and global training inputs separate.
+
+---
+
+# Phase 2 Revision — Physics and Nutrient-Aware Pilot Experiments
+
+_Received 2026-11-12, together with three adjustments from the user that take precedence over it
+(listed first, verbatim)._
+
+**User adjustments (take precedence):**
+
+1. Replace the Bio-GO-SHIP gene benchmark with Florida metabarcoding. Use your 16S/18S ASV tables, including NMF community components if available. Evaluate individual components, dominant taxa, and overall community composition. Use spatially and temporally grouped splits.
+
+2. Retain the nutrient-supervision experiment. We can test whether PISCES phosphate, nitrate, and silicate used as training targets only improve the embeddings' ability to predict Florida microbial communities. If measured nutrients are available alongside the metabarcoding samples, they become an especially valuable independent evaluation target. This also lets us see whether different community components benefit from different environmental information.
+
+3. Use Florida Sargassum observations for the seaweed benchmark. Start with same-period detection or density, then evaluate seven-day prediction using the physics-aware representation. Check that historical SaWS observations provide enough valid Sargassum-positive examples; the Gulf test area should include waters where mats are regularly observed.
+
+**Revision as received:**
+
+## Objective
+
+Treat the contribution of physical variables and modeled nutrients as experimental questions, not predetermined requirements of the foundation model.
+
+Our Bio-GO-SHIP experiments show that environmental variables improve the prediction of some microbial functions but not others. Adding all environmental variables indiscriminately can reduce median prediction performance.
+
+The pilot should determine whether physical inputs and nutrient-supervised training produce better general-purpose embeddings, and which biological functions benefit.
+
+## Stage 1 — Select the optical pretraining objective
+
+Train and compare three optical-only models using matched data and architectures:
+
+- **A:** Masked optical reconstruction.
+- **B:** JEPA latent prediction + SIGReg.
+- **C:** JEPA + SIGReg + PACE spectral-residual preservation.
+
+Assess representation stability, PACE spectral retention, frozen-embedding probes, and training behavior.
+
+Select the strongest approach for further experimentation. Do not automatically select JEPA if reconstruction performs better.
+
+## Stage 2 — Evaluate environmental information
+
+Starting from the winning optical objective, train three additional configurations:
+
+- **Physics:** Add physical observations as inputs, including SST, surface currents, winds, precipitation, and bathymetry.
+- **Nutrient targets:** Retain optical-only inputs, but add a small auxiliary head trained to predict PISCES nutrient estimates.
+- **Physics + nutrient targets:** Combine physical inputs with auxiliary nutrient prediction.
+
+Use identical validation splits and comparable model capacities.
+
+Keep physics input optional through modality dropout. Models using physics should support evaluation with and without those inputs.
+
+Nutrient estimates must never enter the encoder as inputs. Start with phosphate, nitrate, and silicate, selecting a documented PISCES product and version. Normalize nutrient targets, account for their coarse spatial resolution, and use a configurable auxiliary-loss weight.
+
+Implement nutrient prediction as a simple auxiliary regression task initially. Leave open the possibility of converting it to a latent JEPA target after architectural review.
+
+## Evaluation A — Bio-GO-SHIP microbial functions
+
+_Replaced by user adjustment 1 (Florida metabarcoding); kept here for the record._
+
+Use the existing panel of 414 newly predictable genes, supplemented by nutrient-uptake and transport genes, particularly phosphate-associated `pho` and `pst` functions.
+
+Prepare sample-matched optical observations at available Bio-GO-SHIP locations and dates. Assess coverage before expanding acquisition, recognizing that these evaluation sites extend beyond the Gulf pilot.
+
+For each model, calculate:
+
+- Per-gene R² and improvement over the optical baseline.
+- Mean and median improvement across genes.
+- Fraction of genes that improve or worsen.
+- Performance by gene function or pathway.
+- Consistency across held-out cruises.
+
+Compare frozen embeddings against direct environmental-variable baselines, including appropriately selected physical fields.
+
+For phosphate-associated genes, separately test whether the incremental value of adding PISCES phosphate decreases after nutrient-supervised pretraining, and whether embedding-only prediction actually improves.
+
+Where measured phosphate is available, retain it as an independent evaluation and downstream comparison.
+
+Avoid feature selection using held-out test data.
+
+## Evaluation B — Sargassum
+
+Use available USF SaWS historical Sargassum observations to evaluate:
+
+1. Same-period Sargassum occurrence or density.
+2. Sargassum distribution approximately seven days later, using only past observations as inputs.
+
+Compare optical-only and physics-aware embeddings.
+
+Include persistence and simple current-driven transport baselines for the forecast task. Use geographically and temporally separated test periods.
+
+Keep SaWS products out of foundation-model pretraining.
+
+## Evaluation C — Phytoplankton and fish
+
+Evaluate frozen embeddings against available HPLC pigment and Gulf fish observations.
+
+Compare optical-only, physical-only, and combined representations where possible.
+
+Treat gains as target-specific. A model that improves certain ecological targets without improving every target can still be valuable.
+
+## Required outputs
+
+Produce a consolidated report comparing the six training configurations, including:
+
+- PACE spectral-information retention.
+- Embedding stability and evidence of collapse.
+- Per-gene and per-functional-group improvements.
+- Contribution of physical inputs versus nutrient-supervised training.
+- Sargassum detection and forecasting performance.
+- HPLC pigment and fish prediction performance.
+- Failure cases, negative results, and recommendations.
+
+**Do not assume that the most complex model is the best model.** The final selection should prioritize transferable ecological information, preservation of the original optical signal, and performance across independent datasets.

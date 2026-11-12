@@ -29,8 +29,13 @@
 2. qc.sbatch once status shows 0 failed. Review report section 4 (incl. the HISATZEN diagnostic:
    decode check, coverage recovered, angle effect from same-day matchups) and data/reports/zenith/.
 3. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
-4. Phase 2 (docs/phase2_instructions.md): planned order in cluster_instructions.md; start with
-   2.0 processed/ layout + processing manifest, 2.2 regional physical crops, 2.3 tile grid/Zarr.
+4. Phase 2 (docs/phase2_instructions.md, incl. the physics/nutrient revision and the user's three
+   adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical
+   A/B/C, Stage 2 = physics / PISCES-nutrient targets / both; evaluations = Florida SEUS MBON
+   16S/18S (NMF components, taxa, composition, SFER nutrients), SaWS Sargassum, HPLC, fish.
+5. Awaiting the user's OK: satellite windows around the eDNA cruises 2018-2023 (+467 days,
+   ~420 GB). Only 119 of 731 2018-23 surface samples have a full 30-day context now.
+   NB the SEUS MBON metadata TSVs have decimalLatitude/decimalLongitude swapped.
 
 ## Decisions
 - Copernicus Marine products are stored as monthly domain subsets with all variables (the service
