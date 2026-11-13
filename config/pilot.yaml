@@ -237,6 +237,25 @@ physical:
     static: true
     notes: "Single global netCDF, 7.47 GB (Content-Length 7466018396 on 2026-11-11)."
 
+# Auxiliary TRAINING TARGETS only (step 2.6; Stage 2 nutrient-target experiments). Never encoder
+# inputs: they are read only through oefm/targets.py. PISCES biogeochemistry from Copernicus Marine,
+# surface level only (0.5 m), daily. Multi-year reanalysis (version 202406, 1993-01-01 .. 2026-08-31
+# when checked on 2026-11-12) first; the operational analysis/forecast (version 202311, a different
+# PISCES configuration) only for the days after it. The source of every day is recorded.
+targets:
+  pisces_nutrients:
+    variable: phosphate, nitrate, silicate (PISCES model, target only)
+    source: copernicus_marine
+    product_id: GLOBAL_MULTIYEAR_BGC_001_029 / GLOBAL_ANALYSISFORECAST_BGC_001_028
+    datasets:
+      - cmems_mod_glo_bgc_my_0.25deg_P1D-m
+      - cmems_mod_glo_bgc-nut_anfc_0.25deg_P1D-m
+    variables: [po4, no3, si]
+    max_depth_m: 1.0
+    origin: model_reanalysis
+    resolution: "0.25 deg, daily"
+    notes: "Targets only. 0.25 deg (~25 km): a 38.4 km tile holds 1-4 cells, so targets are tile-level values."
+
 # Identified but not downloaded in bulk yet.
 deferred:
   armor3d_mld:

@@ -164,8 +164,14 @@ class Config:
         return {k: {**v, "key": k, "kind": "physical"} for k, v in self.raw.get("physical", {}).items()}
 
     @property
+    def target_products(self) -> dict[str, dict]:
+        """Model products used only as auxiliary training targets (never encoder inputs). Stored
+        and downloaded like physical products, but kept out of crops and the physics cube."""
+        return {k: {**v, "key": k, "kind": "physical", "role": "target"} for k, v in self.raw.get("targets", {}).items()}
+
+    @property
     def products(self) -> dict[str, dict]:
-        return {**self.satellite_products, **self.physical_products}
+        return {**self.satellite_products, **self.physical_products, **self.target_products}
 
     def select_products(self, keys: list[str] | None) -> dict[str, dict]:
         """Products by key; 'satellite' / 'physical' / family names (PACE, OLCI, ...) also work."""

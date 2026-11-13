@@ -49,8 +49,14 @@
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).
-3. Next build: 2.6 PISCES targets, 2.7 evaluation matching (label splits + refitted NMF),
-   then 2.8 encoder (torch; a collate/padding adapter for the loader's ragged per-sensor bands).
+3. 2.6/2.7 built (2026-11-12): config `targets.pisces_nutrients` (cmems_mod_glo_bgc_my_0.25deg_P1D-m
+   v202406 to 2026-08-31, then cmems_mod_glo_bgc-nut_anfc_0.25deg_P1D-m v202311; surface; verified
+   in the catalogue), oefm/targets.py (pisces_daily.zarr, log+z from training partition; evalsets
+   join), cluster/targets.sbatch, scripts/make_eval_targets.py -> ../eval_targets/ (outside repo;
+   NMF k 5/10/15/20 refitted on train labels, ASV prevalence on train, PCA, genera incl. PR2 18S).
+   The user's local PISCES file only reaches 87.5 W, so a fresh download is needed.
+4. 2.8 waits on 4 answers (cluster_instructions.md under 2-II): GPU env, SIGReg reference,
+   Stage 1 budget, headline NMF k.
 4. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
 4. Phase 2 (docs/phase2_instructions.md, incl. the physics/nutrient revision and the user's three
    adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical

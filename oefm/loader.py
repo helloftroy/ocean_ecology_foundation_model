@@ -30,6 +30,8 @@ Samples (`TileSequences.__getitem__`, `sequence_for_point`) are plain dicts of n
     physics: values (D, V, K, K), day_offset (D,) (<= 0), available (D, V) bool, variables,
              hidden (bool)
     static: lon, lat, depth_m (32, 32); physics_static (S, K, K)
+    targets (only with targets=True): pisces: values (3,) PO4/NO3/Si mmol m-3 on the anchor day,
+             normalized (3,), coverage, source. Auxiliary TARGETS: never part of obs or physics.
 Arrays are south-up (row 0 = south), as stored.
 """
 
@@ -141,7 +143,7 @@ class TileSequences:
     def __init__(self, cfg: Config, split: str = "train", mode: str = "causal", length: int = 16,
                  anchors: str = "all", sensors: list[str] | None = None, pace: str = "visible",
                  selection: str = "recent", masking: bool | dict | None = None, include_300m: bool = False,
-                 physics: bool = True, seed: int = 0, index=None) -> None:
+                 physics: bool = True, targets: bool = False, seed: int = 0, index=None) -> None:
         import pandas as pd
 
         if split not in SPLITS + ("all",):
@@ -177,6 +179,8 @@ class TileSequences:
         self.anchors = self._eligible(cand.index.to_numpy())
         self._phys = None
         self.physics_on = physics
+        self.targets_on = targets
+        self._tg = None
 
     # ------------------------------------------------------------------ windows
     def _window(self, rows: np.ndarray, t: float) -> np.ndarray:
@@ -259,6 +263,29 @@ class TileSequences:
                 "variables": [v["name"] for v in z.attrs["variables"]], "hidden": False,
                 "static": np.asarray(z["static"][k])}
 
+    def _targets(self, tile_id: str, anchor_t: float) -> dict[str, Any] | None:
+        if not self.targets_on:
+            return None
+        if self._tg is None:
+            import zarr
+
+            from .targets import targets_path
+
+            p = targets_path(self.cfg)
+            if not p.exists():
+                self.targets_on = False
+                return None
+            z = zarr.open_group(str(p), mode="r")
+            self._tg = (z, date.fromisoformat(z.attrs["day0"]), {t: k for k, t in enumerate(z.attrs["tile_ids"])})
+        z, day0, tix = self._tg
+        d = (datetime.fromtimestamp(anchor_t, timezone.utc).date() - day0).days
+        if not 0 <= d < z["values"].shape[0]:
+            return None
+        k = tix[tile_id]
+        return {"pisces": {"values": np.asarray(z["values"][d, k]), "normalized": np.asarray(z["normalized"][d, k]),
+                           "coverage": float(z["coverage"][d, k]), "source": int(z["source"][d]),
+                           "variables": list(z.attrs["variables"])}}
+
     def _static(self, tile_id: str) -> dict[str, np.ndarray]:
         import zarr
 
@@ -276,7 +303,8 @@ class TileSequences:
             if self.pace == "hidden" and o["is_pace"]:
                 o["hidden"] = True
         s = {"tile_id": tile_id, "anchor_time": anchor_t, "mode": self.mode, "split": self.split, "obs": obs,
-             "physics": self._physics(tile_id, anchor_t), "static": self._static(tile_id)}
+             "physics": self._physics(tile_id, anchor_t), "static": self._static(tile_id),
+             "targets": self._targets(tile_id, anchor_t)}
         if self.mask_cfg:
             apply_masking(s, self.mask_cfg, self.rng)
         return s

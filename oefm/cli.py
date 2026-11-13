@@ -21,6 +21,8 @@ Phase 2 preprocessing (writes only to data/processed/, never to data/raw/):
   evalcover   which evaluation samples (eDNA, SFER, fish) have usable PACE/OLCI/MODIS/VIIRS pixels (2.4b)
   physics     daily physical fields on a coarse grid around every tile (2.5a)
   sequences   partition and sequence summary for the loader (2.5): anchors per split, mode, year
+  targets     PISCES PO4/NO3/Si per tile and day, training targets only (2.6)
+  evalsets    join the evaluation targets with usable-imagery counts (2.7)
   processed   summary of the processing manifest
 """
 
@@ -108,6 +110,9 @@ def main(argv: list[str] | None = None) -> None:
     ph = sub.add_parser("physics")
     ph.add_argument("--workers", type=int, default=0)
     sub.add_parser("sequences")
+    tg = sub.add_parser("targets")
+    tg.add_argument("--workers", type=int, default=0)
+    sub.add_parser("evalsets")
     sub.add_parser("processed")
 
     args = p.parse_args(argv)
@@ -116,6 +121,7 @@ def main(argv: list[str] | None = None) -> None:
      "download": cmd_download, "verify": cmd_verify, "inspect": cmd_inspect, "index": cmd_index,
      "overlap": cmd_overlap, "zenith": cmd_zenith, "status": cmd_status, "report": cmd_report,
      "layout": cmd_layout, "crop": cmd_crop, "grid": cmd_grid, "tiles": cmd_tiles, "examples": cmd_examples, "evalcover": cmd_evalcover, "physics": cmd_physics, "sequences": cmd_sequences,
+     "targets": cmd_targets, "evalsets": cmd_evalsets,
      "processed": cmd_processed}[args.cmd](cfg, args)
 
 
@@ -472,6 +478,18 @@ def cmd_sequences(cfg, args) -> None:
     df.to_csv(dest, index=False)
     log(df[["split", "mode", "anchors", "tiles", "n_anchors", "pace_anchors", "first", "last"]].to_string(index=False))
     log(f"Sequence summary -> {dest}")
+
+
+def cmd_targets(cfg, args) -> None:
+    from . import targets
+
+    targets.build_pisces(cfg, args.workers, log)
+
+
+def cmd_evalsets(cfg, args) -> None:
+    from . import targets
+
+    targets.match_eval(cfg, log)
 
 
 def cmd_processed(cfg, args) -> None:

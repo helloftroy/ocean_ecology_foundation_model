@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (2.5 loader and partitions built per the approved year plan; prep trial 116101 OK; full prep run next).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (2.6 PISCES targets and 2.7 evaluation targets built; commands for after prep.sbatch added; 2.8 needs four answers).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -159,7 +159,7 @@ exact commands once it is built and tested locally. 1.5 has run and been reviewe
 
 ### Running 2.0–2.5a on Ptolemy
 
-**P.0, once (new dependency `zarr`):**
+**P.0, once (new dependency `zarr`; rerun before 2.10 because `scikit-learn` was added for the probes):**
 ```bash
 git pull
 sbatch --account=191001-366746 cluster/setup_env.sbatch
@@ -199,6 +199,45 @@ Outputs, under `data/processed/regional/`:
 - `tiles/v1/physics/physics_daily.zarr`: daily physical fields on an 8 × 8 coarse grid (14.4 km) spanning 3 × 3 tiles around each tile (2.5a)
 - `tiles/v1/examples/*.png` with `*_panels.csv` (2.4)
 
+### After prep.sbatch: 2.6 nutrient targets and 2.7 evaluation sets
+
+Run these once the full `prep.sbatch` has finished (it writes the tile index and `eval_coverage.csv`).
+
+**1. Copy the evaluation targets from the laptop** (built 2026-11-12 with
+`python scripts/make_eval_targets.py --root ..`; they hold labels, so they stay out of the repo):
+```bash
+# on your laptop, from multimodal_seusmbol/
+ssh hmp278@ptolemy-login-2.arc.msstate.edu mkdir -p /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval
+scp eval_targets/* hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval/
+```
+What is in them (all fitted on training labels only; label split per `training.partitions.labels`):
+
+| File | Samples (train / test) | Targets |
+|---|---|---|
+| `edna_16S.csv.gz` | 913 (730 / 183) | NMF k = 5, 10, 15, 20 (refitted on 2018–2023 only; 5,152 ASVs pass the ≥ 2% training-prevalence filter); 10 Hellinger PCs; 20 dominant genera |
+| `edna_18S.csv.gz` | 913 (730 / 183) | same; 7,148 ASVs kept |
+| `sfer.csv.gz` | 3,174 (2,709 / 465) | PO₄, NO₃, Si, fluorometric Chl |
+| `fish_crcp.csv.gz` | 3,018 (1,961 / 1,057) | presence and log1p count of the 20 most prevalent training species |
+| `fish_maxn.csv.gz` | 3,805 (3,189 / 616) | MaxN of the 10 Granite species (month-precision dates) |
+
+Plus `*_nmf_k*_components.csv.gz` (ASV loadings) and `fit_info.json` (settings, kept ASVs, genera, species).
+
+**2. Nutrient targets and the evaluation join** (a download job: nothing else may be downloading, including 1.7):
+```bash
+git pull
+squeue -u hmp278
+sbatch --account=191001-366746 cluster/targets.sbatch
+```
+Runs: inventory of `pisces_nutrients` (daily surface PO₄/NO₃/Si, reanalysis 202406 to 2026-08-31,
+then the forecast product 202311) → download (monthly domain subsets, a few GB) → `oefm targets`
+(per tile and day, log + z-score from the training partition) → `oefm evalsets`.
+Outputs: `tiles/v1/targets/pisces_daily.zarr`; `processed/regional/eval/matched/*.csv.gz` and
+`matched/summary.csv` (per dataset × label split: samples, with usable optical data, with ≥ 1 and ≥ 2
+usable PACE observations, years).
+Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
+
+**3. Then Stage 1 (2.8+), not built yet:** see the open questions under 2-II.
+
 ### 2-I Data preparation
 
 | # | Step | Needs | Runs on | Status |
@@ -212,17 +251,29 @@ Outputs, under `data/processed/regional/`:
 | 2.4b | Which evaluation samples have usable PACE (and OLCI/MODIS/VIIRS) pixels, per dataset and year | 2.3 | service | ▶️ built, run in `prep.sbatch` |
 | 2.5a | Physics cube: daily SST, SST error, wind u/v/speed, precipitation, ADT, SLA, geostrophic u/v, surface current u/v on a coarse grid around every tile; GEBCO depth static | 2.2 | service | ▶️ built, run in `prep.sbatch` |
 | 2.5 | Loader (`oefm/loader.py`): causal 30 d / retro ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types; temporal, geographic and label partitions, sensor set and PACE visibility all configurable without rebuilding (config `training`) | 2.3 | service | ✅ built and tested; `sequences` reports what each split contains |
-| 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs | 2.3 | service | 🛠 |
-| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Label splits from `training.partitions.labels`; **target preprocessing (Hellinger, NMF, feature selection) refitted on training labels only** (the existing NMF exports used all samples, so they are not reused for the test). Sargassum and HPLC are optional and must not delay Stage 1 | 2.3 | service | 🛠 |
+| 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs: download (config `targets.pisces_nutrients`), then `oefm targets` | 2.3 | service | ▶️ built, run in `targets.sbatch` |
+| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Label splits from `training.partitions.labels`; **target preprocessing (Hellinger, NMF, feature selection) refitted on training labels only** (the existing NMF exports used all samples, so they are not reused for the test). Sargassum and HPLC are optional and must not delay Stage 1. Targets built on the laptop (`scripts/make_eval_targets.py`), joined on Ptolemy (`oefm evalsets`) | 2.3 | laptop + service | ▶️ built; targets made 2026-11-12 |
 
 ### 2-II Stage 1: choose the optical objective (optical inputs only, matched data and capacity)
 
 | # | Step | Runs on | Status |
 |---|---|---|---|
-| 2.8 | Encoder plus short debug runs (1 GPU), then memory and throughput benchmarks (4 GPUs) | gpu-a100 | 🛠 |
+| 2.8 | Encoder plus short debug runs (1 GPU), then memory and throughput benchmarks (4 GPUs). **Needs answers to the four questions below before it is built** | gpu-a100 | 🛠 |
 | 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual | gpu-a100 | 🛠 |
 | 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | 🛠 |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | 🛠 |
+
+**Open questions for 2.8 (asked 2026-11-12):**
+1. PyTorch on Ptolemy: the CPU environment uses Python 3.14. Build a separate GPU environment
+   (`oefm_gpu`, Python 3.12, PyTorch with CUDA 12.x) with a new `setup_gpu_env.sbatch`, or reuse an
+   existing PyTorch environment (e.g. from the Granite work)?
+2. SIGReg / JEPA reference: the brief says to follow the reference implementation carefully. Use
+   LeJEPA's SIGReg (Balestriero & LeCun, 2025, the authors' public code), or does Andre have a
+   specific implementation in mind?
+3. Stage 1 budget: proposed ~10–25 M-parameter encoder, each of A/B/C trained for the same number of
+   samples, at most 48 h on 4 A100s per run. OK, or a different size/time?
+4. Headline NMF k for eDNA: all of k = 5, 10, 15, 20 are built; which one should the main tables use
+   (the others become a sensitivity analysis)?
 
 ### 2-III Stage 2: environmental information (starting from the winner)
 
@@ -510,6 +561,7 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 1.4 downloads | `source cluster/env.sh && python -m oefm status` | every product verified, 0 failed, the measured rate |
 | 1.4b inventory | `python -m oefm status` and `python -m oefm windows \| grep -o 'edna_[0-9]*' \| sort -u \| wc -l` | the new files are in and 21 eDNA windows are loaded |
 | P.0 env | `tail -5 logs/oefm_env_<id>.out` | zarr installed |
+| 2.6–2.7 targets | `tail -40 logs/oefm_targets_<id>.out` | PISCES days per source, tile coverage, the matched-evaluation summary |
 | 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
 | 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v1/index/summary_by_product.csv data/processed/regional/tiles/v1/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v1/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |
 | 1.7 MUR re-fetch | `python -m oefm status` (and the sqlite query in 1.7 if they fail again) | mur_sst 3,290 verified, 0 failed |

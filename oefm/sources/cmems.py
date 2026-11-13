@@ -111,6 +111,9 @@ def inventory(product: dict, cfg: Config, log=print, estimate_sizes: bool = True
             "start_datetime": f"{req['start']:%Y-%m-%d}T00:00:00",
             "end_datetime": f"{req['end']:%Y-%m-%d}T23:59:59",
         }
+        if product.get("max_depth_m") is not None:  # 3-D model fields: keep only the top levels
+            request["minimum_depth"] = 0.0
+            request["maximum_depth"] = float(product["max_depth_m"])
         have_login = bool(os.getenv("COPERNICUSMARINE_SERVICE_USERNAME"))
         size = _estimate_size(request) if (estimate_sizes and have_login) else None
         if size is None:
