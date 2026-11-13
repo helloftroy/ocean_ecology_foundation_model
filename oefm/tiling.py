@@ -235,10 +235,12 @@ def tile_granule(args: tuple[str, dict, str, str, dict]) -> dict[str, Any]:
         bits = bits.astype("u4")
         hard_all = mask_bits(fmap, pol.training_flags)
         strict_all = mask_bits(fmap, pol.strict_flags)
-        sla = sw.ds["scan_line_attributes"]
-        t_row = np.asarray(np.ma.filled(sla["time"][rs], np.nan), dtype="f8")
+        t_row, res["time_source"] = scan_times(sw, rs)
         t0 = float(np.nanmin(t_row)) if np.isfinite(t_row).any() else np.nan
-        solz_row = np.asarray(np.ma.filled(sla["csol_z"][rs], np.nan), dtype="f8") if "csol_z" in sla.variables else None
+        t_row = np.where(np.isfinite(t_row), t_row, t0)
+        sla = sw.ds.groups.get("scan_line_attributes")
+        solz_row = (np.asarray(np.ma.filled(sla["csol_z"][rs], np.nan), dtype="f8")
+                    if sla is not None and "csol_z" in sla.variables else None)
         nb = len(sw.bands)
         native = fam == "OLCI"
         acc = _Acc(grid.n_tiles, grid.tc, nb, aux=True)
@@ -270,12 +272,49 @@ def tile_granule(args: tuple[str, dict, str, str, dict]) -> dict[str, Any]:
                 solz_sum += np.bincount(slot, weights=w * np.nan_to_num(sz[pix]), minlength=solz_sum.size)
             if native and slot3.size:
                 acc3.add(pix3, slot3, w3, valid, strict, bb, vals, zb, trel)
-        res.update(_write(cfg, grid, sw, row, prod, pol, code, acc, acc3, solz_sum, t0, fmap, dest))
+        res.update(_write(cfg, grid, sw, row, prod, pol, code, acc, acc3, solz_sum, t0, fmap, dest,
+                          res.get("time_source", "")))
     except Exception as exc:  # noqa: BLE001
         res["status"], res["error"] = "failed", f"{type(exc).__name__}: {exc}"
     finally:
         sw.close()
     return res
+
+
+def scan_times(sw: L2Swath, rs: slice) -> tuple[np.ndarray, str]:
+    """UTC seconds since 1970 for each row in rs, and where they came from.
+
+    Newer OB.DAAC files have scan_line_attributes/time; older reprocessings (e.g. 2018 R2022
+    files) only have year/day/msec. Last resort: linear between time_coverage_start and _end.
+    """
+    from datetime import datetime, timezone
+
+    n = rs.stop - rs.start
+    sla = sw.ds.groups.get("scan_line_attributes")
+    names = set(sla.variables) if sla is not None else set()
+    if "time" in names:
+        t = np.asarray(np.ma.filled(sla["time"][rs], np.nan), dtype="f8")
+        if np.isfinite(t).any():
+            return t, "scan_line_attributes/time"
+    if {"year", "day", "msec"} <= names:
+        yr = np.asarray(np.ma.filled(sla["year"][rs], -1), dtype="i8")
+        dy = np.asarray(np.ma.filled(sla["day"][rs], -1), dtype="i8")
+        ms = np.asarray(np.ma.filled(sla["msec"][rs], -1), dtype="f8")
+        ok = (yr > 1900) & (dy > 0) & (ms >= 0)
+        if ok.any():
+            t = np.full(n, np.nan)
+            jan1 = {y: datetime(int(y), 1, 1, tzinfo=timezone.utc).timestamp() for y in np.unique(yr[ok])}
+            t[ok] = np.array([jan1[y] for y in yr[ok]]) + (dy[ok] - 1) * 86400.0 + ms[ok] / 1000.0
+            return t, "scan_line_attributes/year,day,msec"
+    attrs = sw.ds.ncattrs()
+    if "time_coverage_start" in attrs and "time_coverage_end" in attrs:
+        def parse(v):
+            return datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp()
+        a, b = parse(sw.ds.getncattr("time_coverage_start")), parse(sw.ds.getncattr("time_coverage_end"))
+        total = sw.lat.shape[0]
+        rows = np.arange(rs.start, rs.stop, dtype="f8")
+        return a + (b - a) * rows / max(total - 1, 1), "time_coverage_start/end (linear)"
+    return np.full(n, np.nan), "none"
 
 
 def _read_bands(sw: L2Swath, rs: slice, cs: slice) -> np.ndarray:
@@ -301,7 +340,8 @@ def _finish(acc: _Acc, n_tiles: int):
     return refl, r
 
 
-def _write(cfg, grid, sw, row, prod, pol, code, acc, acc3, solz_sum, t0, fmap, dest) -> dict[str, Any]:
+def _write(cfg, grid, sw, row, prod, pol, code, acc, acc3, solz_sum, t0, fmap, dest,
+           time_source: str = "") -> dict[str, Any]:
     import zarr
     from numcodecs import Blosc
 
@@ -348,7 +388,7 @@ def _write(cfg, grid, sw, row, prod, pol, code, acc, acc3, solz_sum, t0, fmap, d
     tile_ids = [grid.ids[k] for k in keep]
     hz = fmap.get("HISATZEN", 0)
     root.attrs.update({
-        "tile_ids": tile_ids, "product": row["product"], "family": prod["family"], "platform": prod.get("platform"),
+        "tile_ids": tile_ids, "time_source": time_source, "product": row["product"], "family": prod["family"], "platform": prod.get("platform"),
         "archive_short_name": prod.get("short_name"), "archive_version": prod.get("version"),
         "variable": sw.kind, "units": "sr^-1" if sw.kind == "Rrs" else "1",
         "granule_key": row["granule_key"], "source_file": row["filename"], "source_sha256": row.get("sha256"),
