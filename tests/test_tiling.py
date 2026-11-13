@@ -141,11 +141,14 @@ class TestPolicy(unittest.TestCase):
         self.assertNotIn("HISATZEN", policy(cfg, "viirsn_oc").training_flags)
         self.assertIn("HISATZEN", policy(cfg, "modisa_oc").training_flags)
         self.assertIn("HISATZEN", policy(cfg, "viirsn_oc").strict_flags)
-        self.assertEqual(policy(cfg, "pace_oci_sfrefl").training_mask, "sfrefl")
+        self.assertEqual(policy(cfg, "pace_oci_sfrefl").training_mask, "sfrefl_v1")
         for p in cfg.satellite_products:
             fl = policy(cfg, p).training_flags
-            for hard in ("ATMFAIL", "NAVFAIL", "HILT", "LAND"):
-                self.assertIn(hard, fl, f"{p} must reject {hard}")
+            hard = ("LAND", "NAVFAIL") if p.endswith("sfrefl") else ("ATMFAIL", "NAVFAIL", "HILT", "LAND", "CLDICE", "STRAYLIGHT")
+            for h in hard:
+                self.assertIn(h, fl, f"{p} must reject {h}")
+            for soft in ("ATMWARN", "LOWLW", "COCCOLITH", "CHLFAIL"):  # design doc: quality channels, not masks
+                self.assertNotIn(soft, fl)
 
     def test_red_angle_weight(self):
         cfg = load_config()

@@ -35,6 +35,9 @@ oefm/                  python -m oefm <command>
   tiling.py            granule -> tiles regridding, one zipped Zarr per granule, index
   examples.py          multisensor tile figures
   evalcoverage.py      usable PACE/OLCI/MODIS/VIIRS pixels at each evaluation sample
+  physics.py, loader.py, targets.py   physics cube, sequences/partitions, PISCES + evaluation targets
+  spectral.py, normstats.py           SRFs, reflectance transform, frozen training statistics
+  model/               PyTorch Stage 1 model (GPU environment): sigreg, net, data, train
 cluster/               Ptolemy SLURM jobs
 docs/                  brief, archive inventory, readiness notes
 tests/                 python -m unittest discover -s tests

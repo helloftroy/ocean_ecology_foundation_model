@@ -287,7 +287,8 @@ excluded:
 # changed; everything below writes to data/processed/regional/ with a processing manifest.
 # ---------------------------------------------------------------------------
 processing:
-  version: v1            # bump when a change alters processed values; outputs go to a new folder
+  version: v2            # bump when a change alters processed values; outputs go to a new folder
+                         # v2 (2026-11-12): design-document v1 flag policy (soft flags kept as quality channels)
 
   grid:
     # Spherical Lambert azimuthal equal-area centred on the pilot domain. Equivalent PROJ string:
@@ -311,10 +312,14 @@ processing:
     # Step 2.1, decided 2026-11-12 from the full QC run (cluster_instructions.md, decision log).
     # Mask names refer to oefm/inspect.py MASKS. Masked pixels are not averaged into a cell, but
     # they still count in the cell's coverage, and every pixel's l2_flags are OR-ed into the cell.
+    # Hard masks follow the design document's v1 flag policy ("Flags"): LAND, CLDICE, SEAICE,
+    # ATMFAIL, NAVFAIL, HILT, HIGLINT, HISOLZEN, BOWTIEDEL, STRAYLIGHT. HISATZEN is a tag for PACE
+    # and VIIRS (2026-11-12 decision) and hard for MODIS. Soft flags (ATMWARN, MAXAERITER, LOWLW,
+    # ABSAER, COCCOLITH, TURBIDW, COASTZ, OPSHAL) are model inputs (quality channels), not masks.
     training_mask:
-      default: l3_no_hisatzen        # NASA's L3 set minus HISATZEN (kept as a tag)
-      modisa_oc: l3_default          # MODIS fails the high-angle rule: HISATZEN stays a hard mask
-      pace_oci_sfrefl: sfrefl        # surface reflectance has its own rules
+      default: v1_hard
+      modisa_oc: v1_hard_hisatzen
+      pace_oci_sfrefl: sfrefl_v1     # surface reflectance: LAND, NAVFAIL only
     strict_mask:                     # the independent spectral-evaluation subset
       default: l3_default
       pace_oci_sfrefl: sfrefl_strict
@@ -338,12 +343,12 @@ processing:
   # Physical fields for the loader (step 2.5a, `python -m oefm physics`): daily values on a coarse
   # grid around every tile, built once from the regional crops. Native-resolution crops stay in
   # processed/regional/physical/. The coarse grid spans context_tiles x context_tiles tiles centred
-  # on the tile (3 x 38.4 km = 115.2 km), in coarse_cells x coarse_cells cells (14.4 km); each cell
+  # on the tile (v1: 1 tile, 4 x 4 cells of 9.6 km), in coarse_cells x coarse_cells cells; each cell
   # is the mean of subsamples x subsamples bilinear samples of the source grid. Sub-daily sources
   # (CCMP 6-hourly) are averaged per UTC day. The first matching variable name is used.
   physics:
-    coarse_cells: 8
-    context_tiles: 3
+    coarse_cells: 4              # design doc v1: 4 x 4 physics tokens per tile
+    context_tiles: 1             # a fork: 3 gives 115 km of context (see the brief)
     subsamples: 6
     variables:
       - {name: sst,        products: [mur_sst],                  candidates: [analysed_sst]}

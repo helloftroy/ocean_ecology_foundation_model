@@ -29,6 +29,18 @@ MASKS: dict[str, list[str]] = {
 # Pilot decision (2026-11-12): HISATZEN is a lower-confidence tag, not a hard mask. Everything else
 # in the L3 default (ATMFAIL, NAVFAIL, HILT, cloud, land, ...) still applies. See oefm/zenith.py.
 MASKS["l3_no_hisatzen"] = [f for f in MASKS["l3_default"] if f != "HISATZEN"]
+# Design-document v1 flag policy (Ocean Foundation Model Design Decisions.md, "Flags"), with the
+# 2026-11-12 HISATZEN decision (a tag for PACE and VIIRS, hard for MODIS). Hard mask = pixel missing.
+# Not masked: CHLFAIL, CHLWARN (chlorophyll algorithm). Soft flags become per-cell quality channels
+# (QUALITY_FLAGS) instead of being masked: blooms, turbid and optically shallow water are signal.
+MASKS["v1_hard"] = ["LAND", "CLDICE", "SEAICE", "ATMFAIL", "NAVFAIL", "HILT", "HIGLINT", "HISOLZEN",
+                    "BOWTIEDEL", "STRAYLIGHT"]
+MASKS["v1_hard_hisatzen"] = MASKS["v1_hard"] + ["HISATZEN"]
+QUALITY_FLAGS = ["HISATZEN", "ATMWARN", "MAXAERITER", "LOWLW", "ABSAER", "COCCOLITH", "TURBIDW", "COASTZ", "OPSHAL"]
+# Surface-reflectance view (design doc): mats can trip cloud, high-radiance and atmospheric-
+# correction flags, so only LAND and NAVFAIL are hard; a floating-algae-aware cloud test is a
+# later addition (all flags stay in flags_or).
+MASKS["sfrefl_v1"] = ["LAND", "NAVFAIL"]
 # PACE SFREFL (rhos, a separate optional view): no ocean-colour retrieval flags (LOWLW, CHLFAIL,
 # MAXAERITER, ATMWARN, COCCOLITH, STRAYLIGHT) because rhos is not an Rrs retrieval, but glint,
 # cloud and land still apply. HISATZEN is a tag here too; the strict subset adds it back.

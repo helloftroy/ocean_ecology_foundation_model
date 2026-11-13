@@ -55,8 +55,18 @@
    join), cluster/targets.sbatch, scripts/make_eval_targets.py -> ../eval_targets/ (outside repo;
    NMF k 5/10/15/20 refitted on train labels, ASV prevalence on train, PCA, genera incl. PR2 18S).
    The user's local PISCES file only reaches 87.5 W, so a fresh download is needed.
-4. 2.8 waits on 4 answers (cluster_instructions.md under 2-II): GPU env, SIGReg reference,
-   Stage 1 budget, headline NMF k.
+4. Stage 1 BUILT (2026-11-12) per "Ocean Foundation Model Design Decisions.md" v1 (user: "follow
+   fork 1" = the v1 spec; doc edited to settled decisions): oefm/spectral.py (Gaussian SRFs at
+   nominal FWHM, transform), oefm/normstats.py (s/mean/std curves, PACE ridge), oefm/model/
+   (sigreg.py = official LeJEPA library code, net.py, data.py, train.py), config/train_stage1.yaml,
+   cluster/{setup_gpu_env,gpu_check,benchmark,train}.sbatch. Adopted the user's parallel doc edits
+   (arrived as "...Design Decisions 2.md", sync-conflict copy, left untracked; merged into the main
+   file): 340-2300 nm product-conditioned generator, NO token LayerNorm + 2 amplitude features
+   (R2>=0.95 probe test), 9 quality channels, per-view-group prediction AND SIGReg (GroupSIGReg,
+   global sums over a fixed group list for DDP), whole-view masking uniform over groups, E2 =
+   MODIS-band reference with 10% synthetic SRF-convolved PACE/OLCI targets, E3 = 1024 dims. Flag policy v2 (soft flags = quality
+   channels) -> processing.version v2, prep.sbatch must be re-run. Tested on CPU only.
+   Open: headline NMF k / switch to taxonomy prediction; SaWS grids; stage-2 modality keys.
 4. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
 4. Phase 2 (docs/phase2_instructions.md, incl. the physics/nutrient revision and the user's three
    adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical

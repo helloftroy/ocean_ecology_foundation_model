@@ -232,7 +232,8 @@ class TileSequences:
              "flags": np.asarray(z["flags_or"][j]),
              "band_weight": red_angle_weight(self.cfg, r["product"], wl[:, None, None], senz[None, :, :]),
              "is_pace": r["family"] == "PACE", "hidden": False, "patch_hidden": np.zeros(senz.shape, bool),
-             "granule_key": r["granule_key"]}
+             "granule_key": r["granule_key"], "output_path": r["output_path"],
+             "flag_meanings": list(z.attrs["flag_meanings"]), "flag_masks": list(z.attrs["flag_masks"])}
         if self.include_300m and "reflectance_300m" in z:
             o["reflectance_300m"] = np.asarray(z["reflectance_300m"][j])
             o["valid_300m"] = np.asarray(z["w_valid_300m"][j]) > 0

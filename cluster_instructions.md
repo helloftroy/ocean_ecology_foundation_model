@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (2.6 PISCES targets and 2.7 evaluation targets built; commands for after prep.sbatch added; 2.8 needs four answers).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (Stage 1 model built per the design document v1; tiles move to v2 (new flag policy): **re-run prep.sbatch**).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -258,22 +258,59 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 
 | # | Step | Runs on | Status |
 |---|---|---|---|
-| 2.8 | Encoder plus short debug runs (1 GPU), then memory and throughput benchmarks (4 GPUs). **Needs answers to the four questions below before it is built** | gpu-a100 | 🛠 |
-| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual | gpu-a100 | 🛠 |
+| 2.8a | Frozen training statistics: reflectance transform curves and the PACE heritage ridge (`oefm normstats`, last step of `prep.sbatch`) | service | ▶️ built |
+| 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ▶️ built |
+| 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ▶️ built |
+| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ▶️ built; run after 2.8c |
 | 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | 🛠 |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | 🛠 |
 
-**Open questions for 2.8 (asked 2026-11-12):**
-1. PyTorch on Ptolemy: the CPU environment uses Python 3.14. Build a separate GPU environment
-   (`oefm_gpu`, Python 3.12, PyTorch with CUDA 12.x) with a new `setup_gpu_env.sbatch`, or reuse an
-   existing PyTorch environment (e.g. from the Granite work)?
-2. SIGReg / JEPA reference: the brief says to follow the reference implementation carefully. Use
-   LeJEPA's SIGReg (Balestriero & LeCun, 2025, the authors' public code), or does Andre have a
-   specific implementation in mind?
-3. Stage 1 budget: proposed ~10–25 M-parameter encoder, each of A/B/C trained for the same number of
-   samples, at most 48 h on 4 A100s per run. OK, or a different size/time?
-4. Headline NMF k for eDNA: all of k = 5, 10, 15, 20 are built; which one should the main tables use
-   (the others become a sensitivity analysis)?
+### Running Stage 1 on Ptolemy (2.8–2.9)
+
+Model: `oefm/model/` (design document v1: "Ocean Foundation Model Design Decisions.md"); settings
+`config/train_stage1.yaml`. ~41 M parameters per arm (A 40.1 M, B 41.4 M, C 41.8 M). Tested locally on
+CPU with the smoke tiles (all three arms train, resume and benchmark); not yet run on GPUs.
+
+**0. Re-run the data preparation (tiles are now v2, see the decision log):**
+```bash
+git pull
+squeue -u hmp278                                   # cancel a still-running prep job first: scancel <id>
+sbatch --account=191001-366746 cluster/prep.sbatch
+```
+The physical crops are reused; tiles, grid, index, coverage, physics, sequences and the new
+`normstats` step (2.8a) are rebuilt under `data/processed/regional/tiles/v2/` (~4–5 h). When it has
+finished, the old `tiles/v1/` can be deleted (`rm -rf data/processed/regional/tiles/v1`). Then rerun
+`targets.sbatch` with `STEPS="build evalsets"` if it already ran (the PISCES download is reused).
+
+**1. GPU environment, once** (Python 3.12 + PyTorch 2.6 / CUDA 12.4 + all of `requirements.txt`, so
+the same environment also extracts embeddings and runs the probes; the Python 3.14 environment stays
+for the data pipeline):
+```bash
+sbatch --account=191001-366746 cluster/setup_gpu_env.sbatch
+# when it has finished:
+sbatch --account=191001-366746 cluster/gpu_check.sbatch     # a few minutes on 4 A100s
+```
+Paste back `tail -30 logs/oefm_gpucheck_<id>.out`: driver, bf16 attention, NCCL all-reduce (expect 10),
+one tiny benchmark per arm.
+
+**2. Benchmarks** (design document "Required benchmarks"; 27 configurations × 200 steps, several hours):
+```bash
+sbatch --account=191001-366746 cluster/benchmark.sbatch
+```
+Paste back the summary table at the end of `logs/oefm_bench_<id>.out` (throughput, peak memory,
+loader wait, projected hours per arm). I then set `per_gpu_batch`, `length` and `steps` (equal for
+all arms) in `config/train_stage1.yaml`.
+
+**3. Training, one job chain per arm** (after the benchmark values are committed):
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,ARM=A,CHAIN=3 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=B,CHAIN=3 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=C,CHAIN=3 cluster/train.sbatch
+```
+(4 GPUs each; the QOS allows 4 A100s per user, so they queue one after another.) Each job saves before
+48 h and the chain resumes from `data/runs/stage1_<ARM>/checkpoint.pt`. Paste back
+`tail -5 data/runs/stage1_<ARM>/log.jsonl` now and then (losses per modality, SIGReg, effective rank).
 
 ### 2-III Stage 2: environmental information (starting from the winner)
 
@@ -303,6 +340,65 @@ without re-downloading.
 ## Decision log
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
+
+### Stage 1 model: design document v1, with your adjustments (2026-11-12)
+**Source.** "Ocean Foundation Model Design Decisions.md" (repo root), "Implementation specification
+(v1)", edited on 2026-11-12 to the settled pilot decisions. "Follow fork 1": read as *build the v1
+specification* (fork #1 in the table, released embedding E2 or E3 instead of E1, is inference-only
+and evaluated in the pilot anyway: E1, E2 and E3 are all implemented). Other forks stay available.
+**Built as specified:** SRF-integrated spectral tokenizer; 6 spatial + 4 temporal blocks at D = 512;
+predictor 2 + 2 blocks at 384; targets = spatial-stage outputs of hidden observations encoded alone,
+no EMA, gradients through targets; SIGReg on targets only; masking modes 40/30/20/10; spectral dropout
+20–100% of PACE bands; arm A band-query decoder; arm C ridge-residual decoder; AdamW / cosine / bf16 /
+effective batch 128.
+**SIGReg** follows the official LeJEPA library code (galilai-group/lejepa, fetched 2026-11-12): 17
+points on [0, 5] with doubled trapezoid weights (= [−5, 5]), window exp(−t²/2), × N × world size,
+cos/sin means all-reduced separately, slice seed from a step counter synchronised across GPUs,
+1,024 slices, λ = 0.05. (The paper's text, its listing and the README differ slightly; the library
+code was used.) Unit test: isotropic Gaussian ≈ 1, collapsed > 600.
+**Your adjustments (2026-11-12).** You edited the design document in parallel (it arrived as
+"Ocean Foundation Model Design Decisions 2.md", a sync-conflict copy); where your text and my
+first pass differed, your version was adopted and the code changed to match. The merged document
+is the main file; the "2" copy is left untouched and uncommitted.
+1. Wavelength generator 340–2300 nm for every view (SFREFL SWIR to ~2258 nm), conditioned on the
+   product type (Rrs or rhos); separate normalisation curves per view.
+2. Modality balancing: per view group (MODIS Rrs, VIIRS Rrs over all platforms, OLCI Rrs, PACE Rrs,
+   PACE rhos; stage 2 adds nutrients and physics), prediction MSE averaged within each group, then
+   equal-weight mean over groups; **SIGReg per view group** (groups under 256 tokens pooled), equal-weight
+   mean; whole-view masking draws uniformly over the groups present; per-group losses logged. To do:
+   inverse-frequency / temperature-scaled weights. Multi-GPU per-group SIGReg uses global sums over a
+   fixed group list (exactly the reference statistic when GPUs hold equal token counts; avoids
+   mismatched collective calls).
+3. Amplitude: **no LayerNorm on the token** (it divided out amplitude: spectrum vs ×2 gave cosine
+   0.99995); two amplitude features (mean transformed value, asinh of mean raw reflectance) through
+   a small MLP. Unit test at initialisation: 0.5× / 2× copies distinguishable, Rrs vs rhos
+   distinguishable, linear probe recovers log amplitude with R² ≥ 0.95 (passes).
+4. Quality channels: 9 (HISATZEN plus the eight soft flags).
+5. E2: reference = MODIS-Aqua ocean bands; in 10% of sequences a hidden PACE or OLCI observation is
+   also a synthetic target SRF-convolved onto those bands (encoded alone at its own Δt); native hidden
+   MODIS observations count too. E3 = 1,024 dimensions.
+6. PACE ridge from 2024–2025 only (the training split; never 2026).
+**Deviations from the v1 text, with reasons:** Δt is added at the temporal stage, not in the
+tokenizer (a target token must not depend on t0); SRFs are Gaussian at nominal FWHM (the files carry
+no band widths; measured response tables are an easy later swap); the monitoring probe uses SFER
+chlorophyll (no matched HPLC; for now fitted at checkpoints, not online); the transform's noise scale s(λ) is the robust spread of
+neighbouring-cell differences in training data, fitted smoothly in λ.
+**GPU environment:** Python 3.12 + PyTorch (your call: whatever works best). Everything after training
+(embedding extraction, probes) also runs in that environment, so the 3.14 environment is not needed
+for testing; checkpoints are plain PyTorch state dicts.
+**Open:** headline NMF k (all of 5/10/15/20 are built); you mentioned possibly switching the eDNA
+target to taxonomy prediction (dominant genera are already built as targets).
+
+### Flag policy v2: soft flags become inputs, not masks (2026-11-12)
+The design document's v1 flag policy keeps ATMWARN, MAXAERITER, LOWLW, ABSAER, COCCOLITH, TURBIDW,
+COASTZ and OPSHAL as per-cell **quality channels** (model inputs) and does not mask CHLFAIL/CHLWARN;
+the tiles built so far (v1) used NASA's L3 mask minus HISATZEN, which removes several of those pixels
+(blooms, coccolithophores, low water-leaving radiance). Masks are applied while gridding, so this
+needs a re-tile: `processing.version: v2`, hard masks LAND, CLDICE, SEAICE, ATMFAIL, NAVFAIL, HILT,
+HIGLINT, HISOLZEN, BOWTIEDEL, STRAYLIGHT (+ HISATZEN for MODIS only); SFREFL: LAND and NAVFAIL only
+(floating mats can trip cloud and high-radiance flags; all flags stay stored). The strict
+spectral-evaluation subset is unchanged (NASA L3 default). Physics coarse grid set to the document's
+4 × 4 per tile (the 3 × 3-tile context is a config fork). Cost: one ~4 h re-run of `prep.sbatch`.
 
 ### PACE era vs the 2024 hold-out year. *Approved (2026-11-12) with your adjustments; implemented in 2.5.*
 **The constraint (your note).** PACE data start 2024-03-05. Counting every evaluation sample in the
@@ -561,6 +657,9 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 1.4 downloads | `source cluster/env.sh && python -m oefm status` | every product verified, 0 failed, the measured rate |
 | 1.4b inventory | `python -m oefm status` and `python -m oefm windows \| grep -o 'edna_[0-9]*' \| sort -u \| wc -l` | the new files are in and 21 eDNA windows are loaded |
 | P.0 env | `tail -5 logs/oefm_env_<id>.out` | zarr installed |
+| 2.8b GPU env + check | `tail -10 logs/oefm_gpuenv_<id>.out`; `tail -30 logs/oefm_gpucheck_<id>.out` | torch/CUDA versions, all-reduce = 10, each arm runs |
+| 2.8c benchmark | the summary table at the end of `logs/oefm_bench_<id>.out` | batch, length and steps to set for the runs |
+| 2.9 training | `tail -5 data/runs/stage1_<ARM>/log.jsonl` | losses per modality, SIGReg, effective rank, no collapse |
 | 2.6–2.7 targets | `tail -40 logs/oefm_targets_<id>.out` | PISCES days per source, tile coverage, the matched-evaluation summary |
 | 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
 | 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v1/index/summary_by_product.csv data/processed/regional/tiles/v1/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v1/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |

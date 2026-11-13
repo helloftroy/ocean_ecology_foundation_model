@@ -16,11 +16,11 @@
 #   # a quick trial first (the first LIMIT files of crop and of tiles):
 #   sbatch --account=191001-366746 --export=ALL,LIMIT=40 cluster/prep.sbatch
 #
-# STEPS (default "layout grid crop tiles examples evalcover physics sequences"), WORKERS (default 12), LIMIT (default 0 = all).
+# STEPS (default "layout grid crop tiles examples evalcover physics sequences normstats"), WORKERS (default 12), LIMIT (default 0 = all).
 
 set -euo pipefail
 source "${SLURM_SUBMIT_DIR:-$(pwd)}/cluster/env.sh"
-STEPS="${STEPS:-layout grid crop tiles examples evalcover physics sequences}"
+STEPS="${STEPS:-layout grid crop tiles examples evalcover physics sequences normstats}"
 WORKERS="${WORKERS:-12}"
 LIMIT="${LIMIT:-0}"
 echo "Job started: $(date) | steps: ${STEPS} | workers: ${WORKERS} | limit: ${LIMIT}"
@@ -35,6 +35,7 @@ for step in ${STEPS}; do
     evalcover) python -m oefm evalcover ;;
     physics)  python -m oefm physics --workers "${WORKERS}" ;;
     sequences) python -m oefm sequences ;;
+    normstats) python -m oefm normstats ;;
     *) echo "unknown step ${step}" >&2; exit 1 ;;
   esac
 done
