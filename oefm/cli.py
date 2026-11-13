@@ -19,6 +19,8 @@ Phase 2 preprocessing (writes only to data/processed/, never to data/raw/):
   tiles       regrid every satellite granule onto the tiles, one zipped Zarr per granule (2.3)
   examples    multisensor tile figures for the visual check (2.4)
   evalcover   which evaluation samples (eDNA, SFER, fish) have usable PACE/OLCI/MODIS/VIIRS pixels (2.4b)
+  physics     daily physical fields on a coarse grid around every tile (2.5a)
+  sequences   partition and sequence summary for the loader (2.5): anchors per split, mode, year
   processed   summary of the processing manifest
 """
 
@@ -103,6 +105,9 @@ def main(argv: list[str] | None = None) -> None:
     ex.add_argument("--n", type=int, default=4, help="number of tile-days to draw")
     ex.add_argument("--max-dt-hours", type=float, default=4.0)
     sub.add_parser("evalcover")
+    ph = sub.add_parser("physics")
+    ph.add_argument("--workers", type=int, default=0)
+    sub.add_parser("sequences")
     sub.add_parser("processed")
 
     args = p.parse_args(argv)
@@ -110,7 +115,7 @@ def main(argv: list[str] | None = None) -> None:
     {"regions": cmd_regions, "windows": cmd_windows, "catalog": cmd_catalog, "inventory": cmd_inventory,
      "download": cmd_download, "verify": cmd_verify, "inspect": cmd_inspect, "index": cmd_index,
      "overlap": cmd_overlap, "zenith": cmd_zenith, "status": cmd_status, "report": cmd_report,
-     "layout": cmd_layout, "crop": cmd_crop, "grid": cmd_grid, "tiles": cmd_tiles, "examples": cmd_examples, "evalcover": cmd_evalcover,
+     "layout": cmd_layout, "crop": cmd_crop, "grid": cmd_grid, "tiles": cmd_tiles, "examples": cmd_examples, "evalcover": cmd_evalcover, "physics": cmd_physics, "sequences": cmd_sequences,
      "processed": cmd_processed}[args.cmd](cfg, args)
 
 
@@ -435,6 +440,38 @@ def cmd_evalcover(cfg, args) -> None:
     from . import evalcoverage
 
     evalcoverage.run(cfg, log=log)
+
+
+def cmd_physics(cfg, args) -> None:
+    from . import physics
+
+    physics.build(cfg, args.workers, log)
+
+
+def cmd_sequences(cfg, args) -> None:
+    """Anchors per split x mode, PACE anchors and years: what each partition actually contains."""
+    import pandas as pd
+
+    from .grid import TileGrid
+    from .loader import SPLITS, TileSequences, geographic_labels
+    from .tiling import tiles_root
+
+    geo = geographic_labels(cfg, TileGrid(cfg))
+    log("tiles by geographic label: " + ", ".join(f"{k} {v}" for k, v in sorted(pd.Series(geo).value_counts().items())))
+    rows = []
+    for split in SPLITS:
+        for mode in ("causal", "retro"):
+            for anchors in ("all", "pace"):
+                ds = TileSequences(cfg, split=split, mode=mode, anchors=anchors, physics=False)
+                s = ds.summary()
+                rows.append({"split": split, "mode": mode, "anchors": anchors, "tiles": s["tiles"], "n_anchors": s["anchors"],
+                             "pace_anchors": s["pace_anchors"], "first": s["first"], "last": s["last"],
+                             **{f"y{y}": n for y, n in s["anchors_by_year"].items()}})
+    df = pd.DataFrame(rows).fillna(0)
+    dest = tiles_root(cfg) / "index" / "sequence_summary.csv"
+    df.to_csv(dest, index=False)
+    log(df[["split", "mode", "anchors", "tiles", "n_anchors", "pace_anchors", "first", "last"]].to_string(index=False))
+    log(f"Sequence summary -> {dest}")
 
 
 def cmd_processed(cfg, args) -> None:

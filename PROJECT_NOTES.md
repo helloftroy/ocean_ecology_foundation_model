@@ -36,15 +36,21 @@
   cluster/prep.sbatch runs them. OLCI EFR geolocation repeats each lon over 2-3 columns:
   tiling.dequantise() fixes it (else 300 m stripes). zarr pinned <3 (setup_env rerun needed).
 - PACE era: all PACE-era eDNA/fish samples are 2024 (eDNA 115, 92 with full 30-d PACE history);
-  SFER has 2024+2025. Proposed PACE year plan (pretrain 2024-2025, retention test 2026-04..10,
-  eDNA PACE value via paired masking on the 2024 test set) awaits the user's OK.
+  SFER has 2024+2025. Year plan APPROVED 2026-11-12 (config training.partitions): pretrain on
+  2018-2025 imagery incl. 2024 PACE (hold-out is for labels only); PACE retention train
+  2024-03..2025-12 / val 2026-01..02 / gap 2026-03 / test 2026-04..10, plus geo-blocked test
+  (4x4-tile blocks, 20%, 1-tile buffer); eDNA+fish labels 2024 = test; SFER labels 2025 = test
+  (primary PACE on/off); NMF etc. refitted on training labels only (2.7). MaxN dates are
+  month precision (all on the 15th).
+- 2.5 built: oefm/physics.py (physics cube), oefm/loader.py (TileSequences, partitions, masking,
+  sequence_for_point), `sequences` summary; tests/test_loader.py (leakage checks).
 
 ## Next steps
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).
-3. Next build: 2.5 loader + splits (after the PACE year plan is confirmed), 2.6 PISCES targets,
-   2.7 evaluation matching.
+3. Next build: 2.6 PISCES targets, 2.7 evaluation matching (label splits + refitted NMF),
+   then 2.8 encoder (torch; a collate/padding adapter for the loader's ragged per-sensor bands).
 4. Update docs/dataset_inventory.md and docs/readiness_notes.md with full-pilot numbers.
 4. Phase 2 (docs/phase2_instructions.md, incl. the physics/nutrient revision and the user's three
    adjustments): planned order and decision log in cluster_instructions.md. Stage 1 = optical

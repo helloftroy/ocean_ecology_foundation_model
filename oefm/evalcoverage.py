@@ -6,7 +6,12 @@ find its 1.2 km cell and count the tile observations of each product family that
 pixel in that cell or its 3 x 3 neighbourhood:
   - `causal`: within the CONTEXT_DAYS before the sample (the causal sequence window), and
   - `sameday`: within +/- 1 day of the sample.
-"Usable" = the cell has valid pixel weight under the training mask (oefm/qcpolicy.py).
+"Usable" = the cell has valid pixel weight under the training mask (oefm/qcpolicy.py), i.e.
+actual pixel validity, not acquisition dates. Datasets with `time_precision: month` in
+training.partitions.labels (video MaxN) use their calendar month as the window instead, and have
+no same-day count. Per dataset and year the summary reports samples with >= 1 and >= 2 usable
+PACE observations, samples whose whole causal window lies in the PACE era (date-based), and those
+that also have >= 1 usable PACE observation; plus the same >= 1 counts for the other families.
 Writes tiles/<version>/index/eval_coverage.csv (one row per point) and eval_coverage_summary.csv
 (per dataset x year x family), which answer "how many evaluation samples have usable PACE".
 """
@@ -61,20 +66,30 @@ def run(cfg: Config, points_csv: Path | None = None, log=print) -> Path | None:
 
     out = []
     lo, hi = pd.Timedelta(days=CONTEXT_DAYS), pd.Timedelta(days=1)
+    labels = cfg.raw["training"]["partitions"]["labels"]
+    pace0 = pd.Timestamp(str(cfg.raw["training"]["partitions"]["pace_start"]), tz="UTC")
     for p in pts.itertuples():
-        rec = {"dataset": p.dataset, "sample_id": p.sample_id, "time_utc": p.time_utc, "tile_id": p.tile_id}
+        monthly = labels.get(p.dataset, {}).get("time_precision") == "month"
+        if monthly:
+            w0 = p.t.normalize().replace(day=1)
+            w1 = w0 + pd.offsets.MonthEnd(1) + pd.Timedelta(days=1)
+        else:
+            w0, w1 = p.t - lo, p.t
+        rec = {"dataset": p.dataset, "sample_id": p.sample_id, "time_utc": p.time_utc, "tile_id": p.tile_id,
+               "window": "calendar month" if monthly else f"{CONTEXT_DAYS} d causal",
+               "full_window_in_pace_era": bool(w0 >= pace0)}
         counts = defaultdict(int)
         g = by_tile.get(p.tile_id)
         if g is not None:
-            g = g[(g["t"] >= p.t - lo) & (g["t"] <= p.t + hi)]
+            g = g[(g["t"] >= min(w0, p.t - hi)) & (g["t"] <= max(w1, p.t + hi))]
             for o in g.itertuples():
                 w = wvalid(o.output_path, int(o.row))
                 r0, c0 = max(0, p.row - 1), max(0, p.col - 1)
                 if not (w[r0:p.row + 2, c0:p.col + 2] > 0).any():
                     continue
-                if o.t <= p.t:
+                if w0 <= o.t <= w1:
                     counts[f"causal_{o.family}"] += 1
-                if abs((o.t - p.t).total_seconds()) <= 86400:
+                if not monthly and abs((o.t - p.t).total_seconds()) <= 86400:
                     counts[f"sameday_{o.family}"] += 1
         for fam in FAMILIES:
             rec[f"causal_{fam}"] = counts[f"causal_{fam}"]
@@ -86,7 +101,11 @@ def run(cfg: Config, points_csv: Path | None = None, log=print) -> Path | None:
     df.to_csv(dest, index=False)
     rows = []
     for (ds, yr), g in df.groupby(["dataset", "year"]):
-        r = {"dataset": ds, "year": yr, "samples": len(g)}
+        r = {"dataset": ds, "year": yr, "samples": len(g),
+             "PACE_ge1": int((g["causal_PACE"] >= 1).sum()), "PACE_ge2": int((g["causal_PACE"] >= 2).sum()),
+             "PACE_full_window_era": int(g["full_window_in_pace_era"].sum()),
+             "PACE_full_window_era_and_ge1": int((g["full_window_in_pace_era"] & (g["causal_PACE"] >= 1)).sum()),
+             "PACE_sameday": int((g["sameday_PACE"] >= 1).sum())}
         for fam in FAMILIES:
             r[f"usable_{fam}_causal30d"] = int((g[f"causal_{fam}"] > 0).sum())
             r[f"usable_{fam}_sameday"] = int((g[f"sameday_{fam}"] > 0).sum())
@@ -94,7 +113,8 @@ def run(cfg: Config, points_csv: Path | None = None, log=print) -> Path | None:
         rows.append(r)
     summ = pd.DataFrame(rows)
     summ.to_csv(idx_path.parent / "eval_coverage_summary.csv", index=False)
-    cols = ["dataset", "year", "samples", "usable_PACE_causal30d", "usable_PACE_sameday", "usable_VIIRS_causal30d"]
+    cols = ["dataset", "year", "samples", "PACE_ge1", "PACE_ge2", "PACE_full_window_era", "PACE_full_window_era_and_ge1",
+            "PACE_sameday", "usable_VIIRS_causal30d", "usable_MODIS_causal30d", "usable_OLCI_causal30d"]
     log(summ[cols].to_string(index=False))
     log(f"Evaluation coverage -> {dest}")
     return dest

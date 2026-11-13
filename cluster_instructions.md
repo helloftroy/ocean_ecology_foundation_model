@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (Phase 2 steps 2.0–2.4 built and tested; PACE-era evaluation counts and the proposed PACE years).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (2.5 loader and partitions built per the approved year plan; prep trial 116101 OK; full prep run next).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -157,7 +157,7 @@ physics/nutrient revision with your three adjustments (Florida metabarcoding rep
 nutrient supervision kept; Florida SaWS for Sargassum). Below is the planned order. Each step gets
 exact commands once it is built and tested locally. 1.5 has run and been reviewed (2026-11-12), so Phase 2 can start.
 
-### Running 2.0–2.4b on Ptolemy
+### Running 2.0–2.5a on Ptolemy
 
 **P.0, once (new dependency `zarr`):**
 ```bash
@@ -175,14 +175,18 @@ Without it, 2.4b still runs on eDNA, SFER and CRCP.
 sbatch --account=191001-366746 --export=ALL,LIMIT=40 cluster/prep.sbatch
 ```
 Paste back: `tail -40 logs/oefm_prep_<id>.out` (and `.err` if it failed).
+Trial ✅ (job 116101: 36 tiled, 4 empty, 0.6 s per granule on 12 workers).
 **Then the full run** (the trial's outputs are reused; it continues where the trial stopped):
 ```bash
+git pull
 sbatch --account=191001-366746 cluster/prep.sbatch
 ```
-Runs layout → grid → crop → tiles → examples → evalcover. Measured locally: ~0.5–1.5 s per granule per
-worker, so ~35,000 granules on 12 workers should take a few hours; physical crops are minutes.
-Resumable: resubmit the same command after a crash or the 48 h limit. Only `data/processed/` is
-written. Expected size: ~120 GB of tiles (OLCI 300 m and PACE dominate) + ~15 GB of physical crops.
+Runs layout → grid → crop → tiles → examples → evalcover → physics → sequences. 24,335 granules at
+0.6 s on 12 workers ≈ 4 h; crops and physics are minutes to an hour. Resumable: resubmit the same
+command after a crash or the 48 h limit. Only `data/processed/` is written. Expected size:
+~200 GB of tiles (OLCI ~31 MB per granule dominates), ~15 GB of physical crops, ~3 GB of physics.
+If you already started a full run before pulling 2.5, add the new steps afterwards with
+`sbatch --account=191001-366746 --export=ALL,STEPS="evalcover physics sequences" cluster/prep.sbatch`.
 Run 1.7 (MUR re-fetch) first if you can; otherwise the 8 missing MUR days are cropped on a later re-run.
 
 Outputs, under `data/processed/regional/`:
@@ -191,7 +195,8 @@ Outputs, under `data/processed/regional/`:
 - `tiles/v1/grid/`: `tiles.csv` (272 tiles, fixed IDs like `X+05Y-07`), `static.zarr.zip` (lon/lat/GEBCO depth per cell), `grid.json`
 - `tiles/v1/<product>/<year>/<granule>.zarr.zip`: one per overpass (layout in `oefm/tiling.py`)
 - `tiles/v1/index/tile_observations.parquet` (the loader's entry point), `summary_by_product.csv`,
-  `eval_coverage.csv` and `eval_coverage_summary.csv` (2.4b)
+  `eval_coverage.csv` and `eval_coverage_summary.csv` (2.4b), `sequence_summary.csv` (2.5)
+- `tiles/v1/physics/physics_daily.zarr`: daily physical fields on an 8 × 8 coarse grid (14.4 km) spanning 3 × 3 tiles around each tile (2.5a)
 - `tiles/v1/examples/*.png` with `*_panels.csv` (2.4)
 
 ### 2-I Data preparation
@@ -205,9 +210,10 @@ Outputs, under `data/processed/regional/`:
 | 2.3 | Tile grid (38.4 km tiles, 32×32 at 1.2 km, OLCI 128×128 at 300 m, local equal-area projection, fixed tile IDs) and per-overpass gridding to Zarr | 2.1 | service | ▶️ built, run in `prep.sbatch` |
 | 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | ▶️ built, run in `prep.sbatch` |
 | 2.4b | Which evaluation samples have usable PACE (and OLCI/MODIS/VIIRS) pixels, per dataset and year | 2.3 | service | ▶️ built, run in `prep.sbatch` |
-| 2.5 | Sequence builder and loader (causal 30 d / ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types), grouped train/validation splits by tile and time block. **PACE years per the PACE-era decision below (needs your OK)** | 2.3 | service | 🛠 |
+| 2.5a | Physics cube: daily SST, SST error, wind u/v/speed, precipitation, ADT, SLA, geostrophic u/v, surface current u/v on a coarse grid around every tile; GEBCO depth static | 2.2 | service | ▶️ built, run in `prep.sbatch` |
+| 2.5 | Loader (`oefm/loader.py`): causal 30 d / retro ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types; temporal, geographic and label partitions, sensor set and PACE visibility all configurable without rebuilding (config `training`) | 2.3 | service | ✅ built and tested; `sequences` reports what each split contains |
 | 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs | 2.3 | service | 🛠 |
-| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Sargassum and HPLC are optional and must not delay Stage 1 | 2.3 | service | 🛠 |
+| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Label splits from `training.partitions.labels`; **target preprocessing (Hellinger, NMF, feature selection) refitted on training labels only** (the existing NMF exports used all samples, so they are not reused for the test). Sargassum and HPLC are optional and must not delay Stage 1 | 2.3 | service | 🛠 |
 
 ### 2-II Stage 1: choose the optical objective (optical inputs only, matched data and capacity)
 
@@ -247,7 +253,7 @@ without re-downloading.
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
 
-### PACE era vs the 2024 hold-out year. *Proposed (2026-11-12), needs your OK before 2.5.*
+### PACE era vs the 2024 hold-out year. *Approved (2026-11-12) with your adjustments; implemented in 2.5.*
 **The constraint (your note).** PACE data start 2024-03-05. Counting every evaluation sample in the
 pilot regions from 2018 on (`config/eval_points.csv`, from `scripts/make_eval_points.py`) by date:
 
@@ -265,23 +271,39 @@ sample is counted by step 2.4b on Ptolemy (`eval_coverage_summary.csv`); expect 
 the eDNA probes are trained without any PACE-era sample, and a 2024 PACE hold-out from pretraining
 would remove 31% of all PACE observations (2024: 2,480 of 8,093 PACE region-observations; 2025: 3,211; 2026: 2,402).
 
-**Proposal.**
-1. **Encoder pretraining (self-supervised, no labels) uses PACE from 2024 and 2025.** Imagery from a
-   test year is not label leakage; holding 2024 out of pretraining as well costs 31% of PACE. A
-   sensitivity run with 2024 excluded from pretraining can be added if a reviewer asks.
-2. **PACE spectral-retention test (Objective 6) years:** train on PACE 2024-03-05 – 2025-12-31,
-   validation 2026-01-01 – 2026-02-28, a 30-day gap (March 2026, unused), **test 2026-04-01 – 2026-10-01**
-   (the last PACE file). Every season is in training; the test lacks winter, so a second test holds out
-   20% of tiles (spatial blocks) across all PACE dates, and errors are reported by wavelength and month.
-3. **eDNA:** keep 2024 as the temporal hold-out (184 samples, incl. the January 2024 cruise). The
-   PACE question is answered *on the same 2024 test samples* by a paired ablation: embeddings with
-   PACE visible vs PACE masked (the loader's sensor masking), so the probe never needs PACE-era
-   training samples. A within-PACE cruise-left-out check (92 samples, 2 cruises) is reported only as
-   exploratory.
-4. **SFER is the one dataset with PACE-era samples in two years:** PACE-vs-no-PACE probes there use
-   train 2024 / test 2025 (395 / 465 samples).
-5. Every evaluation table reports, per dataset and year, the number of samples with usable PACE
-   (from 2.4b) next to the totals.
+**Decision (your approval, with adjustments).** Config `training.partitions`; enforced by `oefm/loader.py`.
+1. **Imagery vs labels.** Self-supervised pretraining uses unlabeled imagery from 2018–2025,
+   including all 2024 and 2025 PACE. The 2024 hold-out applies to downstream biological *labels*,
+   not to self-supervised imagery: no label, and no target derived from labels, enters pretraining.
+2. **PACE spectral retention.** Train March 2024 – December 2025; validate January – February 2026;
+   March 2026 is a separation period used by nothing; test April – October 2026. Every split is
+   formed by first keeping only its own observations and then building windows, so no sequence
+   (causal or retrospective) can contain an observation from another split: a training window near
+   2026-01-01 simply ends at the last 2025 observation. The same holds for all sensors, so heritage
+   observations from the test months are not seen in pretraining either.
+   **Independent geographic test:** tiles grouped in 4 × 4-tile blocks (153.6 km); 20% of blocks
+   (seeded) are held out of pretraining at all times, with a 1-tile buffer used by nothing:
+   193 train tiles (71%), 43 geo-test tiles (16%), 36 buffer tiles (13%). Evaluated on the training
+   period, so it is purely spatial. (3 × 3 blocks would have cost 41% of tiles with the buffer.)
+3. **eDNA.** All 2024 labels held out; probes trained on 2018–2023. Target preprocessing
+   (Hellinger, NMF, feature selection) is refitted without the 2024 samples (step 2.7). PACE-visible
+   vs PACE-hidden embeddings are compared on the identical 2024 test samples
+   (`TileSequences(pace="visible"|"hidden")`); the PACE-specific difference is exploratory.
+4. **PACE coverage reporting.** No complete 30-day PACE history is required. Step 2.4b reports per
+   dataset and year, from actual pixel validity (valid weight in the sample's cell or 3 × 3
+   neighbourhood under the training mask): ≥ 1 valid PACE observation, ≥ 2, whole window inside the
+   PACE era, and whole window plus ≥ 1 valid; same-day PACE; and ≥ 1 for VIIRS, MODIS, OLCI.
+5. **SFER is the primary biological PACE-on/off comparison:** probes trained on labels before 2025
+   (including 2024), tested on 2025 (465 samples, 6 cruises), identical samples and identical heads
+   for PACE visible and hidden.
+6. **Fish:** 2024 labels held out; PACE-specific comparisons exploratory. **Video MaxN dates are
+   month precision only** (checked: all 5,112 events are dated the 15th at 00:00 UTC; the Granite
+   matches were 0.3–3.7 days from that date). They are flagged `time_precision: month`: coverage
+   uses the calendar month, and no exact-date histories are built unless exact survey dates are found
+   in the original GF records.
+7. **Objective comparison (Stage 1):** reconstruction, JEPA and JEPA + PACE guard use the same
+   splits, samples, grouping and preprocessing; ecological prediction and PACE spectral retention are
+   reported separately.
 
 ### Florida eDNA cruise windows: added (2026-11-12, approved)
 Only 119 of 731 surface samples from 2018–2023 had their full 30-day satellite context, because
@@ -489,7 +511,7 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 1.4b inventory | `python -m oefm status` and `python -m oefm windows \| grep -o 'edna_[0-9]*' \| sort -u \| wc -l` | the new files are in and 21 eDNA windows are loaded |
 | P.0 env | `tail -5 logs/oefm_env_<id>.out` | zarr installed |
 | 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
-| 2.0–2.4b full | `tail -60 logs/oefm_prep_<id>.out`; `cat data/processed/regional/tiles/v1/index/summary_by_product.csv data/processed/regional/tiles/v1/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v1/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |
+| 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v1/index/summary_by_product.csv data/processed/regional/tiles/v1/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v1/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |
 | 1.7 MUR re-fetch | `python -m oefm status` (and the sqlite query in 1.7 if they fail again) | mur_sst 3,290 verified, 0 failed |
 | 1.4, if failures | `sqlite3 data/manifest/manifest.sqlite "SELECT product,status,filename,last_error FROM granules WHERE status!='verified' LIMIT 30"` | why those files fail |
 | 1.5 QC | Sections 4–6 of `data/reports/pilot_acquisition_report.md`: `sed -n '/^## 4\./,$p' data/reports/pilot_acquisition_report.md` | mask scenarios, matchups, HISATZEN tables, coverage counts |
@@ -512,6 +534,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-12 | 116101 | prep trial again after the fix: 36 granules tiled, 4 empty (no valid cell in any tile), 0.6 s per granule on 12 workers; 6 example figures; 2.4b ran (all zero: only Feb 2018 tiled) |
 | 2026-11-12 | 116100 | prep trial (`LIMIT=40`): layout, grid (272 tiles), 40 CCMP crops OK; all 40 tile jobs failed on 2018 files without `scan_line_attributes/time`. Fixed: fall back to year/day/msec, then to the file's start/end time. Failed granules are retried automatically on the next run |
 | 2026-11-12 | qc.sbatch | QC run on all data, reviewed (1.6). 34,000+ files verified across 15 products, 6.44 TB; 8 MUR files failed md5 (step 1.7). 21 eDNA windows loaded. HISATZEN settled per sensor (MODIS keeps the hard mask). 7,245 region-days with 2+ instrument families, 2,610 with PACE |
 | 2026-11-12 | download (1.4, 1.4b) | PACE, physical products and the eDNA-window days downloaded; ~220–270 MB/s aggregate |

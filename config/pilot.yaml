@@ -315,3 +315,86 @@ processing:
         olcia_efr_oc: [1.051, 0.843, 0.869, 0.869]
         olcib_efr_oc: [0.998, 1.009, 0.73, 0.73]
         pace_oci_aop: [0.996, 0.998, 1.2, 1.471]
+
+  # Physical fields for the loader (step 2.5a, `python -m oefm physics`): daily values on a coarse
+  # grid around every tile, built once from the regional crops. Native-resolution crops stay in
+  # processed/regional/physical/. The coarse grid spans context_tiles x context_tiles tiles centred
+  # on the tile (3 x 38.4 km = 115.2 km), in coarse_cells x coarse_cells cells (14.4 km); each cell
+  # is the mean of subsamples x subsamples bilinear samples of the source grid. Sub-daily sources
+  # (CCMP 6-hourly) are averaged per UTC day. The first matching variable name is used.
+  physics:
+    coarse_cells: 8
+    context_tiles: 3
+    subsamples: 6
+    variables:
+      - {name: sst,        products: [mur_sst],                  candidates: [analysed_sst]}
+      - {name: sst_error,  products: [mur_sst],                  candidates: [analysis_error]}
+      - {name: wind_u,     products: [ccmp_wind],                candidates: [uwnd, u]}
+      - {name: wind_v,     products: [ccmp_wind],                candidates: [vwnd, v]}
+      - {name: wind_speed, products: [ccmp_wind],                candidates: [ws, w]}
+      - {name: precip,     products: [imerg_final, imerg_late],  candidates: [precipitation, precipitationCal]}
+      - {name: adt,        products: [cmems_sealevel],           candidates: [adt]}
+      - {name: sla,        products: [cmems_sealevel],           candidates: [sla]}
+      - {name: geo_u,      products: [cmems_sealevel],           candidates: [ugos]}
+      - {name: geo_v,      products: [cmems_sealevel],           candidates: [vgos]}
+      - {name: current_u,  products: [cmems_globcurrent],        candidates: [uo]}
+      - {name: current_v,  products: [cmems_globcurrent],        candidates: [vo]}
+    static:
+      - {name: depth,      products: [gebco],                    candidates: [elevation], negate: true}
+
+# ---------------------------------------------------------------------------
+# Training sequences and partitions (step 2.5; approved 2026-11-12). Changing anything here needs
+# no rebuild of tiles or physics: the loader applies it on the fly from the tile index.
+# ---------------------------------------------------------------------------
+training:
+  sequence:
+    causal_days: 30            # causal mode: observations in [t - 30 d, t]
+    retro_half_days: 15        # retrospective mode: observations in [t - 15 d, t + 15 d]
+    lengths: [8, 16, 24]       # benchmarked optical sequence lengths
+    physics_lookback_days: 90
+    min_valid_fraction: 0.05   # an observation enters a sequence only with >= 5% valid 1.2 km cells
+    min_observations: 2        # anchors with fewer real observations in the window are skipped
+  sensors:
+    # Products available to the encoder. pace_oci_sfrefl is a separate optional view (never mixed
+    # with Rrs in normalisation); add it here to use it.
+    include: [modisa_oc, viirsn_oc, viirsj1_oc, viirsj2_oc, olcia_efr_oc, olcib_efr_oc, pace_oci_aop]
+  partitions:
+    pace_start: 2024-03-05
+    # Self-supervised pretraining uses unlabeled imagery from every year up to 2025, including the
+    # 2024 PACE observations: the 2024 hold-out applies to downstream biological LABELS only.
+    # Imagery partitions (all sensors). Observations are assigned by time, and a sequence only ever
+    # contains observations of its own partition, so no window can carry a held-out target into
+    # training. The gap month is used by nothing.
+    temporal:
+      train: [2018-01-01, 2025-12-31]
+      val:   [2026-01-01, 2026-02-28]
+      gap:   [2026-03-01, 2026-03-31]
+      test:  [2026-04-01, 2026-10-01]
+    # Independent geographically blocked test: tiles are grouped into block_tiles x block_tiles
+    # blocks; test_fraction of the blocks (fixed by seed) are held out of pretraining at all times,
+    # with a buffer ring of buffer_tiles tiles that is used by nothing. Evaluated on the training
+    # period, so the geographic test is purely spatial.
+    geographic:
+      block_tiles: 4            # 153.6 km blocks: 71% of tiles train, 16% test, 13% buffer
+      test_fraction: 0.2
+      buffer_tiles: 1
+      seed: 20261112
+    # Downstream biological labels: train on labels before test_from, test on labels from it on.
+    # Target preprocessing (Hellinger transform, NMF, feature selection) is fitted on training
+    # labels only.
+    labels:
+      edna_16S:  {test_from: 2024-01-01}
+      edna_18S:  {test_from: 2024-01-01}
+      fish_crcp: {test_from: 2024-01-01}
+      fish_maxn: {test_from: 2024-01-01, time_precision: month}   # dates are the 15th of each month
+      sfer:      {test_from: 2025-01-01}                           # primary PACE-on/off comparison
+  # Training-time masking (Objective 3). Hidden observations stay in the sample, flagged, so an
+  # objective can use them as targets.
+  masking:
+    spatial_patch_cells: 8       # 8 x 8 cells of 1.2 km
+    spatial_patch_ratio: 0.3     # share of patches hidden in each visible observation
+    drop_sensor_prob: 0.15       # hide every observation of one sensor family
+    drop_time_prob: 0.15         # hide each observation independently
+    pace_mask_prob: 0.25         # hide all PACE when a heritage sensor is also present
+    physics_mask_prob: 0.2       # hide the whole physics stream
+    min_visible_observations: 2

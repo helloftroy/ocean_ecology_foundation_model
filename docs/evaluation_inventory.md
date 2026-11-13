@@ -40,8 +40,10 @@ Counts of samples with a *usable* PACE pixel (valid under the training mask, in 
 cell or its 3 × 3 neighbourhood, within the 30 days before or ± 1 day) come from step 2.4b
 (`tiles/v1/index/eval_coverage_summary.csv`) and will be added here. The year plan for PACE
 (pretraining, spectral-retention test, eDNA 2024 hold-out) is in the cluster_instructions.md
-decision log. MaxN event dates are all the 15th of a month, i.e. month precision only; same-day
-matching is not meaningful for that dataset.
+decision log (approved 2026-11-12: eDNA and fish labels from 2024 are test, SFER labels from 2025
+are test; SFER is the primary PACE-on/off comparison). **Video MaxN dates are month precision
+only**: all 5,112 events are dated the 15th at 00:00 UTC. Coverage for MaxN uses the calendar
+month; exact-date histories need the original survey dates.
 
 ## Microbial communities (Florida metabarcoding)
 
