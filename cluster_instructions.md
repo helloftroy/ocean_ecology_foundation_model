@@ -47,7 +47,7 @@ run. Verified files are never fetched again. Resubmit the same command.
 | 1.4b | Satellite windows around the Florida eDNA cruises: inventory, then download (+487 satellite days, ~0.45 TB) | ✅ 21 windows loaded, all files verified |
 | 1.5 | QC, observation index, matchups, HISATZEN diagnostic, report | ✅ |
 | 1.6 | Paste back the QC results for review | ✅ reviewed 2026-11-12 (see the HISATZEN decision) |
-| 1.7 | Re-fetch the 8 MUR files that failed md5 verification | ▶️ |
+| 1.7 | Re-fetch the 8 MUR files that failed md5 verification | ✅ (all 3,290 MUR days cropped in prep) |
 
 ### 1.0 Environment ✅
 ```bash
@@ -695,6 +695,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-14 | 116124 | prep v2 resubmitted after cleanup: tiles/v1 and data_smoke deleted (~233 GB); `processed --prune-version v1` removed 1,986,998 tile records and 24,335 outputs (database 964 MB → 40 MB). `mmlsquota` is not available to users, so the quota cause stays unconfirmed. All 3,290 MUR days are cropped (so the 8 md5 failures of step 1.7 are resolved) |
 | 2026-11-14 | 116106 | prep v2 re-tile stopped after ~800 of 24,335 granules: `sqlite3.OperationalError: database or disk is full` when writing processing.sqlite (0.3 s per granule before that). Filesystem 21% full, database intact, `quota`/`mmlsquota` printed nothing (errors hidden): a user/group quota (EDQUOT) is the likely cause; usage ~6.15 TB. Also found: index rows of v1 could leak into the v2 index (fixed, export filtered by version) and v1 records made the database 964 MB (new `processed --prune-version v1`). Cleanup + resubmit |
 | 2026-11-12 | 116101 | prep trial again after the fix: 36 granules tiled, 4 empty (no valid cell in any tile), 0.6 s per granule on 12 workers; 6 example figures; 2.4b ran (all zero: only Feb 2018 tiled) |
 | 2026-11-12 | 116100 | prep trial (`LIMIT=40`): layout, grid (272 tiles), 40 CCMP crops OK; all 40 tile jobs failed on 2018 files without `scan_line_attributes/time`. Fixed: fall back to year/day/msec, then to the file's start/end time. Failed granules are retried automatically on the next run |
