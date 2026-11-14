@@ -140,6 +140,16 @@ class ProcessingManifest:
                     f"INSERT OR REPLACE INTO tile_obs ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})",
                     [tuple(r.get(c) if c != "output_path" else rel for c in cols) for r in tile_rows])
 
+    def prune_version(self, version: str) -> dict[str, int]:
+        """Delete the records of one tiles/<version>/ (outputs and tile observations), then VACUUM.
+        The files themselves are not touched (delete the folder separately)."""
+        like = f"processed/regional/tiles/{version}/%"
+        with self.db:
+            n_obs = self.db.execute("DELETE FROM tile_obs WHERE output_path LIKE ?", (like,)).rowcount
+            n_out = self.db.execute("DELETE FROM outputs WHERE output_path LIKE ?", (like,)).rowcount
+        self.db.execute("VACUUM")
+        return {"tile_obs": n_obs, "outputs": n_out}
+
     def summary(self) -> list[sqlite3.Row]:
         return self.db.execute("SELECT step, product, status, COUNT(*) n, SUM(bytes) b, SUM(n_records) r "
                                "FROM outputs GROUP BY step, product, status ORDER BY step, product, status").fetchall()

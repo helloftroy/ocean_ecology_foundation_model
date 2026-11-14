@@ -271,6 +271,16 @@ Model: `oefm/model/` (design document v1: "Ocean Foundation Model Design Decisio
 `config/train_stage1.yaml`. ~41 M parameters per arm (A 40.1 M, B 41.4 M, C 41.8 M). Tested locally on
 CPU with the smoke tiles (all three arms train, resume and benchmark); not yet run on GPUs.
 
+**0a. If prep stopped with "database or disk is full" (job 116106):** check quotas with errors visible,
+free the superseded data, compact the manifest, resubmit:
+```bash
+git pull
+mmlsquota -u hmp278 --block-size auto; mmlsquota -g ngi --block-size auto     # paste these
+rm -rf data/processed/regional/tiles/v1 data_smoke                             # superseded (v1) and the step-1.1 test copy
+source cluster/env.sh && python -m oefm processed --prune-version v1           # removes v1 records, VACUUM
+sbatch --account=191001-366746 cluster/prep.sbatch                             # continues where it stopped
+```
+
 **0. Re-run the data preparation (tiles are now v2, see the decision log):**
 ```bash
 git pull
@@ -685,7 +695,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
-| 2026-11-14 | 116106 | prep v2 re-tile stopped after ~800 of 24,335 granules: `sqlite3.OperationalError: database or disk is full` when writing processing.sqlite (0.3 s per granule before that). Diagnosing quota / disk; the run resumes where it stopped |
+| 2026-11-14 | 116106 | prep v2 re-tile stopped after ~800 of 24,335 granules: `sqlite3.OperationalError: database or disk is full` when writing processing.sqlite (0.3 s per granule before that). Filesystem 21% full, database intact, `quota`/`mmlsquota` printed nothing (errors hidden): a user/group quota (EDQUOT) is the likely cause; usage ~6.15 TB. Also found: index rows of v1 could leak into the v2 index (fixed, export filtered by version) and v1 records made the database 964 MB (new `processed --prune-version v1`). Cleanup + resubmit |
 | 2026-11-12 | 116101 | prep trial again after the fix: 36 granules tiled, 4 empty (no valid cell in any tile), 0.6 s per granule on 12 workers; 6 example figures; 2.4b ran (all zero: only Feb 2018 tiled) |
 | 2026-11-12 | 116100 | prep trial (`LIMIT=40`): layout, grid (272 tiles), 40 CCMP crops OK; all 40 tile jobs failed on 2018 files without `scan_line_attributes/time`. Fixed: fall back to year/day/msec, then to the file's start/end time. Failed granules are retried automatically on the next run |
 | 2026-11-12 | qc.sbatch | QC run on all data, reviewed (1.6). 34,000+ files verified across 15 products, 6.44 TB; 8 MUR files failed md5 (step 1.7). 21 eDNA windows loaded. HISATZEN settled per sensor (MODIS keeps the hard mask). 7,245 region-days with 2+ instrument families, 2,610 with PACE |

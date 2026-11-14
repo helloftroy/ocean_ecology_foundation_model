@@ -486,7 +486,10 @@ def export_index(cfg: Config, log=print) -> Path | None:
     import pandas as pd
 
     pm = ProcessingManifest(cfg)
-    df = pd.read_sql_query("SELECT * FROM tile_obs", pm.db)
+    # only this processing version: tile_obs is keyed by (granule, tile), so rows of other versions
+    # may remain in the database; they must never enter this version's index
+    prefix = str(tiles_root(cfg).relative_to(cfg.data_root)) + "/"
+    df = pd.read_sql_query("SELECT * FROM tile_obs WHERE output_path LIKE ?", pm.db, params=(prefix + "%",))
     pm.close()
     if df.empty:
         return None

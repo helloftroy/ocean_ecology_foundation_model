@@ -117,7 +117,8 @@ def main(argv: list[str] | None = None) -> None:
     ns = sub.add_parser("normstats")
     ns.add_argument("--observations", type=int, default=3000, help="training observations sampled for the transform")
     ns.add_argument("--pace-observations", type=int, default=800, help="training PACE observations for the ridge")
-    sub.add_parser("processed")
+    pr = sub.add_parser("processed")
+    pr.add_argument("--prune-version", help="delete the manifest records of tiles/<version>/ (e.g. v1) and compact")
 
     args = p.parse_args(argv)
     cfg = load_config(args.config, date.fromisoformat(args.today) if args.today else None)
@@ -506,6 +507,13 @@ def cmd_processed(cfg, args) -> None:
     from .provenance import ProcessingManifest
 
     pm = ProcessingManifest(cfg)
+    if args.prune_version:
+        from .provenance import processing_version
+
+        if args.prune_version == processing_version(cfg):
+            raise SystemExit(f"refusing to prune the current processing version {args.prune_version}")
+        log(f"pruned {args.prune_version}: {pm.prune_version(args.prune_version)}; "
+            f"database now {pm.path.stat().st_size / 1e6:,.0f} MB")
     log(f"{'step':8s} {'product':18s} {'status':7s} {'outputs':>8s} {'GB':>8s} {'records':>9s}")
     for r in pm.summary():
         log(f"{r['step']:8s} {r['product'] or '-':18s} {r['status']:7s} {r['n']:8,d} {(r['b'] or 0) / 1e9:8.2f} "
