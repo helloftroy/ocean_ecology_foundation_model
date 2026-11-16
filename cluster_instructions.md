@@ -16,21 +16,21 @@ Status key: ✅ done · ▶️ next · ⏳ waiting on an earlier step · 🛠 no
 Prep v2 (job 116124) has finished. The remaining steps before training, in order. A and B are
 independent and can run at the same time; C needs B; D needs A, B and C.
 
-**A. Evaluation targets + PISCES nutrients (2.6, 2.7).** First copy the label files from the laptop
-(once; they stay out of the public repo):
-```bash
-# on your laptop, from multimodal_seusmbol/
-ssh hmp278@ptolemy-login-2.arc.msstate.edu mkdir -p /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval
-scp eval_targets/* hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval/
-```
-Then on Ptolemy (a download job: `squeue -u hmp278` must show no other download running):
+**A. Evaluation targets + PISCES nutrients (2.6, 2.7).** Evaluation sets ✅ (job 116161); the
+PISCES download failed (all 109 files: `open_group() got an unexpected keyword argument 'zarr_format'`,
+because pip picked up xarray 2026.4+, which needs zarr 3; our tiles pin zarr 2). Fixed by pinning
+`xarray<2026.4` in `requirements.txt`. Rebuild the CPU environment, then rerun the targets job
+(the failed files are retried; evalsets is rerun so the summary includes the PISCES step):
 ```bash
 git pull
-sbatch --account=191001-366746 cluster/targets.sbatch
+sbatch --account=191001-366746 cluster/setup_env.sbatch
+# when it has finished (check: source cluster/env.sh && python -c "import xarray, zarr; print(xarray.__version__, zarr.__version__)"  -> 2026.2.0 2.18.x):
+squeue -u hmp278                      # no other download running
+sbatch --account=191001-366746 --export=ALL,STEPS="download build evalsets" cluster/targets.sbatch
 ```
 Paste back: `tail -40 logs/oefm_targets_<id>.out`.
 
-**B. GPU environment (2.8b),** at the same time as A:
+**B. GPU environment (2.8b),** at the same time as A (if you already ran it before the xarray pin, run it again after `git pull`; pip downgrades xarray in place):
 ```bash
 sbatch --account=191001-366746 cluster/setup_gpu_env.sbatch
 ```
@@ -739,6 +739,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-16 | 116161 | targets: evalsets ✅ (eDNA test 183, 100 with ≥1 PACE / 92 with ≥2; SFER test 465, 459/457; CRCP test 1,057, 1,027/995; MaxN test 616, all with PACE). PISCES download: 0 of 109 (xarray 2026.4+ passes `zarr_format`, unsupported by zarr 2). Fixed: `xarray<2026.4`; rebuild env, rerun download build evalsets |
 | 2026-11-16 | 116124 | prep v2 finished successfully (user report): tiles, index, coverage, physics, sequences, normstats. Next: targets + GPU env |
 | 2026-11-14 | 116124 | prep v2 resubmitted after cleanup: tiles/v1 and data_smoke deleted (~233 GB); `processed --prune-version v1` removed 1,986,998 tile records and 24,335 outputs (database 964 MB → 40 MB). `mmlsquota` is not available to users, so the quota cause stays unconfirmed. All 3,290 MUR days are cropped (so the 8 md5 failures of step 1.7 are resolved) |
 | 2026-11-14 | 116106 | prep v2 re-tile stopped after ~800 of 24,335 granules: `sqlite3.OperationalError: database or disk is full` when writing processing.sqlite (0.3 s per granule before that). Filesystem 21% full, database intact, `quota`/`mmlsquota` printed nothing (errors hidden): a user/group quota (EDQUOT) is the likely cause; usage ~6.15 TB. Also found: index rows of v1 could leak into the v2 index (fixed, export filtered by version) and v1 records made the database 964 MB (new `processed --prune-version v1`). Cleanup + resubmit |

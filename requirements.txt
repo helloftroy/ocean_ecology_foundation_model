@@ -5,7 +5,7 @@ requests
 numpy
 pandas
 pyarrow
-xarray
+xarray>=2025.7,<2026.4   # 2026.4+ needs zarr 3 (copernicusmarine downloads failed with zarr 2, job 116161)
 netCDF4
 h5py
 matplotlib
