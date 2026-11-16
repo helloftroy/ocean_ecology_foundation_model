@@ -1,13 +1,57 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-12** (Stage 1 model built per the design document v1; tiles move to v2 (new flag policy): **re-run prep.sbatch**).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-16** (prep v2 finished, job 116124; next: targets + GPU setup, see **What to run now**).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
 - Details of each command: [README.md](README.md); project state: [PROJECT_NOTES.md](PROJECT_NOTES.md)
 
 Status key: ✅ done · ▶️ next · ⏳ waiting on an earlier step · 🛠 not built yet (scripts still to write)
+
+---
+
+## ▶️ What to run now (2026-11-16)
+
+Prep v2 (job 116124) has finished. The remaining steps before training, in order. A and B are
+independent and can run at the same time; C needs B; D needs A, B and C.
+
+**A. Evaluation targets + PISCES nutrients (2.6, 2.7).** First copy the label files from the laptop
+(once; they stay out of the public repo):
+```bash
+# on your laptop, from multimodal_seusmbol/
+ssh hmp278@ptolemy-login-2.arc.msstate.edu mkdir -p /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval
+scp eval_targets/* hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval/
+```
+Then on Ptolemy (a download job: `squeue -u hmp278` must show no other download running):
+```bash
+git pull
+sbatch --account=191001-366746 cluster/targets.sbatch
+```
+Paste back: `tail -40 logs/oefm_targets_<id>.out`.
+
+**B. GPU environment (2.8b),** at the same time as A:
+```bash
+sbatch --account=191001-366746 cluster/setup_gpu_env.sbatch
+```
+Paste back: `tail -10 logs/oefm_gpuenv_<id>.out`.
+
+**C. GPU check,** when B has finished (a few minutes on 4 A100s):
+```bash
+sbatch --account=191001-366746 cluster/gpu_check.sbatch
+```
+Paste back: `tail -30 logs/oefm_gpucheck_<id>.out`.
+
+**D. Benchmarks (2.8c),** when C looks good (27 configurations × 200 steps, several hours):
+```bash
+sbatch --account=191001-366746 cluster/benchmark.sbatch
+```
+Paste back the summary table at the end of `logs/oefm_bench_<id>.out`. I then fix batch, length and
+steps in `config/train_stage1.yaml`, and you start training (section "Running Stage 1", step 3).
+
+Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
+`cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
+and copy back `data/processed/regional/tiles/v2/examples/`.
 
 ---
 
@@ -129,7 +173,7 @@ Outputs, under `data/`:
 See [What to paste back](#what-to-paste-back), row 1.5. Reviewed 2026-11-12: the HISATZEN rule is
 applied per sensor (decision log); the QC tables, maps and observation counts raise no blockers.
 
-### 1.7 Re-fetch 8 MUR files ▶️
+### 1.7 Re-fetch 8 MUR files ✅ (all 3,290 MUR days cropped in prep v2)
 The report lists 8 `mur_sst` files as `failed` with `verify: md5 mismatch` (5.9 GB). Every other
 file of all 15 products is verified. A failed file is deleted and fetched cleanly on the next run:
 ```bash
@@ -192,14 +236,14 @@ Run 1.7 (MUR re-fetch) first if you can; otherwise the 8 missing MUR days are cr
 Outputs, under `data/processed/regional/`:
 - `processing.sqlite`: every output with its raw sources (sha256), git commit, parameters, transformations
 - `physical/<product>/<year>/*.nc`: cropped physical files, values and encoding unchanged
-- `tiles/v1/grid/`: `tiles.csv` (272 tiles, fixed IDs like `X+05Y-07`), `static.zarr.zip` (lon/lat/GEBCO depth per cell), `grid.json`
-- `tiles/v1/<product>/<year>/<granule>.zarr.zip`: one per overpass (layout in `oefm/tiling.py`)
-- `tiles/v1/index/tile_observations.parquet` (the loader's entry point), `summary_by_product.csv`,
+- `tiles/v2/grid/`: `tiles.csv` (272 tiles, fixed IDs like `X+05Y-07`), `static.zarr.zip` (lon/lat/GEBCO depth per cell), `grid.json`
+- `tiles/v2/<product>/<year>/<granule>.zarr.zip`: one per overpass (layout in `oefm/tiling.py`)
+- `tiles/v2/index/tile_observations.parquet` (the loader's entry point), `summary_by_product.csv`,
   `eval_coverage.csv` and `eval_coverage_summary.csv` (2.4b), `sequence_summary.csv` (2.5)
-- `tiles/v1/physics/physics_daily.zarr`: daily physical fields on an 8 × 8 coarse grid (14.4 km) spanning 3 × 3 tiles around each tile (2.5a)
-- `tiles/v1/examples/*.png` with `*_panels.csv` (2.4)
+- `tiles/v2/physics/physics_daily.zarr`: daily physical fields on an 8 × 8 coarse grid (14.4 km) spanning 3 × 3 tiles around each tile (2.5a)
+- `tiles/v2/examples/*.png` with `*_panels.csv` (2.4)
 
-### After prep.sbatch: 2.6 nutrient targets and 2.7 evaluation sets
+### After prep.sbatch: 2.6 nutrient targets and 2.7 evaluation sets ▶️ (step A of "What to run now")
 
 Run these once the full `prep.sbatch` has finished (it writes the tile index and `eval_coverage.csv`).
 
@@ -231,25 +275,25 @@ sbatch --account=191001-366746 cluster/targets.sbatch
 Runs: inventory of `pisces_nutrients` (daily surface PO₄/NO₃/Si, reanalysis 202406 to 2026-08-31,
 then the forecast product 202311) → download (monthly domain subsets, a few GB) → `oefm targets`
 (per tile and day, log + z-score from the training partition) → `oefm evalsets`.
-Outputs: `tiles/v1/targets/pisces_daily.zarr`; `processed/regional/eval/matched/*.csv.gz` and
+Outputs: `tiles/v2/targets/pisces_daily.zarr`; `processed/regional/eval/matched/*.csv.gz` and
 `matched/summary.csv` (per dataset × label split: samples, with usable optical data, with ≥ 1 and ≥ 2
 usable PACE observations, years).
 Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 
-**3. Then Stage 1 (2.8+), not built yet:** see the open questions under 2-II.
+**3. Then Stage 1 (2.8+):** see "Running Stage 1 on Ptolemy" below.
 
 ### 2-I Data preparation
 
 | # | Step | Needs | Runs on | Status |
 |---|---|---|---|---|
-| P.0 | Rebuild the Python environment (adds `zarr`) | – | service | ▶️ |
-| 2.0 | `data/processed/regional/` and `data/processed/global/` (global stays empty), plus a processing manifest (source files, code version, subset, transformations) | – | service | ▶️ built, run in `prep.sbatch` |
+| P.0 | Rebuild the Python environment (adds `zarr`) | – | service | ✅ |
+| 2.0 | `data/processed/regional/` and `data/processed/global/` (global stays empty), plus a processing manifest (source files, code version, subset, transformations) | – | service | ✅ prep v2 (116124) |
 | 2.1 | Final QC policy: hard rejects per sensor, HISATZEN as a tag (not for MODIS), 665 nm angle weights from 45°, a strict subset for spectral evaluation, SFREFL rules kept separate | 1.5 reviewed ✅ | – | ✅ in `config/pilot.yaml` (`processing.qc`), applied by 2.3 |
-| 2.2 | Regional crops of MUR and the other physical fields, with a context margin (raw global files kept) | 1.4 | service | ▶️ built, run in `prep.sbatch` |
-| 2.3 | Tile grid (38.4 km tiles, 32×32 at 1.2 km, OLCI 128×128 at 300 m, local equal-area projection, fixed tile IDs) and per-overpass gridding to Zarr | 2.1 | service | ▶️ built, run in `prep.sbatch` |
-| 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | ▶️ built, run in `prep.sbatch` |
-| 2.4b | Which evaluation samples have usable PACE (and OLCI/MODIS/VIIRS) pixels, per dataset and year | 2.3 | service | ▶️ built, run in `prep.sbatch` |
-| 2.5a | Physics cube: daily SST, SST error, wind u/v/speed, precipitation, ADT, SLA, geostrophic u/v, surface current u/v on a coarse grid around every tile; GEBCO depth static | 2.2 | service | ▶️ built, run in `prep.sbatch` |
+| 2.2 | Regional crops of MUR and the other physical fields, with a context margin (raw global files kept) | 1.4 | service | ✅ prep v2 (116124) |
+| 2.3 | Tile grid (38.4 km tiles, 32×32 at 1.2 km, OLCI 128×128 at 300 m, local equal-area projection, fixed tile IDs) and per-overpass gridding to Zarr | 2.1 | service | ✅ prep v2 (116124) |
+| 2.4 | Visual check: a few multisensor tile examples | 2.3 | service | ✅ prep v2 (116124) |
+| 2.4b | Which evaluation samples have usable PACE (and OLCI/MODIS/VIIRS) pixels, per dataset and year | 2.3 | service | ✅ prep v2 (116124) |
+| 2.5a | Physics cube: daily SST, SST error, wind u/v/speed, precipitation, ADT, SLA, geostrophic u/v, surface current u/v on a coarse grid around every tile; GEBCO depth static | 2.2 | service | ✅ prep v2 (116124) |
 | 2.5 | Loader (`oefm/loader.py`): causal 30 d / retro ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types; temporal, geographic and label partitions, sensor set and PACE visibility all configurable without rebuilding (config `training`) | 2.3 | service | ✅ built and tested; `sequences` reports what each split contains |
 | 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs: download (config `targets.pisces_nutrients`), then `oefm targets` | 2.3 | service | ▶️ built, run in `targets.sbatch` |
 | 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Label splits from `training.partitions.labels`; **target preprocessing (Hellinger, NMF, feature selection) refitted on training labels only** (the existing NMF exports used all samples, so they are not reused for the test). Sargassum and HPLC are optional and must not delay Stage 1. Targets built on the laptop (`scripts/make_eval_targets.py`), joined on Ptolemy (`oefm evalsets`) | 2.3 | laptop + service | ▶️ built; targets made 2026-11-12 |
@@ -258,10 +302,10 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 
 | # | Step | Runs on | Status |
 |---|---|---|---|
-| 2.8a | Frozen training statistics: reflectance transform curves and the PACE heritage ridge (`oefm normstats`, last step of `prep.sbatch`) | service | ▶️ built |
+| 2.8a | Frozen training statistics: reflectance transform curves and the PACE heritage ridge (`oefm normstats`, last step of `prep.sbatch`) | service | ✅ prep v2 (116124) |
 | 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ▶️ built |
 | 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ▶️ built |
-| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ▶️ built; run after 2.8c |
+| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ⏳ built; run after 2.8c |
 | 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | 🛠 |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | 🛠 |
 
@@ -271,7 +315,7 @@ Model: `oefm/model/` (design document v1: "Ocean Foundation Model Design Decisio
 `config/train_stage1.yaml`. ~41 M parameters per arm (A 40.1 M, B 41.4 M, C 41.8 M). Tested locally on
 CPU with the smoke tiles (all three arms train, resume and benchmark); not yet run on GPUs.
 
-**0a. If prep stopped with "database or disk is full" (job 116106):** check quotas with errors visible,
+**0a. ✅ Done (116106 → 116124). If prep stopped with "database or disk is full" (job 116106):** check quotas with errors visible,
 free the superseded data, compact the manifest, resubmit:
 ```bash
 git pull
@@ -281,7 +325,7 @@ source cluster/env.sh && python -m oefm processed --prune-version v1           #
 sbatch --account=191001-366746 cluster/prep.sbatch                             # continues where it stopped
 ```
 
-**0. Re-run the data preparation (tiles are now v2, see the decision log):**
+**0. ✅ Done (job 116124). Re-run the data preparation (tiles are now v2, see the decision log):**
 ```bash
 git pull
 squeue -u hmp278                                   # cancel a still-running prep job first: scancel <id>
@@ -672,7 +716,7 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 2.9 training | `tail -5 data/runs/stage1_<ARM>/log.jsonl` | losses per modality, SIGReg, effective rank, no collapse |
 | 2.6–2.7 targets | `tail -40 logs/oefm_targets_<id>.out` | PISCES days per source, tile coverage, the matched-evaluation summary |
 | 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
-| 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v1/index/summary_by_product.csv data/processed/regional/tiles/v1/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v1/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |
+| 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v2/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |
 | 1.7 MUR re-fetch | `python -m oefm status` (and the sqlite query in 1.7 if they fail again) | mur_sst 3,290 verified, 0 failed |
 | 1.4, if failures | `sqlite3 data/manifest/manifest.sqlite "SELECT product,status,filename,last_error FROM granules WHERE status!='verified' LIMIT 30"` | why those files fail |
 | 1.5 QC | Sections 4–6 of `data/reports/pilot_acquisition_report.md`: `sed -n '/^## 4\./,$p' data/reports/pilot_acquisition_report.md` | mask scenarios, matchups, HISATZEN tables, coverage counts |
@@ -695,6 +739,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-16 | 116124 | prep v2 finished successfully (user report): tiles, index, coverage, physics, sequences, normstats. Next: targets + GPU env |
 | 2026-11-14 | 116124 | prep v2 resubmitted after cleanup: tiles/v1 and data_smoke deleted (~233 GB); `processed --prune-version v1` removed 1,986,998 tile records and 24,335 outputs (database 964 MB → 40 MB). `mmlsquota` is not available to users, so the quota cause stays unconfirmed. All 3,290 MUR days are cropped (so the 8 md5 failures of step 1.7 are resolved) |
 | 2026-11-14 | 116106 | prep v2 re-tile stopped after ~800 of 24,335 granules: `sqlite3.OperationalError: database or disk is full` when writing processing.sqlite (0.3 s per granule before that). Filesystem 21% full, database intact, `quota`/`mmlsquota` printed nothing (errors hidden): a user/group quota (EDQUOT) is the likely cause; usage ~6.15 TB. Also found: index rows of v1 could leak into the v2 index (fixed, export filtered by version) and v1 records made the database 964 MB (new `processed --prune-version v1`). Cleanup + resubmit |
 | 2026-11-12 | 116101 | prep trial again after the fix: 36 granules tiled, 4 empty (no valid cell in any tile), 0.6 s per granule on 12 workers; 6 example figures; 2.4b ran (all zero: only Feb 2018 tiled) |
