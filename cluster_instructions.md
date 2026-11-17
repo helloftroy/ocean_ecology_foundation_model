@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-16** (prep v2 finished, job 116124; next: targets + GPU setup, see **What to run now**).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-17** (benchmark 116176 failed on a pandas 3 date bug, fixed; check normstats, rerun benchmark: see **What to run now**, step D).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -42,12 +42,32 @@ sbatch --account=191001-366746 cluster/gpu_check.sbatch
 ```
 Paste back: `tail -30 logs/oefm_gpucheck_<id>.out`.
 
-**D. Benchmarks (2.8c),** when C looks good (27 configurations × 200 steps, several hours):
+**D. Benchmarks (2.8c).** First run (job 116176) failed on every configuration with `anchors 0`:
+the GPU environment has pandas 3, which parses dates at microsecond resolution, so the loader's
+times came out 1,000× too small (all in January 1970) and no observation fell in the training years.
+Not a memory problem. Fixed in `oefm/loader.py` (tests now pass under pandas 3.1). An empty
+training set now stops with a clear error, and the benchmark stops if its first configuration fails.
+
+D1. Check whether prep's training statistics were affected (if the CPU environment also had pandas 3
+when prep ran, `normstats` silently skipped):
 ```bash
+git pull
+source cluster/env.sh && python -c "import pandas; print(pandas.__version__)"
+grep -h "normstats\|pace ridge" logs/oefm_prep_116124.out
+```
+If the grep shows "no training observations ... skipped" (or nothing), or pandas is 3.x, rebuild the
+sequence summary and statistics (minutes to an hour):
+```bash
+sbatch --account=191001-366746 --export=ALL,STEPS="sequences normstats" cluster/prep.sbatch
+```
+D2. Then the benchmark again:
+```bash
+git pull
 sbatch --account=191001-366746 cluster/benchmark.sbatch
 ```
-Paste back the summary table at the end of `logs/oefm_bench_<id>.out`. I then fix batch, length and
-steps in `config/train_stage1.yaml`, and you start training (section "Running Stage 1", step 3).
+Paste back the summary table at the end of `logs/oefm_bench_<id>.out` (if it stops on the first
+configuration: `tail -40 logs/oefm_bench_<id>.err`). I then fix batch, length and steps in
+`config/train_stage1.yaml`, and you start training (section "Running Stage 1", step 3).
 
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
@@ -739,6 +759,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-17 | 116176 | benchmark: all 27 configurations failed with `anchors 0` (reported as "probably out of memory"). Cause: pandas 3 in the GPU env parses times at µs resolution; `astype(int64)/1e9` in the loader gave 1970 dates. Fixed (resolution-independent epoch seconds); empty training set now errors; benchmark stops if the first configuration fails |
 | 2026-11-16 | 116161 | targets: evalsets ✅ (eDNA test 183, 100 with ≥1 PACE / 92 with ≥2; SFER test 465, 459/457; CRCP test 1,057, 1,027/995; MaxN test 616, all with PACE). PISCES download: 0 of 109 (xarray 2026.4+ passes `zarr_format`, unsupported by zarr 2). Fixed: `xarray<2026.4`; rebuild env, rerun download build evalsets |
 | 2026-11-16 | 116124 | prep v2 finished successfully (user report): tiles, index, coverage, physics, sequences, normstats. Next: targets + GPU env |
 | 2026-11-14 | 116124 | prep v2 resubmitted after cleanup: tiles/v1 and data_smoke deleted (~233 GB); `processed --prune-version v1` removed 1,986,998 tile records and 24,335 outputs (database 964 MB → 40 MB). `mmlsquota` is not available to users, so the quota cause stays unconfirmed. All 3,290 MUR days are cropped (so the 8 md5 failures of step 1.7 are resolved) |

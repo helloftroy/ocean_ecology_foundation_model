@@ -21,11 +21,16 @@ set -uo pipefail
 export OEFM_ENV="${OEFM_GPU_ENV:-/scratch/ptolemy/users/${USER}/envs/oefm_gpu}"
 source "${SLURM_SUBMIT_DIR:-$(pwd)}/cluster/env.sh"
 ARMS="${ARMS:-A B C}"; LENGTHS="${LENGTHS:-8 16 24}"; BATCHES="${BATCHES:-2 4 8}"; BENCH_STEPS="${BENCH_STEPS:-200}"
+n=0
 for arm in ${ARMS}; do for L in ${LENGTHS}; do for b in ${BATCHES}; do
+  n=$((n + 1))
   echo "=== arm ${arm} length ${L} per-GPU batch ${b} $(date)"
-  torchrun --standalone --nproc_per_node=4 -m oefm.model.train --arm "${arm}" --name "bench_${arm}" \
-    --benchmark "${BENCH_STEPS}" --override data.length="${L}" optim.per_gpu_batch="${b}" data.num_workers=6 \
-    || echo "FAILED (probably out of memory): arm ${arm} L ${L} batch ${b}"
+  if ! torchrun --standalone --nproc_per_node=4 -m oefm.model.train --arm "${arm}" --name "bench_${arm}" \
+      --benchmark "${BENCH_STEPS}" --override data.length="${L}" optim.per_gpu_batch="${b}" data.num_workers=6; then
+    echo "FAILED: arm ${arm} L ${L} batch ${b} (out of memory, or another error: see logs/oefm_bench_${SLURM_JOB_ID:-}.err)"
+    # the first (smallest) configuration failing is not a memory problem: stop instead of repeating it 26 times
+    if [ "${n}" = 1 ]; then echo "First configuration failed: stopping. Paste: tail -40 logs/oefm_bench_${SLURM_JOB_ID:-}.err"; exit 1; fi
+  fi
 done; done; done
 python - <<'PY'
 import glob, json, os

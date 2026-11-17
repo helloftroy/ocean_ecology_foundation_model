@@ -119,6 +119,9 @@ class TrainData(torch.utils.data.Dataset):
         self.seq = TileSequences(cfg, split=split, mode=d["mode"], length=d["length"], sensors=d.get("sensors"),
                                  selection="random" if split == "train" else "recent", include_300m=True,
                                  physics=False, seed=seed)
+        if len(self.seq) == 0:
+            raise RuntimeError(f"no '{split}' training sequences (0 anchors): check the tile index, the partitions in "
+                               f"config training.partitions and the observation times; summary {self.seq.summary()}")
         self.norm = Normalizer.load(stats_dir(cfg) / "normstats.json")
         rp = stats_dir(cfg) / "pace_ridge.npz"
         self.ridge = dict(np.load(rp)) if (tcfg["arm"] == "C" and rp.exists()) else None

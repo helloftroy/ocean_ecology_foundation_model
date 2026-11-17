@@ -163,7 +163,10 @@ class TileSequences:
         if pace == "drop":
             df = df[df["family"] != "PACE"]
         df = df[df["valid_fraction"] >= float(self.seq["min_valid_fraction"])].copy()
-        df["t"] = pd.to_datetime(df["time_utc"], utc=True, format="ISO8601").astype("int64") / 1e9
+        # seconds since the epoch; independent of the datetime resolution (pandas 3 parses strings at
+        # microseconds, so .astype("int64") / 1e9 would be 1,000 times too small)
+        df["t"] = ((pd.to_datetime(df["time_utc"], utc=True, format="ISO8601") - pd.Timestamp(0, tz="UTC"))
+                   / pd.Timedelta(seconds=1)).astype("f8")
         df["t_label"] = temporal_labels(cfg, df["t"].to_numpy())
         geo = geographic_labels(cfg, self.grid)
         df["g_label"] = df["tile_id"].map(geo).fillna("none")

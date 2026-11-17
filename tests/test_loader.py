@@ -43,7 +43,8 @@ class TestPartitions(unittest.TestCase):
 
     def test_temporal_labels(self):
         t = pd.to_datetime(["2025-12-31T23:00Z", "2026-01-01T00:00Z", "2026-03-15T00:00Z", "2026-10-01T23:00Z",
-                            "2026-10-02T00:00Z"], utc=True).astype("int64").to_numpy() / 1e9
+                            "2026-10-02T00:00Z"], utc=True)
+        t = ((t - pd.Timestamp(0, tz="UTC")) / pd.Timedelta(seconds=1)).to_numpy()
         self.assertEqual(list(temporal_labels(self.cfg, t)), ["train", "val", "gap", "test", "none"])
 
     def test_no_leakage_between_splits(self):
