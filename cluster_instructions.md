@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-17** (benchmark 116190 failed on a bf16 dtype bug, fixed: `git pull` and rerun the benchmark, **What to run now** step D2).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-18** (benchmark 116191: arm A done; B/C multi-GPU hang fixed: rerun B and C, **What to run now** step D2).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -60,12 +60,16 @@ sequence summary and statistics (minutes to an hour):
 ```bash
 sbatch --account=191001-366746 --export=ALL,STEPS="sequences normstats" cluster/prep.sbatch
 ```
-D2. Then the benchmark again:
+D2. Benchmark. Arm A ✅ (job 116191, all 9 configurations; table in the job history). Arms B and C
+hung on every configuration (fixed, see the job history). Peak memory was at most 10.5 GB of 80 GB,
+so larger per-GPU batches are worth timing too (32 = no gradient accumulation):
 ```bash
 git pull
-sbatch --account=191001-366746 cluster/benchmark.sbatch
+sbatch --account=191001-366746 --export=ALL,ARMS="B C",BATCHES="4 8 16 32" cluster/benchmark.sbatch
+sbatch --account=191001-366746 --export=ALL,ARMS="A",BATCHES="16 32" cluster/benchmark.sbatch
 ```
-Paste back the summary table at the end of `logs/oefm_bench_<id>.out` (if it stops on the first
+(the second queues behind the first). Paste back the summary table at the end of each
+`logs/oefm_bench_<id>.out` (it lists every benchmark so far; if a job stops on its first
 configuration: `tail -40 logs/oefm_bench_<id>.err`). I then fix batch, length and steps in
 `config/train_stage1.yaml`, and you start training (section "Running Stage 1", step 3).
 
@@ -759,6 +763,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-18 | 116191 | benchmark: arm A ✅ all 9 (seq/s, peak GB, projected h for 30k steps × 128: L8 b2/4/8 42.4/60.1/83.6, 1.8/2.6/4.4 GB, 25.1/17.7/12.8 h; L16 33.8/45.5/53.6, 2.5/4.2/7.4 GB, 31.6/23.5/19.9 h; L24 29.0/34.5/38.3, 3.3/5.7/10.5 GB, 36.8/30.9/27.9 h; loader wait ≤ 1%). Arms B and C: all 18 died at ~10.5 min each = NCCL 10-min timeout. Cause: GroupSIGReg's autograd all_reduce ran inside backward and interleaved with DDP's gradient all-reduces in a different order per rank (ranks hold different view groups). Reproduced with 2-process gloo DDP; fixed (all-reduce detached sums in forward, gradient through local tokens × world size: identical loss and gradient to 1e-9); new tests/test_ddp.py |
 | 2026-11-17 | 116190 | benchmark: 932,992 training anchors (date fix works; normstats rebuilt in 116188), but the first configuration failed under bf16 autocast: `Index put requires the source and destination dtypes match` (predictor input grid float32, projection output bf16). Fixed in `oefm/model/net.py`; new test runs all arms under bf16 autocast. Rerun benchmark |
 | 2026-11-17 | 116176 | benchmark: all 27 configurations failed with `anchors 0` (reported as "probably out of memory"). Cause: pandas 3 in the GPU env parses times at µs resolution; `astype(int64)/1e9` in the loader gave 1970 dates. Fixed (resolution-independent epoch seconds); empty training set now errors; benchmark stops if the first configuration fails |
 | 2026-11-16 | 116161 | targets: evalsets ✅ (eDNA test 183, 100 with ≥1 PACE / 92 with ≥2; SFER test 465, 459/457; CRCP test 1,057, 1,027/995; MaxN test 616, all with PACE). PISCES download: 0 of 109 (xarray 2026.4+ passes `zarr_format`, unsupported by zarr 2). Fixed: `xarray<2026.4`; rebuild env, rerun download build evalsets |

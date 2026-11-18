@@ -79,10 +79,21 @@ class SIGReg(torch.nn.Module):
 
 
 def _all_reduce_sum(x: torch.Tensor) -> torch.Tensor:
-    if dist.is_available() and dist.is_initialized():
-        from torch.distributed.nn import all_reduce as functional_all_reduce
+    """Global sum over ranks with NO collective in the backward pass.
 
-        return functional_all_reduce(x, op=dist.ReduceOp.SUM)
+    The value is the all-reduced sum. The gradient flows only through this rank's own term, scaled
+    by the world size: every rank computes the same global loss, DDP then averages the gradients over
+    ranks, so x world size gives exactly the gradient of the global statistic (what an autograd
+    all_reduce would give). An autograd all_reduce instead runs a collective inside backward, which
+    can interleave with DDP's gradient all-reduces in a different order on each rank when the ranks'
+    graphs differ (different view groups per GPU): mismatched collectives, then a hang (job 116191).
+    """
+    if dist.is_available() and dist.is_initialized() and dist.get_world_size() > 1:
+        world = dist.get_world_size()
+        total = x.detach().clone()
+        dist.all_reduce(total, op=dist.ReduceOp.SUM)
+        local = x * world
+        return local + (total - local).detach()
     return x
 
 
