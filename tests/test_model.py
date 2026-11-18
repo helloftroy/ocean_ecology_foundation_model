@@ -165,6 +165,31 @@ class TestModel(unittest.TestCase):
                 self.assertTrue(torch.isfinite(e2).all())
             self.assertGreater(effective_rank(e[mask][:500]), 1.0)
 
+    def test_forward_under_bf16_autocast(self):
+        """Training runs under bf16 autocast on GPUs (job 116190 failed on a float32/bf16 index put)."""
+        rng = np.random.default_rng(3)
+        items = []
+        for b in range(2):
+            obs = [fake_obs("viirsn_oc", [410, 443, 486, 551, 671], dt=float(t), rng=rng) for t in range(-1, 2)]
+            obs.append(fake_obs("olcia_efr_oc", [400, 443, 560], olci=True, dt=0.5, rng=rng))
+            obs.append(fake_obs("pace_oci_aop", [350, 400, 450, 500, 550, 600], dt=-1, rng=rng, pace=True))
+            sample_mask(obs, rng)
+            items.append({"obs": obs, "mode": "x"})
+        batch = {**collate(items), "device": torch.device("cpu"), "dtype": torch.float32}
+        from oefm.model.sigreg import GroupSIGReg
+
+        for arm in ("A", "B", "C"):
+            m = Model({**TINY, "arm": arm})
+            with torch.autocast("cpu", dtype=torch.bfloat16):
+                out = m(batch, sigreg=GroupSIGReg(["MODIS", "VIIRS", "OLCI", "PACE", "SURFACE"], 64), lam=0.05,
+                        mu=0.1, sigreg_tokens=512)
+            self.assertTrue(torch.isfinite(out["loss"]), arm)
+            out["loss"].backward()
+            with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
+                e, _ = m.embed_e1(batch)
+                if arm in ("B", "C"):
+                    self.assertTrue(torch.isfinite(m.embed_e2(batch).float()).all())
+
 
 if __name__ == "__main__":
     unittest.main()

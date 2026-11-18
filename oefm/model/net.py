@@ -122,7 +122,7 @@ def _rows(x: torch.Tensor, mask: torch.Tensor, stack: Stack) -> torch.Tensor:
         return stack(x, mask)
     out = x.clone()
     if keep.any():
-        out[keep] = stack(x[keep], mask[keep])
+        out[keep] = stack(x[keep], mask[keep]).to(out.dtype)
     return out
 
 
@@ -255,7 +255,7 @@ class Model(nn.Module):
         """Predictor/decoder input grid [B, T, 1024, Dp] with mask tokens at target positions."""
         B, T = batch["B"], batch["T"]
         p = torch.zeros(B, T, 1024, self.dp, device=z.device, dtype=z.dtype)
-        p[gmask] = self.p_in(z[gmask])
+        p[gmask] = self.p_in(z[gmask]).to(p.dtype)
         tmask = torch.zeros_like(gmask)
         for g in batch["groups"]:
             sel = g["tgt_cells"].any(1)
@@ -413,7 +413,7 @@ class Model(nn.Module):
         B, T = batch["B"], batch["T"]
         p = torch.zeros(B, T + 1, 1024, self.dp, device=z.device, dtype=z.dtype)
         valid = torch.zeros(B, T + 1, 1024, dtype=torch.bool, device=z.device)
-        p[:, :T][gmask] = self.p_in(z[gmask])
+        p[:, :T][gmask] = self.p_in(z[gmask]).to(p.dtype)
         valid[:, :T] = gmask
         sig = self.m_band(fourier(ref_wl.to(z.device), self.n_fourier, 2.0, 2000.0).mean(0))
         q = (self.mask_token + self.m_view.weight[view] + sig)[None, :] + self.m_dt(self._dt(torch.zeros(1, device=z.device)))

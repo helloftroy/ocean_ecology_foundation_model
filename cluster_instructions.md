@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-17** (benchmark 116176 failed on a pandas 3 date bug, fixed; check normstats, rerun benchmark: see **What to run now**, step D).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-17** (benchmark 116190 failed on a bf16 dtype bug, fixed: `git pull` and rerun the benchmark, **What to run now** step D2).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -48,7 +48,7 @@ times came out 1,000× too small (all in January 1970) and no observation fell i
 Not a memory problem. Fixed in `oefm/loader.py` (tests now pass under pandas 3.1). An empty
 training set now stops with a clear error, and the benchmark stops if its first configuration fails.
 
-D1. Check whether prep's training statistics were affected (if the CPU environment also had pandas 3
+D1. ✅ (rebuilt in 116188). Check whether prep's training statistics were affected (if the CPU environment also had pandas 3
 when prep ran, `normstats` silently skipped):
 ```bash
 git pull
@@ -759,6 +759,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-17 | 116190 | benchmark: 932,992 training anchors (date fix works; normstats rebuilt in 116188), but the first configuration failed under bf16 autocast: `Index put requires the source and destination dtypes match` (predictor input grid float32, projection output bf16). Fixed in `oefm/model/net.py`; new test runs all arms under bf16 autocast. Rerun benchmark |
 | 2026-11-17 | 116176 | benchmark: all 27 configurations failed with `anchors 0` (reported as "probably out of memory"). Cause: pandas 3 in the GPU env parses times at µs resolution; `astype(int64)/1e9` in the loader gave 1970 dates. Fixed (resolution-independent epoch seconds); empty training set now errors; benchmark stops if the first configuration fails |
 | 2026-11-16 | 116161 | targets: evalsets ✅ (eDNA test 183, 100 with ≥1 PACE / 92 with ≥2; SFER test 465, 459/457; CRCP test 1,057, 1,027/995; MaxN test 616, all with PACE). PISCES download: 0 of 109 (xarray 2026.4+ passes `zarr_format`, unsupported by zarr 2). Fixed: `xarray<2026.4`; rebuild env, rerun download build evalsets |
 | 2026-11-16 | 116124 | prep v2 finished successfully (user report): tiles, index, coverage, physics, sequences, normstats. Next: targets + GPU env |
