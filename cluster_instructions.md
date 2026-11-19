@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-18** (benchmark 116191: arm A done; B/C multi-GPU hang fixed: rerun B and C, **What to run now** step D2).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-18** (benchmarks done; settings fixed: start training, **What to run now** step E).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -60,18 +60,22 @@ sequence summary and statistics (minutes to an hour):
 ```bash
 sbatch --account=191001-366746 --export=ALL,STEPS="sequences normstats" cluster/prep.sbatch
 ```
-D2. Benchmark. Arm A ✅ (job 116191, all 9 configurations; table in the job history). Arms B and C
-hung on every configuration (fixed, see the job history). Peak memory was at most 10.5 GB of 80 GB,
-so larger per-GPU batches are worth timing too (32 = no gradient accumulation):
+D2. Benchmark ✅ (116191, 116200, 116201; table in the job history). Settings now in
+`config/train_stage1.yaml`: length 16, per-GPU batch 32 (no accumulation), 30,000 steps × 128 sequences
+(~4 passes over the 932,992 training anchors) for every arm: ~25 h (A), ~27 h (B, C).
+
+**E. Train the three arms (2.9).** Each fits in one 48 h job; `CHAIN=1` queues one follow-on as a
+safety net, which cancels itself when the arm has finished. The QOS allows 4 A100s per user, so the
+arms run one after another (~3.5 days in all):
 ```bash
 git pull
-sbatch --account=191001-366746 --export=ALL,ARMS="B C",BATCHES="4 8 16 32" cluster/benchmark.sbatch
-sbatch --account=191001-366746 --export=ALL,ARMS="A",BATCHES="16 32" cluster/benchmark.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=A,CHAIN=1 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=B,CHAIN=1 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=C,CHAIN=1 cluster/train.sbatch
 ```
-(the second queues behind the first). Paste back the summary table at the end of each
-`logs/oefm_bench_<id>.out` (it lists every benchmark so far; if a job stops on its first
-configuration: `tail -40 logs/oefm_bench_<id>.err`). I then fix batch, length and steps in
-`config/train_stage1.yaml`, and you start training (section "Running Stage 1", step 3).
+Check now and then: `tail -3 data/runs/stage1_<ARM>/log.jsonl` (per-sensor losses, SIGReg,
+effective rank of E1). Warning signs: `effective_rank_e1` falling steadily toward single digits
+(collapse), a loss rising for one sensor while the others fall, or NaN.
 
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
@@ -327,9 +331,9 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | # | Step | Runs on | Status |
 |---|---|---|---|
 | 2.8a | Frozen training statistics: reflectance transform curves and the PACE heritage ridge (`oefm normstats`, last step of `prep.sbatch`) | service | ✅ prep v2 (116124) |
-| 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ▶️ built |
-| 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ▶️ built |
-| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ⏳ built; run after 2.8c |
+| 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ✅ |
+| 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ✅ L16, batch 32 |
+| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ▶️ |
 | 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | 🛠 |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | 🛠 |
 
@@ -382,9 +386,9 @@ all arms) in `config/train_stage1.yaml`.
 **3. Training, one job chain per arm** (after the benchmark values are committed):
 ```bash
 git pull
-sbatch --account=191001-366746 --export=ALL,ARM=A,CHAIN=3 cluster/train.sbatch
-sbatch --account=191001-366746 --export=ALL,ARM=B,CHAIN=3 cluster/train.sbatch
-sbatch --account=191001-366746 --export=ALL,ARM=C,CHAIN=3 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=A,CHAIN=1 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=B,CHAIN=1 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=C,CHAIN=1 cluster/train.sbatch
 ```
 (4 GPUs each; the QOS allows 4 A100s per user, so they queue one after another.) Each job saves before
 48 h and the chain resumes from `data/runs/stage1_<ARM>/checkpoint.pt`. Paste back
@@ -763,6 +767,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-18 | 116200, 116201 | benchmark B/C (fix works) and A at batch 16/32. L16 b32: A 42.2 seq/s 26.0 GB 25.3 h; B 40.1, 26.0 GB, 26.6 h; C 39.9, 26.7 GB, 26.7 h (30k steps × 128). L8 b32 ~74 seq/s (~14.5 h); L24 b32 ~27 seq/s (~39 h), 38-39 GB. Loader wait ≤ 0.14. Over 200 steps SIGReg fell 1,456 → ~34, effective rank of E1 ~150-170 (no collapse), per-sensor losses all falling. Chosen: L16, b32, 30k steps for all arms; train.sbatch cancels its follow-on when an arm finishes |
 | 2026-11-18 | 116191 | benchmark: arm A ✅ all 9 (seq/s, peak GB, projected h for 30k steps × 128: L8 b2/4/8 42.4/60.1/83.6, 1.8/2.6/4.4 GB, 25.1/17.7/12.8 h; L16 33.8/45.5/53.6, 2.5/4.2/7.4 GB, 31.6/23.5/19.9 h; L24 29.0/34.5/38.3, 3.3/5.7/10.5 GB, 36.8/30.9/27.9 h; loader wait ≤ 1%). Arms B and C: all 18 died at ~10.5 min each = NCCL 10-min timeout. Cause: GroupSIGReg's autograd all_reduce ran inside backward and interleaved with DDP's gradient all-reduces in a different order per rank (ranks hold different view groups). Reproduced with 2-process gloo DDP; fixed (all-reduce detached sums in forward, gradient through local tokens × world size: identical loss and gradient to 1e-9); new tests/test_ddp.py |
 | 2026-11-17 | 116190 | benchmark: 932,992 training anchors (date fix works; normstats rebuilt in 116188), but the first configuration failed under bf16 autocast: `Index put requires the source and destination dtypes match` (predictor input grid float32, projection output bf16). Fixed in `oefm/model/net.py`; new test runs all arms under bf16 autocast. Rerun benchmark |
 | 2026-11-17 | 116176 | benchmark: all 27 configurations failed with `anchors 0` (reported as "probably out of memory"). Cause: pandas 3 in the GPU env parses times at µs resolution; `astype(int64)/1e9` in the loader gave 1970 dates. Fixed (resolution-independent epoch seconds); empty training set now errors; benchmark stops if the first configuration fails |

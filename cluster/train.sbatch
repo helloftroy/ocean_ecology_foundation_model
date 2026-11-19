@@ -26,4 +26,8 @@ if [ "${CHAIN:-0}" -gt 0 ]; then
 fi
 echo "Job started: $(date) | arm ${ARM}"
 torchrun --standalone --nproc_per_node=4 -m oefm.model.train --arm "${ARM}" ${OVERRIDES:+--override ${OVERRIDES}}
+# finished all steps: cancel the queued follow-on instead of letting it start and do nothing
+if [ -n "${next:-}" ] && [ -f "${OEFM_DATA_ROOT}/runs/stage1_${ARM}/weights_final.pt" ]; then
+  scancel "${next}" && echo "Training complete: cancelled follow-on job ${next}"
+fi
 echo "Job finished: $(date)"

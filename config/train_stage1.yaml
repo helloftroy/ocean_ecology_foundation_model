@@ -21,7 +21,7 @@ model:
 
 data:
   mode: retro              # training windows t0 +/- 15 days (future masking teaches causal use)
-  length: 16               # max optical observations per sequence
+  length: 16               # max optical observations per sequence (design default; L8 ~2x faster, L24 ~1.5x slower)
   sensors: [modisa_oc, viirsn_oc, viirsj1_oc, viirsj2_oc, olcia_efr_oc, olcib_efr_oc, pace_oci_aop]
   pace_era_share: 0.3      # share of sampled sequences from the PACE era (design doc: 25-30%)
   num_workers: 8
@@ -65,7 +65,7 @@ optim:
   warmup_frac: 0.05
   steps: 30000             # same for every arm (fitted to the time budget after the benchmark)
   effective_batch: 128     # sequences per optimizer step, across GPUs (accumulation fills the rest)
-  per_gpu_batch: 4         # set from the memory benchmark
+  per_gpu_batch: 32        # benchmark 116200/116201 (L16): no accumulation, 26-40 GB of 80, ~25-27 h for 30k steps per arm
 
 run:
   precision: bf16
