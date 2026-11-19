@@ -321,8 +321,10 @@ class TileSequences:
 
     # ------------------------------------------------------------------ evaluation points
     def sequence_for_point(self, lat: float, lon: float, time_utc: str | float) -> dict[str, Any] | None:
-        """Causal sequence ending at a sample time for the tile containing (lat, lon); no anchor
-        observation. Use split='all' so partitions do not filter imagery at evaluation points."""
+        """Sequence around a sample time for the tile containing (lat, lon); no anchor observation.
+        mode 'causal': [t - causal_days, t]; 'retro': t +/- retro_half_days; the `length` observations
+        nearest in time are kept. Use split='all' so partitions do not filter imagery at evaluation
+        points."""
         t = time_utc if isinstance(time_utc, (int, float)) else datetime.fromisoformat(
             str(time_utc).replace("Z", "+00:00")).timestamp()
         x, y = self.grid.proj.forward(np.array([lon]), np.array([lat]))
@@ -332,9 +334,13 @@ class TileSequences:
         n = self.grid.tc
         tile = self.grid.ids[s // (n * n)]
         rows = self._by_tile.get(tile, np.zeros(0, int))
-        win = rows[(self._times[rows] >= t - float(self.seq["causal_days"]) * _DAY) & (self._times[rows] <= t)]
+        if self.mode == "retro":
+            lo, hi = t - float(self.seq["retro_half_days"]) * _DAY, t + float(self.seq["retro_half_days"]) * _DAY
+        else:
+            lo, hi = t - float(self.seq["causal_days"]) * _DAY, t
+        win = rows[(self._times[rows] >= lo) & (self._times[rows] <= hi)]
         if win.size > self.length:
-            win = win[np.argsort(t - self._times[win], kind="stable")[: self.length]]
+            win = win[np.argsort(np.abs(t - self._times[win]), kind="stable")[: self.length]]
         out = self._assemble(tile, np.sort(win), float(t), None)
         out["cell"] = ((s % (n * n)) // n, s % n)
         return out

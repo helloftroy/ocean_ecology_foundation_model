@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-18** (benchmarks done; settings fixed: start training, **What to run now** step E).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-18** (training A, B, C running; evaluation built, run it when they finish: **What to run now** step F).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -16,19 +16,8 @@ Status key: ✅ done · ▶️ next · ⏳ waiting on an earlier step · 🛠 no
 Prep v2 (job 116124) has finished. The remaining steps before training, in order. A and B are
 independent and can run at the same time; C needs B; D needs A, B and C.
 
-**A. Evaluation targets + PISCES nutrients (2.6, 2.7).** Evaluation sets ✅ (job 116161); the
-PISCES download failed (all 109 files: `open_group() got an unexpected keyword argument 'zarr_format'`,
-because pip picked up xarray 2026.4+, which needs zarr 3; our tiles pin zarr 2). Fixed by pinning
-`xarray<2026.4` in `requirements.txt`. Rebuild the CPU environment, then rerun the targets job
-(the failed files are retried; evalsets is rerun so the summary includes the PISCES step):
-```bash
-git pull
-sbatch --account=191001-366746 cluster/setup_env.sbatch
-# when it has finished (check: source cluster/env.sh && python -c "import xarray, zarr; print(xarray.__version__, zarr.__version__)"  -> 2026.2.0 2.18.x):
-squeue -u hmp278                      # no other download running
-sbatch --account=191001-366746 --export=ALL,STEPS="download build evalsets" cluster/targets.sbatch
-```
-Paste back: `tail -40 logs/oefm_targets_<id>.out`.
+**A. Evaluation targets + PISCES nutrients (2.6, 2.7).** ✅ (job 116167: PISCES 3,295 of 3,301 days,
+3,218 reanalysis + 77 forecast, median tile coverage 1.00; evaluation sets matched).
 
 **B. GPU environment (2.8b),** at the same time as A (if you already ran it before the xarray pin, run it again after `git pull`; pip downgrades xarray in place):
 ```bash
@@ -76,6 +65,20 @@ sbatch --account=191001-366746 --export=ALL,ARM=C,CHAIN=1 cluster/train.sbatch
 Check now and then: `tail -3 data/runs/stage1_<ARM>/log.jsonl` (per-sensor losses, SIGReg,
 effective rank of E1). Warning signs: `effective_rank_e1` falling steadily toward single digits
 (collapse), a loss rising for one sensor while the others fall, or NaN.
+
+**F. Evaluation (2.10), when all three arms have finished** (`weights_final.pt` in each
+`data/runs/stage1_<ARM>/`; it needs a GPU, and training holds all four until arm C is done):
+```bash
+git pull
+sbatch --account=191001-366746 cluster/evaluate.sbatch
+```
+Runs on 1 A100 (a few hours): embeddings at every evaluation sample for each arm (causal and
+retrospective windows, PACE visible and dropped), ridge probes on the held-out labels, and the PACE
+spectral-retention decoder on April–October 2026 and the geographic test blocks. Results in
+`data/runs/eval_stage1/`. Paste back `tail -120 logs/oefm_eval_<id>.out` (embedding ranks, the probe
+table, the PACE table) and copy back `data/runs/eval_stage1/*.csv` for the full tables.
+Optional, to try it on intermediate weights once a GPU is free:
+`--export=ALL,TAG=check,WEIGHTS=checkpoint,EXTRA="--limit 300 --pace-anchors 100 50"`.
 
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
@@ -323,8 +326,8 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | 2.4b | Which evaluation samples have usable PACE (and OLCI/MODIS/VIIRS) pixels, per dataset and year | 2.3 | service | ✅ prep v2 (116124) |
 | 2.5a | Physics cube: daily SST, SST error, wind u/v/speed, precipitation, ADT, SLA, geostrophic u/v, surface current u/v on a coarse grid around every tile; GEBCO depth static | 2.2 | service | ✅ prep v2 (116124) |
 | 2.5 | Loader (`oefm/loader.py`): causal 30 d / retro ±15 d, physics lookback 90 d, lengths 8/16/24, five masking types; temporal, geographic and label partitions, sensor set and PACE visibility all configurable without rebuilding (config `training`) | 2.3 | service | ✅ built and tested; `sequences` reports what each split contains |
-| 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs: download (config `targets.pisces_nutrients`), then `oefm targets` | 2.3 | service | ▶️ built, run in `targets.sbatch` |
-| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Label splits from `training.partitions.labels`; **target preprocessing (Hellinger, NMF, feature selection) refitted on training labels only** (the existing NMF exports used all samples, so they are not reused for the test). Sargassum and HPLC are optional and must not delay Stage 1. Targets built on the laptop (`scripts/make_eval_targets.py`), joined on Ptolemy (`oefm evalsets`) | 2.3 | laptop + service | ▶️ built; targets made 2026-11-12 |
+| 2.6 | PISCES nutrient targets (PO₄, NO₃, Si), regridded to the tiles **as targets only**, never encoder inputs: download (config `targets.pisces_nutrients`), then `oefm targets` | 2.3 | service | ✅ (116167) |
+| 2.7 | Evaluation datasets, each matched to tiles and times, with grouped splits fixed before training (see [docs/evaluation_inventory.md](docs/evaluation_inventory.md)): Florida 16S/18S on the shelf and Keys (NMF components, dominant taxa, composition), SFER nutrients and fluorometric Chl, reef fish (CRCP, video MaxN). Label splits from `training.partitions.labels`; **target preprocessing (Hellinger, NMF, feature selection) refitted on training labels only** (the existing NMF exports used all samples, so they are not reused for the test). Sargassum and HPLC are optional and must not delay Stage 1. Targets built on the laptop (`scripts/make_eval_targets.py`), joined on Ptolemy (`oefm evalsets`) | 2.3 | laptop + service | ✅ (116167) |
 
 ### 2-II Stage 1: choose the optical objective (optical inputs only, matched data and capacity)
 
@@ -334,7 +337,7 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ✅ |
 | 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ✅ L16, batch 32 |
 | 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ▶️ |
-| 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | 🛠 |
+| 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ⏳ built (`oefm/model/evaluate.py`, `evaluate.sbatch`); run after 2.9 |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | 🛠 |
 
 ### Running Stage 1 on Ptolemy (2.8–2.9)
@@ -767,6 +770,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-18 | 116167 | targets rerun after the xarray pin: 109/109 PISCES files; 3,295 of 3,301 days (3,218 reanalysis, 77 forecast), median tile coverage 1.00; evaluation sets re-matched (same counts as 116161). Stage 1 training A, B, C submitted (user) |
 | 2026-11-18 | 116200, 116201 | benchmark B/C (fix works) and A at batch 16/32. L16 b32: A 42.2 seq/s 26.0 GB 25.3 h; B 40.1, 26.0 GB, 26.6 h; C 39.9, 26.7 GB, 26.7 h (30k steps × 128). L8 b32 ~74 seq/s (~14.5 h); L24 b32 ~27 seq/s (~39 h), 38-39 GB. Loader wait ≤ 0.14. Over 200 steps SIGReg fell 1,456 → ~34, effective rank of E1 ~150-170 (no collapse), per-sensor losses all falling. Chosen: L16, b32, 30k steps for all arms; train.sbatch cancels its follow-on when an arm finishes |
 | 2026-11-18 | 116191 | benchmark: arm A ✅ all 9 (seq/s, peak GB, projected h for 30k steps × 128: L8 b2/4/8 42.4/60.1/83.6, 1.8/2.6/4.4 GB, 25.1/17.7/12.8 h; L16 33.8/45.5/53.6, 2.5/4.2/7.4 GB, 31.6/23.5/19.9 h; L24 29.0/34.5/38.3, 3.3/5.7/10.5 GB, 36.8/30.9/27.9 h; loader wait ≤ 1%). Arms B and C: all 18 died at ~10.5 min each = NCCL 10-min timeout. Cause: GroupSIGReg's autograd all_reduce ran inside backward and interleaved with DDP's gradient all-reduces in a different order per rank (ranks hold different view groups). Reproduced with 2-process gloo DDP; fixed (all-reduce detached sums in forward, gradient through local tokens × world size: identical loss and gradient to 1e-9); new tests/test_ddp.py |
 | 2026-11-17 | 116190 | benchmark: 932,992 training anchors (date fix works; normstats rebuilt in 116188), but the first configuration failed under bf16 autocast: `Index put requires the source and destination dtypes match` (predictor input grid float32, projection output bf16). Fixed in `oefm/model/net.py`; new test runs all arms under bf16 autocast. Rerun benchmark |

@@ -46,6 +46,16 @@
   sequence_for_point), `sequences` summary; tests/test_loader.py (leakage checks).
 
 ## Next steps
+0. (2026-11-18) STATE: prep v2 + targets done; Stage 1 A/B/C TRAINING on Ptolemy (L16, per-GPU
+   batch 32, 30k steps x 128, ~25-27 h each, sequential). Fixed on the way: pandas 3 date bug in
+   the loader (anchors 0), bf16 index-put dtype mismatch, B/C DDP hang (SIGReg backward
+   all_reduce -> forward-only global sums; tests/test_ddp.py), xarray<2026.4 pin (zarr 2).
+   2.10 BUILT: oefm/model/evaluate.py (embed E1/E2/E3 at eval samples, causal/retro x PACE
+   visible/drop, meta + raw baselines; grouped-CV ridge probes; PACE retention ridge decoder on
+   test_temporal + test_geo with train-mean and heritage-ridge baselines), cluster/evaluate.sbatch,
+   tests/test_evaluate.py (synthetic data root, end to end). Run after training (step F).
+   Not built: online SFER Chl probe during training (checkpoint evaluation replaces it),
+   per-cruise consistency, gradient-boosted probes, Granite baseline.
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).
