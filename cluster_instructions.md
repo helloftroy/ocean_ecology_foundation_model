@@ -19,6 +19,21 @@ independent and can run at the same time; C needs B; D needs A, B and C.
 **A. Evaluation targets + PISCES nutrients (2.6, 2.7).** ✅ (job 116167: PISCES 3,295 of 3,301 days,
 3,218 reanalysis + 77 forecast, median tile coverage 1.00; evaluation sets matched).
 
+**A2. Refreshed eDNA targets: sequencing platform and depth (2026-11-20).** Any time before F; it
+runs on `service`, so it can run during training. The two eDNA files now also carry `seq_*` columns
+(platform, runs, Element share, replicates, input and table reads); every other column is
+identical to the copy from 116167 (checked to 3e-13). From the laptop, in `multimodal_seusmbol/`:
+```bash
+scp eval_targets/edna_16S.csv.gz eval_targets/edna_18S.csv.gz eval_targets/fit_info.json hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval/
+```
+Then on Ptolemy (only the join; nothing is downloaded):
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,STEPS=evalsets cluster/targets.sbatch
+zcat data/processed/regional/eval/matched/edna_16S.csv.gz | head -1 | tr ',' '\n' | grep -c '^seq_'   # expect 6
+```
+Paste back: `tail -20 logs/oefm_targets_<id>.out` and the number from the last line.
+
 **B. GPU environment (2.8b),** at the same time as A (if you already ran it before the xarray pin, run it again after `git pull`; pip downgrades xarray in place):
 ```bash
 sbatch --account=191001-366746 cluster/setup_gpu_env.sbatch
@@ -74,7 +89,9 @@ sbatch --account=191001-366746 cluster/evaluate.sbatch
 ```
 Runs on 1 A100 (a few hours): embeddings at every evaluation sample for each arm (causal and
 retrospective windows, PACE visible and dropped), ridge probes on the held-out labels, and the PACE
-spectral-retention decoder on April–October 2026 and the geographic test blocks. Results in
+spectral-retention decoder on April–October 2026 and the geographic test blocks. eDNA probes are
+reported with and without the sequencing covariates (column `covariates`: `seq` / `none`; decision
+log, 2026-11-20); needs A2 first. Results in
 `data/runs/eval_stage1/`. Paste back `tail -120 logs/oefm_eval_<id>.out` (embedding ranks, the probe
 table, the PACE table) and copy back `data/runs/eval_stage1/*.csv` for the full tables.
 Optional, to try it on intermediate weights once a GPU is free:
@@ -289,7 +306,7 @@ What is in them (all fitted on training labels only; label split per `training.p
 
 | File | Samples (train / test) | Targets |
 |---|---|---|
-| `edna_16S.csv.gz` | 913 (730 / 183) | NMF k = 5, 10, 15, 20 (refitted on 2018–2023 only; 5,152 ASVs pass the ≥ 2% training-prevalence filter); 10 Hellinger PCs; 20 dominant genera |
+| `edna_16S.csv.gz` | 913 (730 / 183) | NMF k = 5, 10, 15, 20 (refitted on 2018–2023 only; 5,152 ASVs pass the ≥ 2% training-prevalence filter); 10 Hellinger PCs; 20 dominant genera. Covariates, not targets (since 2026-11-20): `seq_element_frac`, `seq_log10_input_reads` (used by the probes), `seq_n_replicates`, `seq_log10_table_reads`, `seq_platform`, `seq_runs` |
 | `edna_18S.csv.gz` | 913 (730 / 183) | same; 7,148 ASVs kept |
 | `sfer.csv.gz` | 3,174 (2,709 / 465) | PO₄, NO₃, Si, fluorometric Chl |
 | `fish_crcp.csv.gz` | 3,018 (1,961 / 1,057) | presence and log1p count of the 20 most prevalent training species |
@@ -568,6 +585,75 @@ Splits are grouped by station and by cruise/time, because replicates and repeat 
 conditions. The Bio-GO-SHIP gene panel (414 genes, pho/pst) is not used in this phase. Its
 phosphate question carries over as: do NMF components linked to phosphate gain more from nutrient
 supervision, checked against measured SFER PO₄?
+
+### eDNA: sequencing platform and depth are covariates in every downstream model (2026-11-20)
+Your instruction: platform and sequencing depth influence the eDNA results a lot, so they go into
+the downstream models. Both are in the SEUS MBON metadata (`platform`, `input_read_count`,
+`seq_run_id`) for every replicate of all 913 evaluation samples; none is missing.
+
+Platform is almost entirely confounded with time, and the test set is all on one platform:
+
+| Collection year | Illumina | Element AVITI | Both (replicates split) |
+|---|---|---|---|
+| 2018 | 0 | 5 | 0 |
+| 2020 | 82 | 0 | 0 |
+| 2021 | 127 | 0 | 30 |
+| 2022 | 215 | 0 | 10 |
+| 2023 | 0 | 261 | 0 |
+| 2024 (test) | 0 | 183 | 0 |
+
+Training labels: 424 Illumina, 266 Element, 40 mixed. Depth follows platform. The median of the
+input reads summed over replicates is:
+
+| Marker | Element | Illumina | Ratio |
+|---|---|---|---|
+| 16S | 715k | 41k | ~18× |
+| 18S | 1.10M | 34k | ~32× |
+
+The 2024 test samples were sequenced in two 2025 runs that also hold 22 and 81 training replicates
+(same numbers for 18S).
+
+Implementation:
+- `make_eval_targets.py` adds per-sample `seq_*` columns, computed over the sample's replicates.
+- `evaluate.py` gives every eDNA probe two **unpenalised** covariates: Element share and
+  log10(1 + mean input reads per replicate). They are partialled out of features and targets, the
+  ridge is fitted on the residuals, and then least squares is fitted on [1, covariates], so the
+  ridge penalty cannot shrink them away.
+- An extra baseline `seq` uses the covariates only.
+- Probes are reported both with and without the covariates.
+- `seq_*` columns are never targets.
+- The run ID is kept for reference but is not a covariate: within training it is mostly year, so a
+  run offset would absorb interannual change.
+
+Choice of covariates, by grouped CV over 20 cruises on the **training labels only**, with the meta
+features (lat, lon, season). Mean CV R² per target family:
+
+| | none | all 4 seq numbers | Element share + input depth |
+|---|---|---|---|
+| 16S NMF k5 | 0.152 | 0.208 | 0.239 |
+| 16S NMF k10 | 0.038 | 0.088 | 0.111 |
+| 16S NMF k20 | −0.059 | −0.065 | −0.038 |
+| 16S PCs | 0.038 | 0.112 | 0.130 |
+| 16S genera | −0.003 | 0.018 | 0.032 |
+| 18S NMF k5 | 0.163 | 0.182 | 0.196 |
+| 18S NMF k10 | 0.084 | 0.084 | 0.110 |
+| 18S NMF k20 | −0.016 | −0.070 | −0.034 |
+| 18S PCs | 0.072 | 0.089 | 0.102 |
+| 18S genera | −0.022 | −0.052 | −0.026 |
+
+Single covariates were similar: platform alone 16S k5 0.235, depth alone 0.245. Covariates alone
+score below zero (e.g. 16S k5 −0.085), because platform is constant within a cruise and the CV
+holds out whole cruises.
+
+Caveats:
+- The targets themselves (Hellinger NMF, PCA) were fitted across both platforms. A
+  platform-driven component would therefore be a target to explain, not noise. In the test year
+  (all Element) the covariates only shift the intercept.
+- The replicate-mean count tables average Illumina and Element replicates for the 40 mixed
+  samples; Element dominates these by depth.
+- If platform effects turn out to be large in the targets, the options are platform-specific
+  normalisation, refitting NMF on Element only, or rarefying. That is your call with the
+  taxonomy/NMF decision.
 
 ### Nutrient supervision: PISCES as targets only (2026-11-12)
 Revision Stage 2 plus your adjustment 2. PO₄, NO₃ and Si from a documented PISCES product are

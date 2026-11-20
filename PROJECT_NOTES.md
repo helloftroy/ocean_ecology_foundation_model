@@ -56,6 +56,12 @@
    tests/test_evaluate.py (synthetic data root, end to end). Run after training (step F).
    Not built: online SFER Chl probe during training (checkpoint evaluation replaces it),
    per-cruise consistency, gradient-boosted probes, Granite baseline.
+   (2026-11-20) USER: sequencing platform + depth must enter every downstream eDNA model. Done:
+   eDNA targets carry seq_* columns (make_eval_targets.sequencing); probes use seq_element_frac +
+   seq_log10_input_reads as unpenalised covariates (evaluate.SEQ_COVARIATES, --seq-covariates
+   both by default). Platform == year (2020-22 Illumina, 2023-24 Element, test all Element; ~20-30x
+   depth). Stage 2 / any later eDNA head must include them too. User step A2: scp the new eDNA
+   files + STEPS=evalsets.
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).

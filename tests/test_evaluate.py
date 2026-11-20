@@ -94,7 +94,48 @@ def build_root(root):
                     "po4": abs(rng.normal(0.05, 0.02)), "no3": abs(rng.normal(0.1, 0.05)), "si": 2.0 + np.sin(i / 7),
                     "chl": 0.3 + 0.1 * np.sin(i / 9) + abs(rng.normal(0, 0.02)), "causal_PACE": 1, "tile_id": t})
     pd.DataFrame(pts).to_csv(ed / "sfer.csv.gz", index=False)
+    # eDNA-like set on the same points: sequencing platform switches mid-training (as Illumina ->
+    # Element in the real data; every test sample on Element), with a platform offset in the target
+    ed_rows = []
+    for i, p in enumerate(pts):
+        elem = float(i >= 40)
+        ed_rows.append({**{k: p[k] for k in ("lat", "lon", "time_utc", "label_split", "causal_PACE", "tile_id")},
+                        "sample_id": p["sample_id"], "dataset": "edna_16S",
+                        "seq_platform": "ELEMENT" if elem else "ILLUMINA", "seq_runs": f"run{int(elem)}",
+                        "seq_element_frac": elem, "seq_n_replicates": 3.0,
+                        "seq_log10_input_reads": 5.5 + rng.normal(0, 0.1) if elem else 4.1 + rng.normal(0, 0.1),
+                        "seq_log10_table_reads": 5.0, "nmf_k5_1": 0.5 * elem + 0.1 * np.sin(i / 9) + rng.normal(0, 0.02),
+                        "pc_1": np.cos(i / 11) + rng.normal(0, 0.05)})
+    pd.DataFrame(ed_rows).to_csv(ed / "edna_16S.csv.gz", index=False)
     return cfg
+
+
+@unittest.skipIf(torch is None, "PyTorch / processing dependencies not installed")
+class TestRidge(unittest.TestCase):
+    def test_unpenalised_covariates(self):
+        from oefm.model.evaluate import _ridge_fit, _ridge_predict
+
+        rng = np.random.default_rng(1)
+        n = 200
+        X, C = rng.normal(size=(n, 30)), rng.normal(size=(n, 2))
+        Y = (C @ np.array([2.0, -1.0]) + 0.3 * X[:, 0] + 1.5)[:, None]
+        # heavy penalty: the X part shrinks to ~0, the covariate part is still fitted exactly
+        W, G = _ridge_fit(X, Y, 1e8, C)
+        self.assertLess(np.abs(W).max(), 1e-4)
+        np.testing.assert_allclose(G[:, 0], [1.5, 2.0, -1.0], atol=0.1)
+        # no penalty: identical to ordinary least squares on [1, C, X]
+        W0, G0 = _ridge_fit(X, Y, 1e-10, C)
+        D = np.c_[np.ones(n), C, X]
+        np.testing.assert_allclose(_ridge_predict(X, C, W0, G0), D @ np.linalg.lstsq(D, Y, rcond=None)[0], atol=1e-6)
+        # zero feature columns = covariates only; dual form (n < d) agrees with the primal form
+        Wz, Gz = _ridge_fit(np.zeros((n, 0)), Y, 1.0, C)
+        self.assertEqual(Wz.shape, (0, 1))
+        Xw = rng.normal(size=(20, 50))
+        Wd, Gd = _ridge_fit(Xw, Y[:20], 3.0, C[:20])
+        R = np.c_[np.ones(20), C[:20]]
+        Xr = Xw - R @ np.linalg.lstsq(R, Xw, rcond=None)[0]
+        Yr = Y[:20] - R @ np.linalg.lstsq(R, Y[:20], rcond=None)[0]
+        np.testing.assert_allclose(Wd, np.linalg.solve(Xr.T @ Xr + 3.0 * np.eye(50), Xr.T @ Yr), atol=1e-8)
 
 
 @unittest.skipIf(torch is None, "PyTorch / processing dependencies not installed")
@@ -134,11 +175,16 @@ class TestEvaluate(unittest.TestCase):
                 self.assertEqual(int((dr["n_pace"] > 0).sum()), 0)
                 ev.probes(cfg, out, ["causal", "retro"], ["visible", "drop"], log=logs.append)
                 p = pd.read_csv(out / "probes.csv")
-                self.assertEqual(set(p["target"]), {"po4", "no3", "si", "chl"})
+                self.assertEqual(set(p.loc[p["dataset"] == "sfer", "target"]), {"po4", "no3", "si", "chl"})
+                ed = p[p["dataset"] == "edna_16S"]
+                self.assertEqual(set(ed["target"]), {"nmf_k5_1", "pc_1"})  # seq_* are covariates, not targets
+                self.assertEqual(set(ed["covariates"]), {"seq", "none"})
+                self.assertEqual(set(ed.loc[ed["features"] == "seq", "covariates"]), {"seq"})
+                self.assertEqual(set(p.loc[p["dataset"] == "sfer", "covariates"]), {"none"})
                 self.assertTrue({"meta", "raw", "stage1_A/e1", "stage1_B/e2", "stage1_B/e3"} <= set(p["features"]))
                 self.assertTrue(p["test_r2"].notna().all())
                 # same samples for every feature set within a dataset and window
-                self.assertEqual(p.groupby(["window"])["n_test"].nunique().max(), 1)
+                self.assertEqual(p.groupby(["dataset", "window"])["n_test"].nunique().max(), 1)
                 ev.pace_retention(cfg, models, out, tc, n_train=30, n_test=10, cells_per=8, log=logs.append)
                 r = pd.read_csv(out / "pace_retention_summary.csv")
                 self.assertTrue({"train_mean", "stage1_A", "stage1_B"} <= set(r["model"]))

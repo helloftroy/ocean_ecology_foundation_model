@@ -12,6 +12,12 @@ unchanged to the test labels:
   (sklearn, nndsvda, seed 7, cd/Frobenius, max_iter 2000, tol 1e-4: the settings of
   multimodal_granite/eDNA_processing/run_hellinger_nmf.py), PCA of the Hellinger matrix
   (composition), and the dominant genera (top --genera by training mean relative abundance).
+  Sequencing covariates per sample (seq_* columns, from the SEUS MBON metadata over the sample's
+  replicates; never targets): seq_element_frac (share of replicates sequenced on Element AVITI
+  rather than Illumina) and seq_log10_input_reads (log10(1 + mean input_read_count per replicate))
+  are the probe covariates (oefm.model.evaluate.SEQ_COVARIATES); seq_n_replicates,
+  seq_log10_table_reads (log10(1 + total of the replicate-mean ASV counts in the source table)),
+  seq_platform and seq_runs are kept for reference.
 - SFER (<= 5 m): PO4, NO3, Si, fluorometric Chl as measured (no fitting).
 - Fish CRCP: per survey unit, the --species most prevalent species in training: presence and
   log1p(count). Fish MaxN: the top-10 species columns of the Granite manifest (as already chosen
@@ -72,6 +78,27 @@ def genus(tax: str) -> str:
     return "unassigned"
 
 
+def sequencing(root: Path, marker: str, sample_ids, table_reads: pd.Series) -> pd.DataFrame:
+    """Sequencing platform and depth per eDNA sample (sample_id = keyfield||eventDateZulu||
+    materialSampleID, the replicate group of the source table)."""
+    r = pd.read_csv(root / f"eDNA_data_sources/seusmbon_{marker}_metadata.tsv", sep="\t", low_memory=False)
+    r = r[r["samp_category"] == "sample"].copy()
+    r["sample_id"] = r["keyfield"].astype(str) + "||" + r["eventDateZulu"].astype(str) + "||" + r["materialSampleID"].astype(str)
+    r = r[r["sample_id"].isin(set(sample_ids))]
+    plat = r["platform"].astype(str).str.upper()
+    r["_element"] = plat.eq("ELEMENT").astype(float)
+    g = r.groupby("sample_id")
+    out = pd.DataFrame({
+        "seq_platform": g["platform"].agg(lambda x: "+".join(sorted(set(map(str, x))))),
+        "seq_runs": g["seq_run_id"].agg(lambda x: ";".join(sorted(set(map(str, x))))),
+        "seq_element_frac": g["_element"].mean(),
+        "seq_n_replicates": g.size().astype(float),
+        "seq_log10_input_reads": np.log10(1 + g["input_read_count"].mean()),
+    }).reindex(sample_ids)
+    out["seq_log10_table_reads"] = np.log10(1 + table_reads.reindex(sample_ids).to_numpy(float))
+    return out
+
+
 def edna(cfg, root: Path, pts: pd.DataFrame, marker: str, ks: list[int], n_genera: int, n_pcs: int):
     from sklearn.decomposition import NMF
 
@@ -90,8 +117,14 @@ def edna(cfg, root: Path, pts: pd.DataFrame, marker: str, ks: list[int], n_gener
     relk = Xk.div(Xk.sum(axis=1).replace(0, np.nan), axis=0).fillna(0.0)
     H = np.sqrt(relk.to_numpy())
     out = meta[["dataset", "lat", "lon", "time_utc", "label_split"]].copy()
+    seq = sequencing(root, marker, list(X.index), X.sum(axis=1))
+    out = out.join(seq)
     info = {"dataset": ds, "samples": int(len(X)), "train": int(train.sum()), "test": int((~train).sum()),
-            "asvs_in_source": int(X.shape[1]), "asvs_kept_train_prevalence": int(len(keep)), "nmf": {}}
+            "asvs_in_source": int(X.shape[1]), "asvs_kept_train_prevalence": int(len(keep)), "nmf": {},
+            "sequencing": {"missing_metadata": int(seq["seq_platform"].isna().sum()),
+                           "platform_by_split": pd.crosstab(meta["label_split"], seq["seq_platform"]).to_dict(),
+                           "median_log10_input_reads_by_platform":
+                               seq.groupby("seq_platform")["seq_log10_input_reads"].median().round(3).to_dict()}}
     comp_dir = {}
     for k in ks:
         m = NMF(n_components=k, **NMF_KW)

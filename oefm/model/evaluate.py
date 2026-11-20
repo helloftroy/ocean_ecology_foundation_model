@@ -23,6 +23,14 @@ probes  Ridge probes, identical for every feature set: standardised features, ri
         AUC for presence (linear-probability ridge). Every feature set of one dataset and window is
         scored on the same samples (those where all of them exist). The PACE on/off comparison is
         repeated on the test samples with >= 1 usable PACE observation.
+        eDNA: sequencing platform and depth (SEQ_COVARIATES: share of replicates on Element AVITI,
+        log10 mean input reads per replicate) enter every probe as UNPENALISED nuisance covariates
+        (partialled out, then ridge on the residuals), and 'seq' (covariates only) is an extra
+        baseline. Platform is confounded with year (2020-22 Illumina, 2023-24 Element; every test
+        sample is Element; Element runs ~20x deeper), so without them the probes partly learn the
+        platform shift. The two were chosen by grouped CV on TRAINING labels with the meta features
+        (all four seq_* numbers over-fitted). --seq-covariates both (default) reports every probe
+        with ('seq') and without ('none') them: column 'covariates'.
         -> probes.csv (per target), probes_summary.csv (mean per target family)
 
 pace    PACE spectral retention: anchors = PACE observations (retro window), the anchor visible in
@@ -251,8 +259,18 @@ def group_of(dataset: str, sample_id: str, time_utc: str) -> str:
 
 def target_columns(df) -> list[str]:
     skip = set(META_COLS) | {"tile_id", "usable_any", "year", "window", "full_window_in_pace_era", "key"}
-    return [c for c in df.columns if c not in skip and not c.startswith(("causal_", "sameday_"))
+    return [c for c in df.columns if c not in skip and not c.startswith(("causal_", "sameday_", "seq_"))
             and np.issubdtype(df[c].dtype, np.number)]
+
+
+SEQ_COVARIATES = ["seq_element_frac", "seq_log10_input_reads"]
+
+
+def seq_covariates(df) -> np.ndarray | None:
+    """Sequencing platform share and depth (eDNA targets), or None for datasets without them."""
+    if not all(c in df.columns for c in SEQ_COVARIATES):
+        return None
+    return df[SEQ_COVARIATES].to_numpy(float)
 
 
 def transform_target(name: str, y: np.ndarray) -> np.ndarray:
@@ -266,7 +284,7 @@ def transform_target(name: str, y: np.ndarray) -> np.ndarray:
 def target_family(name: str) -> str:
     if name in NUTRIENTS:
         return name
-    m = re.match(r"(nmf_k\d+|pc|present|log1p|maxn|genus|g)_", name)
+    m = re.match(r"(nmf_k\d+|pc|present|log1p|maxn|genus|taxon|g)_", name)
     return m.group(1) if m else name.rsplit("_", 1)[0]
 
 
@@ -276,44 +294,60 @@ def _standardise(xtr, xte):
     return (xtr - mu) / sd, (xte - mu) / sd
 
 
-def _ridge_fit(X, Y, alpha):
-    """Closed-form multi-output ridge with intercept on standardised X (dual form when n < d)."""
-    xm, ym = X.mean(0), Y.mean(0)
-    Xc, Yc = X - xm, Y - ym
-    n, d = Xc.shape
-    if n < d:
-        K = Xc @ Xc.T
-        A = np.linalg.solve(K + alpha * np.eye(n), Yc)
+def _ridge_fit(X, Y, alpha, C=None):
+    """Closed-form multi-output ridge with intercept on standardised X (dual form when n < d).
+    C: unpenalised covariates (Frisch-Waugh: partial C and the intercept out of X and Y, ridge on
+    the residuals, then least squares of Y - X W on [1, C]). Returns (W, G) with prediction
+    X W + [1, C] G; G is the intercept alone when C is None. X may have zero columns."""
+    n, d = X.shape
+    D = np.ones((n, 1)) if C is None else np.c_[np.ones(n), C]
+    Bx = np.linalg.lstsq(D, X, rcond=None)[0] if d else np.zeros((D.shape[1], 0))
+    Xc = X - D @ Bx
+    Yc = Y - D @ np.linalg.lstsq(D, Y, rcond=None)[0]
+    if d == 0:
+        W = np.zeros((0, Y.shape[1]))
+    elif n < d:
+        A = np.linalg.solve(Xc @ Xc.T + alpha * np.eye(n), Yc)
         W = Xc.T @ A
     else:
         W = np.linalg.solve(Xc.T @ Xc + alpha * np.eye(d), Xc.T @ Yc)
-    return W, ym - xm @ W
+    G = np.linalg.lstsq(D, Y - X @ W, rcond=None)[0]
+    return W, G
+
+
+def _ridge_predict(X, C, W, G):
+    D = np.ones((len(X), 1)) if C is None else np.c_[np.ones(len(X)), C]
+    return X @ W + D @ G
 
 
 ALPHAS = np.logspace(-2, 5, 15)
 
 
-def ridge_probe(Xtr, Ytr, groups, Xte, n_folds: int = 5):
-    """Per-target alpha by grouped CV (R^2 on held-out folds); returns test predictions, alphas, CV R^2."""
+def ridge_probe(Xtr, Ytr, groups, Xte, n_folds: int = 5, Ctr=None, Cte=None):
+    """Per-target alpha by grouped CV (R^2 on held-out folds); returns test predictions, alphas, CV R^2.
+    Ctr/Cte: unpenalised nuisance covariates (sequencing platform and depth)."""
     from sklearn.model_selection import GroupKFold
 
     Xtr, Xte = _standardise(Xtr, Xte)
+    if Ctr is not None:
+        Ctr, Cte = _standardise(Ctr, Cte)
     ng = len(set(groups))
     folds = list(GroupKFold(n_splits=min(n_folds, ng)).split(Xtr, groups=groups)) if ng >= 2 else []
     score = np.zeros((len(ALPHAS), Ytr.shape[1]))
     for tr, va in folds:
         Xa, Xv = _standardise(Xtr[tr], Xtr[va])
+        Ca, Cv = _standardise(Ctr[tr], Ctr[va]) if Ctr is not None else (None, None)
         for i, a in enumerate(ALPHAS):
-            W, b = _ridge_fit(Xa, Ytr[tr], a)
-            P = Xv @ W + b
+            W, G = _ridge_fit(Xa, Ytr[tr], a, Ca)
+            P = _ridge_predict(Xv, Cv, W, G)
             ss = ((Ytr[va] - Ytr[va].mean(0)) ** 2).sum(0)
             score[i] += 1 - ((Ytr[va] - P) ** 2).sum(0) / np.where(ss > 0, ss, np.nan)
     best = np.nanargmax(np.where(np.isfinite(score), score, -np.inf), axis=0) if folds else np.full(Ytr.shape[1], 7)
     pred = np.zeros((Xte.shape[0], Ytr.shape[1]))
     for i in np.unique(best):
         cols = np.where(best == i)[0]
-        W, b = _ridge_fit(Xtr, Ytr[:, cols], ALPHAS[i])
-        pred[:, cols] = Xte @ W + b
+        W, G = _ridge_fit(Xtr, Ytr[:, cols], ALPHAS[i], Ctr)
+        pred[:, cols] = _ridge_predict(Xte, Cte, W, G)
     cv = score[best, np.arange(Ytr.shape[1])] / max(1, len(folds))
     return pred, ALPHAS[best], cv
 
@@ -332,7 +366,7 @@ def _metrics(y, p, binary: bool) -> dict:
     return out
 
 
-def probes(cfg, out_dir: Path, windows, paces, log=print) -> None:
+def probes(cfg, out_dir: Path, windows, paces, log=print, seq_covariates_mode: str = "both") -> None:
     import pandas as pd
 
     rows = []
@@ -369,6 +403,15 @@ def probes(cfg, out_dir: Path, windows, paces, log=print) -> None:
                     common &= np.isfinite(X).any(1)
                 elif name != "meta":
                     common &= np.isfinite(X).all(1)
+            # sequencing covariates (eDNA): settings to report, and the 'seq' baseline (covariates only)
+            C = seq_covariates(df)
+            settings = ["none"]
+            if C is not None:
+                settings = {"on": ["seq"], "off": ["none"], "both": ["seq", "none"]}[seq_covariates_mode]
+                if "seq" in settings:
+                    common &= np.isfinite(C).all(1)
+                    for pace in emb:
+                        fsets[("seq", pace)] = np.zeros((len(df), 0))
             tcols = target_columns(df)
             tr = (df["label_split"] == "train").to_numpy() & common
             te = (df["label_split"] == "test").to_numpy() & common
@@ -382,25 +425,31 @@ def probes(cfg, out_dir: Path, windows, paces, log=print) -> None:
             groups = np.array([group_of(ds, s, tt) for s, tt in zip(df["sample_id"], df["time_utc"])])
             pace_ok = (df.get("causal_PACE", pd.Series(0, index=df.index)).fillna(0).to_numpy() >= 1) & te
             for (name, pace), X in fsets.items():
-                X = X.astype(float)
-                if name == "raw":
-                    mu = np.nanmean(X[tr], axis=0)
-                    mu = np.where(np.isfinite(mu), mu, 0.0)
-                    X = np.where(np.isfinite(X), X, mu)
-                yt = Y[tr]
-                fin = np.isfinite(yt).all(1)
-                pred, alphas, cv = ridge_probe(X[tr][fin], yt[fin], groups[tr][fin], X)
-                for j, c in enumerate(tcols):
-                    binary = c.startswith("present_")
-                    rec = {"dataset": ds, "window": window, "pace": pace, "features": name, "target": c,
-                           "family": target_family(c), "n_train": int(fin.sum()), "n_test": int(te.sum()),
-                           "alpha": float(alphas[j]), "cv_r2": float(cv[j]),
-                           **_metrics(Y[te, j], pred[te, j], binary)}
-                    if pace_ok.sum() >= 10:
-                        sub = _metrics(Y[pace_ok, j], pred[pace_ok, j], binary)
-                        rec.update({f"{k}_pace_usable": v for k, v in sub.items()})
-                        rec["n_test_pace_usable"] = int(pace_ok.sum())
-                    rows.append(rec)
+                for cov in settings:
+                    if name == "seq" and cov != "seq":
+                        continue
+                    X = X.astype(float)
+                    if name == "raw":
+                        mu = np.nanmean(X[tr], axis=0)
+                        mu = np.where(np.isfinite(mu), mu, 0.0)
+                        X = np.where(np.isfinite(X), X, mu)
+                    yt = Y[tr]
+                    fin = np.isfinite(yt).all(1)
+                    Cx = C if cov == "seq" else None
+                    pred, alphas, cv = ridge_probe(X[tr][fin], yt[fin], groups[tr][fin], X, Ctr=None if Cx is None
+                                                   else Cx[tr][fin], Cte=Cx)
+                    for j, c in enumerate(tcols):
+                        binary = c.startswith("present_")
+                        rec = {"dataset": ds, "window": window, "pace": pace, "features": name, "covariates": cov,
+                               "target": c,
+                               "family": target_family(c), "n_train": int(fin.sum()), "n_test": int(te.sum()),
+                               "alpha": float(alphas[j]), "cv_r2": float(cv[j]),
+                               **_metrics(Y[te, j], pred[te, j], binary)}
+                        if pace_ok.sum() >= 10:
+                            sub = _metrics(Y[pace_ok, j], pred[pace_ok, j], binary)
+                            rec.update({f"{k}_pace_usable": v for k, v in sub.items()})
+                            rec["n_test_pace_usable"] = int(pace_ok.sum())
+                        rows.append(rec)
             log(f"probes {ds}/{window}: {len(tcols)} targets, {len(fsets)} feature sets, train {tr.sum()}, "
                 f"test {te.sum()} ({pace_ok.sum()} with PACE)")
     if not rows:
@@ -408,11 +457,12 @@ def probes(cfg, out_dir: Path, windows, paces, log=print) -> None:
     res = pd.DataFrame(rows)
     res.to_csv(out_dir / "probes.csv", index=False)
     val = [c for c in res.columns if c.startswith("test_")]
-    summ = res.groupby(["dataset", "family", "window", "pace", "features"], as_index=False)[val].mean()
+    summ = res.groupby(["dataset", "family", "window", "pace", "features", "covariates"], as_index=False)[val].mean()
     summ.to_csv(out_dir / "probes_summary.csv", index=False)
     with_r2 = summ.dropna(subset=["test_r2"]) if "test_r2" in summ else summ.iloc[:0]
     if len(with_r2):
-        piv = with_r2.pivot_table(index=["dataset", "family", "window"], columns=["features", "pace"], values="test_r2")
+        cols = ["features", "pace"] + (["covariates"] if summ["covariates"].nunique() > 1 else [])
+        piv = with_r2.pivot_table(index=["dataset", "family", "window"], columns=cols, values="test_r2")
         log("Mean test R^2 per target family (rows) and feature set / PACE setting (columns):")
         log(piv.round(3).to_string())
     log(f"probes -> {out_dir / 'probes.csv'}, {out_dir / 'probes_summary.csv'}")
@@ -590,6 +640,9 @@ def main(argv=None) -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0, help="first N evaluation samples only (quick check)")
     ap.add_argument("--pace-anchors", type=int, nargs=2, default=[2000, 800], metavar=("TRAIN", "TEST"))
+    ap.add_argument("--seq-covariates", default="both", choices=["on", "off", "both"],
+                    help="eDNA probes: sequencing platform/depth as unpenalised covariates: with (on), without "
+                         "(off) or both (default)")
     args = ap.parse_args(argv)
 
     cfg = load_config()
@@ -607,7 +660,7 @@ def main(argv=None) -> None:
     if "embed" in args.steps:
         embed(cfg, models, out_dir, tcfg, args.windows, args.pace, args.batch, args.workers, args.limit)
     if "probes" in args.steps:
-        probes(cfg, out_dir, args.windows, args.pace)
+        probes(cfg, out_dir, args.windows, args.pace, seq_covariates_mode=args.seq_covariates)
     if "pace" in args.steps:
         pace_retention(cfg, models, out_dir, tcfg, *args.pace_anchors)
 
