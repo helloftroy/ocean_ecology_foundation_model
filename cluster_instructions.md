@@ -19,7 +19,7 @@ independent and can run at the same time; C needs B; D needs A, B and C.
 **A. Evaluation targets + PISCES nutrients (2.6, 2.7).** ✅ (job 116167: PISCES 3,295 of 3,301 days,
 3,218 reanalysis + 77 forecast, median tile coverage 1.00; evaluation sets matched).
 
-**A2. Refreshed eDNA targets: sequencing platform and depth (2026-11-20).** Any time before F; it
+**A2. Refreshed eDNA targets: sequencing platform and depth (2026-11-20).** ✅ joined (job 116353; sample counts unchanged; confirm the `seq_` column count once). Any time before F; it
 runs on `service`, so it can run during training. The two eDNA files now also carry `seq_*` columns
 (platform, runs, Element share, replicates, input and table reads); every other column is
 identical to the copy from 116167 (checked to 3e-13). From the laptop, in `multimodal_seusmbol/`:
@@ -857,6 +857,7 @@ Newest first. Add a line when something notable happens.
 | Date | Job | What happened |
 |---|---|---|
 | 2026-11-18 | 116167 | targets rerun after the xarray pin: 109/109 PISCES files; 3,295 of 3,301 days (3,218 reanalysis, 77 forecast), median tile coverage 1.00; evaluation sets re-matched (same counts as 116161). Stage 1 training A, B, C submitted (user) |
+| 2026-11-20 | 116353 | targets `STEPS=evalsets` with the refreshed eDNA files (sequencing covariates): all sets matched in 4 s; counts identical to 116161/116167 (eDNA test 183, 100/92 with PACE; SFER test 465, 459/457; CRCP 1,057, 1,027/995; MaxN 616, all). PISCES 109/109 verified |
 | 2026-11-18 | 116200, 116201 | benchmark B/C (fix works) and A at batch 16/32. L16 b32: A 42.2 seq/s 26.0 GB 25.3 h; B 40.1, 26.0 GB, 26.6 h; C 39.9, 26.7 GB, 26.7 h (30k steps × 128). L8 b32 ~74 seq/s (~14.5 h); L24 b32 ~27 seq/s (~39 h), 38-39 GB. Loader wait ≤ 0.14. Over 200 steps SIGReg fell 1,456 → ~34, effective rank of E1 ~150-170 (no collapse), per-sensor losses all falling. Chosen: L16, b32, 30k steps for all arms; train.sbatch cancels its follow-on when an arm finishes |
 | 2026-11-18 | 116191 | benchmark: arm A ✅ all 9 (seq/s, peak GB, projected h for 30k steps × 128: L8 b2/4/8 42.4/60.1/83.6, 1.8/2.6/4.4 GB, 25.1/17.7/12.8 h; L16 33.8/45.5/53.6, 2.5/4.2/7.4 GB, 31.6/23.5/19.9 h; L24 29.0/34.5/38.3, 3.3/5.7/10.5 GB, 36.8/30.9/27.9 h; loader wait ≤ 1%). Arms B and C: all 18 died at ~10.5 min each = NCCL 10-min timeout. Cause: GroupSIGReg's autograd all_reduce ran inside backward and interleaved with DDP's gradient all-reduces in a different order per rank (ranks hold different view groups). Reproduced with 2-process gloo DDP; fixed (all-reduce detached sums in forward, gradient through local tokens × world size: identical loss and gradient to 1e-9); new tests/test_ddp.py |
 | 2026-11-17 | 116190 | benchmark: 932,992 training anchors (date fix works; normstats rebuilt in 116188), but the first configuration failed under bf16 autocast: `Index put requires the source and destination dtypes match` (predictor input grid float32, projection output bf16). Fixed in `oefm/model/net.py`; new test runs all arms under bf16 autocast. Rerun benchmark |
