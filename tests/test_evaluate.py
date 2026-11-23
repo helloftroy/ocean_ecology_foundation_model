@@ -142,6 +142,27 @@ class TestRidge(unittest.TestCase):
 
 
 @unittest.skipIf(torch is None, "PyTorch / processing dependencies not installed")
+class TestBootstrap(unittest.TestCase):
+    def test_vectorised_r2_and_auc(self):
+        from sklearn.metrics import r2_score, roc_auc_score
+
+        from oefm.model.robust import _boot_auc, _boot_r2, _strata_resamples
+
+        rng = np.random.default_rng(0)
+        g = np.repeat(["a", "b", "c"], 20)
+        I = _strata_resamples(g, 30, seed=1)
+        self.assertTrue(all((g[I[k]] == g).all() for k in range(30)))      # resampled within groups
+        y, p = rng.normal(size=60), rng.normal(size=60)
+        y[5] = np.nan
+        r = _boot_r2(y, p, I)
+        k = 3
+        ok = np.isfinite(y[I[k]])
+        self.assertAlmostEqual(r[k], r2_score(y[I[k]][ok], p[I[k]][ok]))
+        yb = (rng.random(60) > 0.5).astype(float)
+        a = _boot_auc(yb, p, I)
+        self.assertAlmostEqual(a[k], roc_auc_score(yb[I[k]], p[I[k]]))
+
+
 class TestEvaluate(unittest.TestCase):
     def test_end_to_end(self):
         from test_model import TINY
@@ -195,6 +216,29 @@ class TestEvaluate(unittest.TestCase):
                 self.assertTrue(p["test_r2"].notna().all())
                 # same samples for every feature set within a dataset and window
                 self.assertEqual(p.groupby(["dataset", "window"])["n_test"].nunique().max(), 1)
+                # robustness (test periods = quarters in this one-year synthetic set)
+                from oefm.model import robust as rb
+
+                rb.robustness(cfg, out, ["causal", "retro"], period="quarter", min_period=10, n_boot=50, log=logs.append)
+                rot = pd.read_csv(out / "robust_rotate.csv")
+                self.assertGreaterEqual(rot.groupby(["dataset", "window"])["test_period"].nunique().min(), 3)
+                self.assertGreaterEqual(pd.read_csv(out / "robust_rotate_summary.csv")["n_periods"].max(), 3)
+                bs = pd.read_csv(out / "robust_bootstrap.csv")
+                sm_v = sm[(sm["pace"] == "visible") & ((sm["covariates"] == "seq") | (sm["dataset"] == "sfer"))]
+                mm = bs[bs["metric"] == "r2_median"].merge(sm_v, on=["dataset", "window", "family", "features"])
+                self.assertGreater(len(mm), 10)
+                np.testing.assert_allclose(mm["value"], mm["test_r2_median"])   # official split = probes
+                self.assertTrue((bs["ci_lo"] <= bs["ci_hi"]).all())
+                self.assertTrue((bs.loc[bs["features"] == "stage1_A/e1", "delta"] == 0).all())
+                era = pd.read_csv(out / "robust_pace_era.csv")
+                self.assertTrue({"visible", "drop", "delta", "delta_lo"} <= set(era.columns))
+                self.assertFalse({"meta", "seq"} & set(era["features"]))
+                ret = pd.read_csv(out / "robust_retention.csv")
+                self.assertTrue({"log_brightness", "log_blue_green_oc3m", "band_443"} <= set(ret["quantity"]))
+                rb.amplitude(cfg, models, out, log=logs.append)
+                amp = pd.read_csv(out / "amplitude_check.csv")
+                self.assertEqual(set(amp["level"]), {"token", "e1"})
+                self.assertTrue(amp.loc[amp["metric"] == "log_amplitude_r2", "pass"].astype(bool).all())
                 ev.pace_retention(cfg, models, out, tc, n_train=30, n_test=10, cells_per=8, log=logs.append)
                 r = pd.read_csv(out / "pace_retention_summary.csv")
                 self.assertTrue({"train_mean", "stage1_A", "stage1_B"} <= set(r["model"]))

@@ -1,6 +1,7 @@
 # Stage 1 training (arms A, B, C), design document "Implementation specification (v1)".
 # Every arm uses the same tokenizer, encoder size, data, masking sampler and number of steps;
-# only the objective differs. Choose the arm with `--arm A|B|C` (overrides `arm` below).
+# only the objective differs. Choose the arm with `--arm A|B|C|D` (overrides `arm` below).
+# Arm D (stage 1.5, design document fork 2): arm C + arm A's band decoder at weight nu.
 arm: B
 
 model:
@@ -50,7 +51,8 @@ loss:
   sigreg_mode: group             # SIGReg per view group, equal-weight mean ('pooled': one SIGReg on all)
   sigreg_min_group_tokens: 256   # smaller groups (across GPUs) are pooled for that step
   lambda: 0.05             # (1 - lambda) * prediction + lambda * SIGReg (arms B, C)
-  mu: 0.1                  # PACE residual weight (arm C)
+  mu: 0.1                  # PACE residual weight (arms C, D)
+  nu: 0.1                  # band-reconstruction weight (arm D: hybrid JEPA + light reconstruction)
   sigreg_slices: 1024
   sigreg_points: 17
   sigreg_t_max: 5.0        # 17 points on [-5, 5] (doubled trapezoid weights on [0, 5])

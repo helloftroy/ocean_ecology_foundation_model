@@ -47,7 +47,7 @@ def infinite(loader):
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(REPO_ROOT / "config" / "train_stage1.yaml"))
-    ap.add_argument("--arm", choices=["A", "B", "C"])
+    ap.add_argument("--arm", choices=["A", "B", "C", "D"])
     ap.add_argument("--name", help="run name (default stage1_<arm>)")
     ap.add_argument("--benchmark", type=int, default=0, help="run N steps, report speed and memory, do not save")
     ap.add_argument("--override", nargs="*", default=[], help="dotted key=value, e.g. optim.per_gpu_batch=8")
@@ -136,6 +136,7 @@ def main(argv=None) -> None:
 
     amp = dict(device_type=device.type, dtype=torch.bfloat16, enabled=tcfg["run"]["precision"] == "bf16" and device.type == "cuda")
     lam, mu = tcfg["loss"]["lambda"], tcfg["loss"]["mu"]
+    nu = float(tcfg["loss"].get("nu", 0.1))  # arm D: reconstruction weight
     sig_tokens = max(1, int(tcfg["loss"]["sigreg_tokens"]) // world)
     t_start = time.time()
     last_ck = time.time()
@@ -160,7 +161,7 @@ def main(argv=None) -> None:
             t1 = time.time()
             ctx = model.no_sync() if (ddp and micro < accum - 1) else contextlib.nullcontext()
             with ctx, torch.autocast(**amp):
-                out = model(batch, sigreg=sig, lam=lam, mu=mu, sigreg_tokens=sig_tokens,
+                out = model(batch, sigreg=sig, lam=lam, mu=mu, nu=nu, sigreg_tokens=sig_tokens,
                             balance=tcfg["loss"]["balance"], weights=tcfg["loss"]["modality_weights"])
                 loss = out["loss"] / accum
             loss.backward()

@@ -27,11 +27,19 @@ oefm/model/data.py. Token width D (512), predictor width Dp (384).
 - Arm A decoder: the same mask-token construction, 2 blocks per cell, then a dot product with a
   band query MLP(Fourier(lambda)) per band (16 outputs per band for OLCI 300 m pixels).
 - PACE residual decoder (arm C): MLP D -> 512 -> number of PACE bands on temporal-stage tokens.
+- Arm D (design document fork 2, "hybrid JEPA + light reconstruction"; stage 1.5): arm C's
+  objective plus arm A's band decoder at weight nu (~0.1): loss = (1 - lambda) pred + lambda SIGReg
+  + mu PACE residual + nu reconstruction. The decoder has its own mask-token embeddings (r_*), so
+  the predictor and E2 are built exactly as in arm C.
 """
 
 from __future__ import annotations
 
 import math
+
+JEPA_ARMS = ("B", "C", "D")      # predictor + SIGReg; E2 exists
+RECON_ARMS = ("A", "D")          # band decoder
+RESID_ARMS = ("C", "D")          # PACE residual decoder (needs pace_ridge.npz)
 
 import torch
 import torch.nn.functional as F
@@ -189,23 +197,30 @@ class Model(nn.Module):
         self.spatial = Stack(m["spatial_depth"], d, m["heads"], m["mlp_ratio"], m["drop_path"], m["checkpoint"])
         self.temporal = Stack(m["temporal_depth"], d, m["heads"], m["mlp_ratio"], m["drop_path"], m["checkpoint"])
         self.dt_ctx = nn.Linear(32, d)
-        if self.arm in ("B", "C"):
+        if self.arm in JEPA_ARMS:
             self.p_in = nn.Linear(d, dp)
             self.p_temporal = Stack(m["pred_temporal_depth"], dp, m["pred_heads"], m["mlp_ratio"], 0.0, m["checkpoint"])
             self.p_spatial = Stack(m["pred_spatial_depth"], dp, m["pred_heads"], m["mlp_ratio"], 0.0, m["checkpoint"])
             self.p_out = nn.Linear(dp, d)
         if self.arm == "A":
             self.p_in = nn.Linear(d, dp)
+        if self.arm in RECON_ARMS:
             self.dec = Stack(m["decoder_depth"], dp, m["pred_heads"], m["mlp_ratio"], 0.0, m["checkpoint"])
             self.band_query = nn.Sequential(nn.Linear(2 * m["n_fourier"], 256), nn.GELU(), nn.Linear(256, dp))
             self.sub16 = nn.Linear(dp, 16 * dp)
-        if self.arm in ("A", "B", "C"):
+        if self.arm in ("A", "B", "C", "D"):
             self.mask_token = nn.Parameter(torch.zeros(dp))
             self.m_view = nn.Embedding(len(VIEW_TYPES), dp)
             self.m_band = nn.Linear(2 * m["n_fourier"], dp)
             self.m_dt = nn.Linear(32, dp)
             self.register_buffer("m_pos", sincos_2d(32, dp), persistent=False)
-        if self.arm == "C":
+        if self.arm == "D":  # the decoder's own query embeddings (the predictor keeps p_in, mask_token, m_*)
+            self.r_in = nn.Linear(d, dp)
+            self.r_mask_token = nn.Parameter(torch.zeros(dp))
+            self.r_view = nn.Embedding(len(VIEW_TYPES), dp)
+            self.r_band = nn.Linear(2 * m["n_fourier"], dp)
+            self.r_dt = nn.Linear(32, dp)
+        if self.arm in RESID_ARMS:
             self.resid = nn.Sequential(nn.Linear(d, 512), nn.GELU(), nn.Linear(512, m["pace_bands"]))
         self.n_fourier = m["n_fourier"]
 
@@ -251,20 +266,27 @@ class Model(nn.Module):
             outs.append((gg, x))
         return outs
 
-    def _mask_grid(self, batch, z, gmask, dts):
+    def _query_parts(self, decoder: bool):
+        """(input projection, mask token, view, band, dt) for the predictor or the band decoder."""
+        if decoder and self.arm == "D":
+            return self.r_in, self.r_mask_token, self.r_view, self.r_band, self.r_dt
+        return self.p_in, self.mask_token, self.m_view, self.m_band, self.m_dt
+
+    def _mask_grid(self, batch, z, gmask, dts, decoder: bool = False):
         """Predictor/decoder input grid [B, T, 1024, Dp] with mask tokens at target positions."""
+        p_in, mask_token, m_view, m_band, m_dt = self._query_parts(decoder)
         B, T = batch["B"], batch["T"]
         p = torch.zeros(B, T, 1024, self.dp, device=z.device, dtype=z.dtype)
-        p[gmask] = self.p_in(z[gmask]).to(p.dtype)
+        p[gmask] = p_in(z[gmask]).to(p.dtype)
         tmask = torch.zeros_like(gmask)
         for g in batch["groups"]:
             sel = g["tgt_cells"].any(1)
             if not sel.any():
                 continue
             seq, slot, cells = g["seq"][sel], g["slot"][sel], g["tgt_cells"][sel]
-            band_sig = self.m_band(fourier(g["wl"], self.n_fourier, 2.0, 2000.0).mean(0))
-            base = (self.mask_token + self.m_view.weight[g["view"]] + band_sig)[None, None, :] \
-                + self.m_dt(self._dt(g["dt"][sel]))[:, None, :] + self.m_pos[None]
+            band_sig = m_band(fourier(g["wl"], self.n_fourier, 2.0, 2000.0).mean(0))
+            base = (mask_token + m_view.weight[g["view"]] + band_sig)[None, None, :] \
+                + m_dt(self._dt(g["dt"][sel]))[:, None, :] + self.m_pos[None]
             cur = p[seq, slot]
             p[seq, slot] = torch.where(cells[..., None], base.to(p.dtype), cur)
             tmask[seq, slot] |= cells
@@ -281,8 +303,8 @@ class Model(nn.Module):
         return self.p_out(h.reshape(B, T, 1024, self.dp)), tmask
 
     def decode_values(self, batch, z, gmask, dts):
-        """Arm A: predicted transformed values for every hidden (observation, cell)."""
-        p, tmask = self._mask_grid(batch, z, gmask, dts)
+        """Arms A, D: predicted transformed values for every hidden (observation, cell)."""
+        p, tmask = self._mask_grid(batch, z, gmask, dts, decoder=True)
         B, T = batch["B"], batch["T"]
         valid = gmask | tmask
         h = p.permute(0, 2, 1, 3).reshape(B * 1024, T, self.dp)
@@ -309,10 +331,11 @@ class Model(nn.Module):
         return num / max(den, 1e-12), logs
 
     def forward(self, batch: dict, sigreg=None, lam: float = 0.05, mu: float = 0.1,
-                sigreg_tokens: int = 8192, balance: str = "modality", weights: dict | None = None) -> dict:
+                sigreg_tokens: int = 8192, balance: str = "modality", weights: dict | None = None,
+                nu: float = 0.1) -> dict:
         z, gmask, dts = self.encode_context(batch)
         out: dict = {}
-        if self.arm in ("B", "C"):
+        if self.arm in JEPA_ARMS:
             zhat, tmask = self.predict(batch, z, gmask, dts)
             per: dict[str, list] = {}
             tgt_by: dict[str, list] = {}
@@ -339,47 +362,58 @@ class Model(nn.Module):
                 l_sig = sigreg(sub)
             loss = (1 - lam) * l_pred + lam * l_sig
             out.update(pred=l_pred.detach(), sigreg=l_sig.detach(), n_targets=zt.shape[0])
-            if self.arm == "C":
+            if self.arm in RESID_ARMS:
                 l_res = self.pace_residual_loss(batch, z)
                 if l_res is not None:
                     loss = loss + mu * l_res
                     out["pace_residual"] = l_res.detach()
+            if self.arm == "D":
+                l_rec, fam, _ = self.recon_loss(batch, z, gmask, dts, balance, weights)
+                loss = loss + nu * l_rec
+                out.update({f"recon_{k}": v for k, v in fam.items()})
+                out["recon"] = l_rec.detach()
             out["loss"] = loss
         elif self.arm == "A":
-            h, tmask = self.decode_values(batch, z, gmask, dts)
-            per: dict[str, list] = {}
-            n = 0
-            for g in batch["groups"]:
-                sel = g["tgt_cells"].any(1)
-                if not sel.any():
-                    continue
-                q = self.band_query(fourier(g["wl"], self.n_fourier, 2.0, 2000.0))      # [C, Dp]
-                tok = h[g["seq"][sel], g["slot"][sel]]                                  # [n, 1024, Dp]
-                cells = g["tgt_cells"][sel]
-                vals = g["values"][sel].float()
-                bm = g["band_mask"][sel]
-                if g["olci"]:
-                    sub = self.sub16(tok).reshape(*tok.shape[:2], 16, self.dp)          # [n, 1024, 16, Dp]
-                    pred = torch.einsum("nlpd,cd->nlcp", sub, q)                         # [n, 1024, C, 16]
-                    c = vals.shape[1]
-                    tv = vals.reshape(-1, c, 32, 4, 32, 4).permute(0, 2, 4, 1, 3, 5).reshape(-1, 1024, c, 16)
-                    tm = bm.reshape(-1, c, 32, 4, 32, 4).permute(0, 2, 4, 1, 3, 5).reshape(-1, 1024, c, 16)
-                else:
-                    pred = torch.einsum("nld,cd->nlc", tok, q)                            # [n, 1024, C]
-                    tv = vals.reshape(vals.shape[0], vals.shape[1], 1024).transpose(1, 2)
-                    tm = bm.reshape(bm.shape[0], bm.shape[1], 1024).transpose(1, 2)
-                m = tm & cells.reshape(cells.shape + (1,) * (tm.ndim - 2))
-                e = ((pred.float() - torch.nan_to_num(tv)) ** 2)[m]
-                per.setdefault(g["family"], []).append(e)
-                n += e.numel()
-            if per:
-                l_rec, fam = self.balance({k: torch.cat(v) for k, v in per.items()}, balance, weights)
-                out.update({f"recon_{k}": v for k, v in fam.items()})
-            else:
-                l_rec = z.sum() * 0
+            l_rec, fam, n = self.recon_loss(batch, z, gmask, dts, balance, weights)
+            out.update({f"recon_{k}": v for k, v in fam.items()})
             out.update(loss=l_rec, recon=l_rec.detach(), n_targets=n)
         out["z"], out["gmask"] = z, gmask
         return out
+
+    def recon_loss(self, batch, z, gmask, dts, balance: str = "modality", weights: dict | None = None):
+        """Band decoder (arms A, D): balanced squared error of the transformed values of every hidden
+        (observation, cell, band). Returns (loss, per-family logs, number of values)."""
+        h, tmask = self.decode_values(batch, z, gmask, dts)
+        per: dict[str, list] = {}
+        n = 0
+        for g in batch["groups"]:
+            sel = g["tgt_cells"].any(1)
+            if not sel.any():
+                continue
+            q = self.band_query(fourier(g["wl"], self.n_fourier, 2.0, 2000.0))      # [C, Dp]
+            tok = h[g["seq"][sel], g["slot"][sel]]                                  # [n, 1024, Dp]
+            cells = g["tgt_cells"][sel]
+            vals = g["values"][sel].float()
+            bm = g["band_mask"][sel]
+            if g["olci"]:
+                sub = self.sub16(tok).reshape(*tok.shape[:2], 16, self.dp)          # [n, 1024, 16, Dp]
+                pred = torch.einsum("nlpd,cd->nlcp", sub, q)                         # [n, 1024, C, 16]
+                c = vals.shape[1]
+                tv = vals.reshape(-1, c, 32, 4, 32, 4).permute(0, 2, 4, 1, 3, 5).reshape(-1, 1024, c, 16)
+                tm = bm.reshape(-1, c, 32, 4, 32, 4).permute(0, 2, 4, 1, 3, 5).reshape(-1, 1024, c, 16)
+            else:
+                pred = torch.einsum("nld,cd->nlc", tok, q)                            # [n, 1024, C]
+                tv = vals.reshape(vals.shape[0], vals.shape[1], 1024).transpose(1, 2)
+                tm = bm.reshape(bm.shape[0], bm.shape[1], 1024).transpose(1, 2)
+            m = tm & cells.reshape(cells.shape + (1,) * (tm.ndim - 2))
+            e = ((pred.float() - torch.nan_to_num(tv)) ** 2)[m]
+            per.setdefault(g["family"], []).append(e)
+            n += e.numel()
+        if per:
+            l_rec, fam = self.balance({k: torch.cat(v) for k, v in per.items()}, balance, weights)
+        else:
+            l_rec, fam = z.sum() * 0, {}
+        return l_rec, fam, n
 
     def pace_residual_loss(self, batch, z):
         errs = []
@@ -401,7 +435,7 @@ class Model(nn.Module):
 
     @torch.no_grad()
     def embed_e2(self, batch, ref_wl: torch.Tensor | None = None, view: int = 0) -> torch.Tensor:
-        """E2 (arms B, C): the predictor queried at dt = 0, view type `view`, with MODIS-Aqua's
+        """E2 (arms B, C, D): the predictor queried at dt = 0, view type `view`, with MODIS-Aqua's
         ocean-band signature (default), for every cell, even on days without an observation. The
         query is trained: synthetic MODIS-band targets from hidden PACE/OLCI observations plus native
         hidden MODIS observations (oefm/model/data.py). Returns [B, 1024, D]."""

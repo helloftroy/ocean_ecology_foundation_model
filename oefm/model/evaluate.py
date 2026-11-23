@@ -1,6 +1,6 @@
 """Stage 1 evaluation (step 2.10): frozen embeddings, linear probes, PACE spectral retention.
 
-    python -m oefm.model.evaluate --runs stage1_A stage1_B stage1_C [--steps embed probes pace]
+    python -m oefm.model.evaluate --runs stage1_A stage1_B stage1_C [--steps embed probes pace robust amplitude]
 
 Everything is frozen: no backbone fine-tuning (design document, "Downstream protocol"). Outputs go
 to data/runs/eval_<tag>/.
@@ -41,6 +41,10 @@ pace    PACE spectral retention: anchors = PACE observations (retro window), the
         (test_geo). Per wavelength RMSE (normalised units) and R^2. Baselines: training mean
         spectrum, and the heritage-band ridge of arm C (pace_ridge.npz) applied to the same PACE
         observation. -> pace_retention.csv (per wavelength), pace_retention_summary.csv
+
+robust, amplitude   Test-year rotation, bootstrap intervals, PACE-era visible vs dropped, retention
+        of input reflectance quantities; amplitude test on trained weights: oefm/model/robust.py.
+        Not in the default steps.
 """
 
 from __future__ import annotations
@@ -61,7 +65,7 @@ from ..normstats import stats_dir
 from ..spectral import Normalizer
 from ..targets import eval_dir
 from .data import MODIS_REF_WL, TrainData, collate, to_device
-from .net import Model, effective_rank, embed_e3
+from .net import JEPA_ARMS, Model, effective_rank, embed_e3
 
 META_COLS = ["sample_id", "dataset", "lat", "lon", "time_utc", "label_split"]
 NUTRIENTS = ("po4", "no3", "si", "chl")
@@ -167,11 +171,11 @@ def _collate_points(items: list[dict]) -> tuple[dict | None, list[dict]]:
 
 @torch.no_grad()
 def _point_embeddings(model: Model, batch: dict, nbs: list[np.ndarray]) -> dict[str, np.ndarray]:
-    """E1, E2 (B/C), E3 averaged over the valid cells among each sample's 3 x 3 cells."""
+    """E1, E2 (B/C/D), E3 averaged over the valid cells among each sample's 3 x 3 cells."""
     z, gmask, _ = model.encode_context(batch)
     e1, m = model.embed_e1(batch, z, gmask)
     out = {"e1": e1, "e3": embed_e3(e1, z, gmask)}
-    if model.arm in ("B", "C"):
+    if model.arm in JEPA_ARMS:
         out["e2"] = model.embed_e2(batch).float()
     res = {}
     for name, e in out.items():
@@ -369,101 +373,134 @@ def _metrics(y, p, binary: bool) -> dict:
     return out
 
 
+def probe_inputs(cfg, out_dir: Path, window: str, paces, seq_covariates_mode: str = "both", log=print):
+    """Per evaluation set (one window): features aligned to the labelled samples, targets and masks,
+    shared by the probes and the robustness step. Yields dicts with: ds, df, fsets {(features,
+    pace): X}, C (sequencing covariates or None), settings (covariate settings to report), tcols,
+    Y (transformed targets, all samples), common (samples where every feature set exists),
+    groups (cross-validation groups), n_pace {pace: PACE observations in the 3 x 3 cells}."""
+    import pandas as pd
+
+    emb = {}
+    for pace in paces:
+        f = out_dir / f"embeddings_{window}_{pace}.npz"
+        if f.exists():
+            emb[pace] = dict(np.load(f, allow_pickle=False))
+    if not emb:
+        log(f"probes: no embeddings for window {window}; run --steps embed first")
+        return
+    key_index = {k: i for i, k in enumerate(next(iter(emb.values()))["key"])}
+    for f in sorted((eval_dir(cfg) / "matched").glob("*.csv.gz")):
+        df = pd.read_csv(f, dtype={"sample_id": str})
+        ds = df["dataset"].iloc[0]
+        df["key"] = df["lat"].round(5).astype(str) + "|" + df["lon"].round(5).astype(str) + "|" + df["time_utc"].astype(str)
+        df = df[df["key"].isin(key_index)].reset_index(drop=True)
+        ix = df["key"].map(key_index).to_numpy()
+        t = pd.to_datetime(df["time_utc"], utc=True)
+        doy = 2 * np.pi * t.dt.day_of_year.to_numpy() / 365.25
+        meta = np.c_[df["lat"], df["lon"], np.sin(doy), np.cos(doy)]
+        fsets: dict[tuple[str, str], np.ndarray] = {}
+        for pace, e in emb.items():
+            fsets[("meta", pace)] = meta
+            fsets[("raw", pace)] = np.arcsinh(e["raw"][ix] / 5e-4)
+            for k, v in e.items():
+                if "__" in k:
+                    fsets[(k.replace("__", "/"), pace)] = v[ix]
+        # raw: a band missing for a sample (sensor range) -> fill with the training mean of that band
+        common = np.ones(len(df), bool)
+        for (name, pace), X in fsets.items():
+            if name == "raw":
+                common &= np.isfinite(X).any(1)
+            elif name != "meta":
+                common &= np.isfinite(X).all(1)
+        # sequencing covariates (eDNA): settings to report, and the 'seq' baseline (covariates only)
+        C = seq_covariates(df)
+        settings = ["none"]
+        if C is not None:
+            settings = {"on": ["seq"], "off": ["none"], "both": ["seq", "none"]}[seq_covariates_mode]
+            if "seq" in settings:
+                common &= np.isfinite(C).all(1)
+                for pace in emb:
+                    fsets[("seq", pace)] = np.zeros((len(df), 0))
+        tcols = target_columns(df)
+        Y = np.column_stack([transform_target(c, df[c].to_numpy(float)) for c in tcols]) if tcols \
+            else np.zeros((len(df), 0))
+        groups = np.array([group_of(ds, s, tt) for s, tt in zip(df["sample_id"], df["time_utc"])])
+        n_pace = {pace: e["n_pace"][ix] for pace, e in emb.items()}
+        yield {"ds": ds, "df": df, "fsets": fsets, "C": C, "settings": settings, "tcols": tcols, "Y": Y,
+               "common": common, "groups": groups, "n_pace": n_pace}
+
+
+def usable_targets(Y: np.ndarray, tr: np.ndarray) -> np.ndarray:
+    """A target may be missing for some samples (SFER Chl: 13%): each target uses the samples where
+    it is measured; it must have >= 20 training values with spread."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return (np.isfinite(Y[tr]).sum(0) >= 20) & (np.nanstd(np.where(np.isfinite(Y[tr]), Y[tr], np.nan), axis=0) > 0)
+
+
+def sd_ratio(Y: np.ndarray, tr: np.ndarray, te: np.ndarray) -> np.ndarray:
+    """Test spread relative to training spread: R^2 is not meaningful when the test labels are
+    nearly constant (18S NMF k15/k20 component 10 is almost absent in 2024: ratio 0.07-0.10)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return np.nanstd(Y[te], axis=0) / np.nanstd(Y[tr], axis=0)
+
+
+def fit_predict(name: str, X: np.ndarray, Y: np.ndarray, tr: np.ndarray, groups: np.ndarray, C=None):
+    """Ridge probes fitted on the training samples `tr`, predictions for every sample. Targets sharing
+    one pattern of measured training samples are fitted together. Returns (pred, alphas, cv R^2,
+    training samples per target)."""
+    X = X.astype(float)
+    if name == "raw":
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            mu = np.nanmean(X[tr], axis=0)
+        mu = np.where(np.isfinite(mu), mu, 0.0)
+        X = np.where(np.isfinite(X), X, mu)
+    patterns: dict[bytes, list[int]] = {}
+    for j in range(Y.shape[1]):
+        patterns.setdefault(np.isfinite(Y[tr, j]).tobytes(), []).append(j)
+    pred = np.full(Y.shape, np.nan)
+    alphas, cv = np.full(Y.shape[1], np.nan), np.full(Y.shape[1], np.nan)
+    n_tr = np.zeros(Y.shape[1], int)
+    for cols in patterns.values():
+        yt = Y[tr][:, cols]
+        fin = np.isfinite(yt).all(1)
+        pr, al, cvs = ridge_probe(X[tr][fin], yt[fin], groups[tr][fin], X,
+                                  Ctr=None if C is None else C[tr][fin], Cte=C)
+        pred[:, cols], alphas[cols], cv[cols], n_tr[cols] = pr, al, cvs, fin.sum()
+    return pred, alphas, cv, n_tr
+
+
 def probes(cfg, out_dir: Path, windows, paces, log=print, seq_covariates_mode: str = "both") -> None:
     import pandas as pd
 
     rows = []
     for window in windows:
-        emb = {}
-        for pace in paces:
-            f = out_dir / f"embeddings_{window}_{pace}.npz"
-            if f.exists():
-                emb[pace] = dict(np.load(f, allow_pickle=False))
-        if not emb:
-            log(f"probes: no embeddings for window {window}; run --steps embed first")
-            continue
-        key_index = {k: i for i, k in enumerate(next(iter(emb.values()))["key"])}
-        for f in sorted((eval_dir(cfg) / "matched").glob("*.csv.gz")):
-            df = pd.read_csv(f, dtype={"sample_id": str})
-            ds = df["dataset"].iloc[0]
-            df["key"] = df["lat"].round(5).astype(str) + "|" + df["lon"].round(5).astype(str) + "|" + df["time_utc"].astype(str)
-            df = df[df["key"].isin(key_index)].reset_index(drop=True)
-            ix = df["key"].map(key_index).to_numpy()
-            t = pd.to_datetime(df["time_utc"], utc=True)
-            doy = 2 * np.pi * t.dt.day_of_year.to_numpy() / 365.25
-            meta = np.c_[df["lat"], df["lon"], np.sin(doy), np.cos(doy)]
-            fsets: dict[tuple[str, str], np.ndarray] = {}
-            for pace, e in emb.items():
-                fsets[("meta", pace)] = meta
-                fsets[("raw", pace)] = np.arcsinh(e["raw"][ix] / 5e-4)
-                for k, v in e.items():
-                    if "__" in k:
-                        fsets[(k.replace("__", "/"), pace)] = v[ix]
-            # raw: a band missing for a sample (sensor range) -> fill with the training mean of that band
-            common = np.ones(len(df), bool)
-            for (name, pace), X in fsets.items():
-                if name == "raw":
-                    common &= np.isfinite(X).any(1)
-                elif name != "meta":
-                    common &= np.isfinite(X).all(1)
-            # sequencing covariates (eDNA): settings to report, and the 'seq' baseline (covariates only)
-            C = seq_covariates(df)
-            settings = ["none"]
-            if C is not None:
-                settings = {"on": ["seq"], "off": ["none"], "both": ["seq", "none"]}[seq_covariates_mode]
-                if "seq" in settings:
-                    common &= np.isfinite(C).all(1)
-                    for pace in emb:
-                        fsets[("seq", pace)] = np.zeros((len(df), 0))
-            tcols = target_columns(df)
-            tr = (df["label_split"] == "train").to_numpy() & common
-            te = (df["label_split"] == "test").to_numpy() & common
+        for inp in probe_inputs(cfg, out_dir, window, paces, seq_covariates_mode, log):
+            ds, df, fsets, C, settings, groups = (inp[k] for k in ("ds", "df", "fsets", "C", "settings", "groups"))
+            tr = (df["label_split"] == "train").to_numpy() & inp["common"]
+            te = (df["label_split"] == "test").to_numpy() & inp["common"]
             if tr.sum() < 20 or te.sum() < 5:
                 log(f"probes {ds}/{window}: too few samples with features (train {tr.sum()}, test {te.sum()}); skipped")
                 continue
-            Y = np.column_stack([transform_target(c, df[c].to_numpy(float)) for c in tcols])
-            # a target may be missing for some samples (SFER Chl: 13%): each target uses the samples
-            # where it is measured; it must have >= 20 training values with spread
-            n_ok = np.isfinite(Y[tr]).sum(0)
-            ok_t = (n_ok >= 20) & (np.nanstd(np.where(np.isfinite(Y[tr]), Y[tr], np.nan), axis=0) > 0)
-            tcols = [c for c, o in zip(tcols, ok_t) if o]
-            Y = Y[:, ok_t]
-            # test spread relative to training spread: R^2 is not meaningful when the test labels are
-            # nearly constant (18S NMF k15/k20 component 10 is almost absent in 2024: ratio 0.07-0.10)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                sd_ratio = np.nanstd(Y[te], axis=0) / np.nanstd(Y[tr], axis=0)
-            # targets sharing one pattern of measured training samples are fitted together
-            patterns: dict[bytes, list[int]] = {}
-            for j in range(Y.shape[1]):
-                patterns.setdefault(np.isfinite(Y[tr, j]).tobytes(), []).append(j)
-            groups = np.array([group_of(ds, s, tt) for s, tt in zip(df["sample_id"], df["time_utc"])])
+            ok_t = usable_targets(inp["Y"], tr)
+            tcols = [c for c, o in zip(inp["tcols"], ok_t) if o]
+            Y = inp["Y"][:, ok_t]
+            sdr = sd_ratio(Y, tr, te)
             pace_ok = (df.get("causal_PACE", pd.Series(0, index=df.index)).fillna(0).to_numpy() >= 1) & te
             for (name, pace), X in fsets.items():
                 for cov in settings:
                     if name == "seq" and cov != "seq":
                         continue
-                    X = X.astype(float)
-                    if name == "raw":
-                        mu = np.nanmean(X[tr], axis=0)
-                        mu = np.where(np.isfinite(mu), mu, 0.0)
-                        X = np.where(np.isfinite(X), X, mu)
-                    Cx = C if cov == "seq" else None
-                    pred = np.full(Y.shape, np.nan)
-                    alphas, cv = np.full(Y.shape[1], np.nan), np.full(Y.shape[1], np.nan)
-                    n_tr = np.zeros(Y.shape[1], int)
-                    for cols in patterns.values():
-                        yt = Y[tr][:, cols]
-                        fin = np.isfinite(yt).all(1)
-                        pr, al, cvs = ridge_probe(X[tr][fin], yt[fin], groups[tr][fin], X,
-                                                  Ctr=None if Cx is None else Cx[tr][fin], Cte=Cx)
-                        pred[:, cols], alphas[cols], cv[cols], n_tr[cols] = pr, al, cvs, fin.sum()
+                    pred, alphas, cv, n_tr = fit_predict(name, X, Y, tr, groups, C if cov == "seq" else None)
                     for j, c in enumerate(tcols):
                         binary = c.startswith("present_")
                         rec = {"dataset": ds, "window": window, "pace": pace, "features": name, "covariates": cov,
                                "target": c,
                                "family": target_family(c), "n_train": int(n_tr[j]), "n_test": int(te.sum()),
-                               "test_sd_ratio": float(sd_ratio[j]),
+                               "test_sd_ratio": float(sdr[j]),
                                "alpha": float(alphas[j]), "cv_r2": float(cv[j]),
                                **_metrics(Y[te, j], pred[te, j], binary)}
                         if pace_ok.sum() >= 10:
@@ -676,7 +713,12 @@ def main(argv=None) -> None:
     ap.add_argument("--runs", nargs="+", default=["stage1_A", "stage1_B", "stage1_C"])
     ap.add_argument("--weights", default="final", help="final (falls back to checkpoint) | checkpoint | path")
     ap.add_argument("--tag", default="stage1")
-    ap.add_argument("--steps", nargs="+", default=["embed", "probes", "pace"], choices=["embed", "probes", "pace"])
+    ap.add_argument("--steps", nargs="+", default=["embed", "probes", "pace"],
+                    choices=["embed", "probes", "pace", "robust", "amplitude"])
+    ap.add_argument("--robust", nargs="+", default=["rotate", "bootstrap", "pace_era", "retention"],
+                    choices=["rotate", "bootstrap", "pace_era", "retention"], help="parts of --steps robust")
+    ap.add_argument("--ref", default="stage1_A/e1", help="reference feature set for robustness differences")
+    ap.add_argument("--n-boot", type=int, default=1000)
     ap.add_argument("--windows", nargs="+", default=["causal", "retro"])
     ap.add_argument("--pace", nargs="+", default=["visible", "drop"])
     ap.add_argument("--batch", type=int, default=16)
@@ -693,7 +735,7 @@ def main(argv=None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     models, tcfg = [], None
-    if {"embed", "pace"} & set(args.steps):
+    if {"embed", "pace", "amplitude"} & set(args.steps):
         for r in args.runs:
             m, info = load_run(cfg, r, args.weights, device)
             models.append((m, info))
@@ -706,6 +748,13 @@ def main(argv=None) -> None:
         probes(cfg, out_dir, args.windows, args.pace, seq_covariates_mode=args.seq_covariates)
     if "pace" in args.steps:
         pace_retention(cfg, models, out_dir, tcfg, *args.pace_anchors)
+    if "robust" in args.steps or "amplitude" in args.steps:
+        from . import robust as rb
+
+        if "robust" in args.steps:
+            rb.robustness(cfg, out_dir, args.windows, args.robust, ref=args.ref, n_boot=args.n_boot)
+        if "amplitude" in args.steps:
+            rb.amplitude(cfg, models, out_dir)
 
 
 if __name__ == "__main__":

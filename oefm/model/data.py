@@ -124,7 +124,7 @@ class TrainData(torch.utils.data.Dataset):
                                f"config training.partitions and the observation times; summary {self.seq.summary()}")
         self.norm = Normalizer.load(stats_dir(cfg) / "normstats.json")
         rp = stats_dir(cfg) / "pace_ridge.npz"
-        self.ridge = dict(np.load(rp)) if (tcfg["arm"] == "C" and rp.exists()) else None
+        self.ridge = dict(np.load(rp)) if (tcfg["arm"] in ("C", "D") and rp.exists()) else None
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self.weights = self._weights(d)

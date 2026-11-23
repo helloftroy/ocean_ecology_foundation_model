@@ -10,10 +10,12 @@
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
-# Stage 1 evaluation (step 2.10): frozen embeddings at the evaluation samples, ridge probes, PACE
+# Stage 1 evaluation (steps 2.10, 2.10b): frozen embeddings at the evaluation samples, ridge probes, PACE
 # spectral retention, for the runs in RUNS (default: the three Stage 1 arms, final weights).
 # Results in data/runs/eval_<TAG>/ (summary tables are printed at the end of the log).
 #   sbatch --account=191001-366746 cluster/evaluate.sbatch
+#   # robustness + amplitude test on the existing embeddings (2.10b):
+#   sbatch --account=191001-366746 --export=ALL,EXTRA="--steps robust amplitude" cluster/evaluate.sbatch
 #   # quick check on 300 samples and few PACE anchors, from the latest checkpoints:
 #   sbatch --account=191001-366746 --export=ALL,TAG=check,WEIGHTS=checkpoint,EXTRA="--limit 300 --pace-anchors 100 50" cluster/evaluate.sbatch
 

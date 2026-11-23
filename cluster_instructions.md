@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-18** (training A, B, C running; evaluation built, run it when they finish: **What to run now** step F).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (Stage 1 evaluated; before the 2.11 decision: robustness checks on A/B/C (**G**), then arm D = stage 1.5, fork 2 (**H**), then evaluate all four (**I**)).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -11,7 +11,7 @@ Status key: ✅ done · ▶️ next · ⏳ waiting on an earlier step · 🛠 no
 
 ---
 
-## ▶️ What to run now (2026-11-16)
+## ▶️ What to run now (2026-11-23)
 
 Prep v2 (job 116124) has finished. The remaining steps before training, in order. A and B are
 independent and can run at the same time; C needs B; D needs A, B and C.
@@ -109,6 +109,41 @@ sbatch --account=191001-366746 --export=ALL,EXTRA="--steps probes" cluster/evalu
 ```
 Paste back `tail -80 logs/oefm_eval_<id>.out` and copy `data/runs/eval_stage1/probes*.csv` to the
 laptop (into `multimodal_seusmbol/eval_results/stage1/`, outside the repo).
+
+**G. Robustness checks on A, B, C (2026-11-23)** ▶️. They reuse the stage 1 embeddings, so no
+re-embedding is needed. Decision log: "Stage 1.5 and robustness checks". The run takes about 1–3 h
+on 1 A100; it is mostly CPU ridge fits. Steps:
+- test-year rotation (`robust_rotate*.csv`);
+- paired bootstrap intervals on the official split (`robust_bootstrap.csv`);
+- PACE visible vs dropped, with probes trained on PACE-era samples (`robust_pace_era.csv`);
+- input retention (`robust_retention.csv`);
+- the design-document amplitude test on the trained weights, at the token and E1 levels
+  (`amplitude_check.csv`).
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,EXTRA="--steps robust amplitude" cluster/evaluate.sbatch
+```
+Paste back `tail -150 logs/oefm_eval_<id>.out`. Copy `data/runs/eval_stage1/robust_*.csv` and
+`amplitude_check.csv` to `multimodal_seusmbol/eval_results/stage1/`.
+
+**H. Stage 1.5: train arm D (2026-11-23)** ▶️. Arm D is fork 2, hybrid JEPA + light reconstruction:
+arm C's loss plus arm A's band decoder at weight ν = 0.1 (`loss.nu`). The config, data and 30,000
+steps are the same as the other arms. Expect about 28–32 h; peak memory should be about 30 GB of
+80 (A 26.0, C 26.7). It needs all 4 GPUs, so submit it after G; it queues until G frees its GPU.
+```bash
+sbatch --account=191001-366746 --export=ALL,ARM=D,CHAIN=1 cluster/train.sbatch
+```
+After about 10 minutes, paste back the first lines of `logs/oefm_train_<id>.out` and
+`tail -3 data/runs/stage1_D/log.jsonl`. The log should show `recon` and the `recon_*` keys next to
+`pred`, `sigreg` and `pace_residual`.
+
+**I. Evaluate all four arms (after H)** ⏳. Use a new tag. `embed` writes every run into the same
+`embeddings_*.npz`, so evaluating only D under the tag `stage1` would overwrite A, B and C.
+```bash
+sbatch --account=191001-366746 --export=ALL,RUNS="stage1_A stage1_B stage1_C stage1_D",TAG=stage1_5,EXTRA="--steps embed probes pace robust amplitude" cluster/evaluate.sbatch
+```
+The run takes about 3–5 h. Paste back `tail -250 logs/oefm_eval_<id>.out` and copy
+`data/runs/eval_stage1_5/*.csv` to `multimodal_seusmbol/eval_results/stage1_5/`.
 
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
@@ -367,13 +402,16 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ✅ |
 | 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ✅ L16, batch 32 |
 | 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ✅ all three at step 30,000 |
-| 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ✅ 116376 (SFER probes rerun: F2) |
-| 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | ▶️ your decision (A leads on every measure so far; SFER pending F2) |
+| 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ✅ 116376 (SFER probes rerun: F2 ✅) |
+| 2.10b | Robustness: test-year rotation, bootstrap intervals, PACE-era visible vs dropped, input retention, amplitude test on trained weights (`--steps robust amplitude`, `oefm/model/robust.py`) | gpu-a100 | ▶️ G |
+| 2.9b | **Stage 1.5, arm D** (design document fork 2, hybrid JEPA + light reconstruction): arm C + arm A's band decoder at ν = 0.1 | gpu-a100 | ▶️ H, then evaluate all four (I) |
+| 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | ⏳ after G–I (A leads so far) |
 
 ### Running Stage 1 on Ptolemy (2.8–2.9)
 
 Model: `oefm/model/` (design document v1: "Ocean Foundation Model Design Decisions.md"); settings
-`config/train_stage1.yaml`. ~41 M parameters per arm (A 40.1 M, B 41.4 M, C 41.8 M). Tested locally on
+`config/train_stage1.yaml`. ~41 M parameters per arm (A 40.1 M, B 41.4 M, C 41.8 M; D = C + A's
+decoder and its own query embeddings). Tested locally on
 CPU with the smoke tiles (all three arms train, resume and benchmark); not yet run on GPUs.
 
 **0a. ✅ Done (116106 → 116124). If prep stopped with "database or disk is full" (job 116106):** check quotas with errors visible,
@@ -453,6 +491,72 @@ without re-downloading.
 ---
 
 ## Decision log
+
+### Stage 1.5 and robustness checks before 2.11 (2026-11-23)
+**Proposed.** A review of the Stage 1 results (pasted 2026-11-23) proposed two things before the
+2.11 decision:
+- run fork 2 (hybrid JEPA + light reconstruction) as a stage 1.5;
+- add uncertainty to the comparisons.
+
+**Built**, with all tests passing (43):
+- Arm D, as described in G–I of "What to run now".
+- `--steps robust amplitude`.
+
+The review's points, and what the data already say:
+
+- **A keeps optical detail; B/C keep coarse community structure.**
+  - B/C beat A on Si (0.40–0.41 vs 0.38–0.39) and NMF k5 (16S C/e1 0.745 vs 0.711; 18S C/e2 0.578
+    vs 0.489).
+  - The Si margins are 0.02–0.03, on 464 samples from 6 cruises.
+  - G's bootstrap and test-year rotation show which of these gaps exceed the noise.
+- **B/C below raw reflectance on Chl** (0.56–0.65 vs raw 0.74–0.77).
+  - **Collapse:** effective rank at the evaluation samples is not lower for B/C (E1: A 115.9, B
+    103.2, C 127.1; E2 about 244). That doesn't rule out a loss of *amplitude* (rank can't see it).
+  - **Amplitude test:** the design-document test ran only at initialisation, where it passed. The
+    "after training" check was never implemented. It now runs on trained weights (`amplitude`),
+    at the token and the E1 level. The E1-level probe also reports the log blue/green ratio.
+  - **Information loss:** `retention` measures whether E1/E2/E3 still linearly hold what the raw
+    input had. It covers each MODIS band, brightness and the OC3M blue/green ratio, on about
+    10,000 evaluation samples with no labels.
+- **Judge PACE sensitivity on E1, not E2:** agreed. E2 is a MODIS-band query by design. B/C E1
+  barely move either:
+  - SFER Chl Δ +0.003 / +0.002 (causal);
+  - eDNA PACE-usable subset |Δ| ≤ 0.014.
+- **PACE value should show in phytoplankton composition (18S), not Chl.** The existing probes can't
+  test this. Every eDNA training sample is from 2018–2023, and all 138 PACE-era samples are in the
+  2024 test year (100 with usable PACE, from 3 cruises: WS24139, HG24062, WS24205). A probe trained
+  without PACE can't use PACE-specific directions. For the record, the PACE-usable subset (n = 100)
+  in `probes.csv` gives dropped → visible:
+
+| 18S family | Window | raw | A/e1 | B/e1 | C/e1 |
+|---|---|---|---|---|---|
+| NMF k5 | causal | 0.334 → 0.352 | 0.557 → 0.561 | 0.462 → 0.457 | 0.522 → 0.525 |
+| NMF k10 | causal | 0.091 → 0.118 | 0.392 → 0.395 | 0.180 → 0.180 | 0.172 → 0.171 |
+| PCs | causal | 0.028 → −0.033 | 0.271 → 0.297 | 0.072 → 0.072 | 0.089 → 0.089 |
+| NMF k5 | retro | 0.355 → 0.286 | 0.567 → 0.557 | 0.466 → 0.452 | 0.536 → 0.525 |
+
+  Maximum |Δ| over all 16S/18S families and both windows: raw 0.07, A/e1 0.036, B/e1 0.014,
+  C/e1 0.011. `pace_era` is the informative version. It trains and scores only on samples with
+  PACE, PACE visible vs dropped in both, using leave-one-cruise-out for eDNA (3 cruises, so a
+  small test) and 2024 → 2025 for SFER. It includes paired bootstrap intervals for the difference.
+- **Uncertainty.**
+  - The bootstrap resamples within cruises: the 2024 eDNA test year has only 4 cruises, so
+    resampling whole cruises would be degenerate.
+  - Rotating the test year covers year-to-year variation: eDNA 2020–2024, SFER 2018–2025, MaxN
+    2018–2024, CRCP 2018/2021/2022/2024. Pretraining used no labels, so any label year can be the
+    test year.
+  - Caveats: training years after the test year are used, and the eDNA NMF/PCA bases were fitted
+    on 2018–2023 labels. Both are shared by every feature set.
+
+**Arm D design choices:**
+- C (not B) is the JEPA base, because C ≥ B on most probes.
+- The decoder has its own mask-token embeddings, so the predictor and E2 are built exactly as in
+  arm C.
+- ν = 0.1 (design-document default). The loss scales differ (embedding MSE vs MSE of transformed
+  reflectance), so the logged `recon` against `pred` will show the actual balance.
+
+**What reopens 2.11:** D matches A on Chl and PACE retention while keeping B/C's NMF k5 and Si.
+If D trails A on those, A stands.
 
 ### Stage 1 results (job 116376, 2026-11-22): arm A (masked reconstruction) leads on every measure
 Frozen final weights (step 30,000) of all three arms. CSVs on the laptop in
@@ -1030,6 +1134,8 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 2.8b GPU env + check | `tail -10 logs/oefm_gpuenv_<id>.out`; `tail -30 logs/oefm_gpucheck_<id>.out` | torch/CUDA versions, all-reduce = 10, each arm runs |
 | 2.8c benchmark | the summary table at the end of `logs/oefm_bench_<id>.out` | batch, length and steps to set for the runs |
 | 2.9 training | `tail -5 data/runs/stage1_<ARM>/log.jsonl` | losses per modality, SIGReg, effective rank, no collapse |
+| 2.10 / 2.10b evaluation, robustness | `tail -150 logs/oefm_eval_<id>.out`; copy `data/runs/eval_<TAG>/*.csv` to `multimodal_seusmbol/eval_results/<TAG>/` | probe tables, intervals, rotation, PACE-era test, retention, amplitude |
+| 2.9b arm D | first lines of `logs/oefm_train_<id>.out` and `tail -3 data/runs/stage1_D/log.jsonl` | `recon` next to `pred`/`sigreg`/`pace_residual`, memory, speed |
 | 2.6–2.7 targets | `tail -40 logs/oefm_targets_<id>.out` | PISCES days per source, tile coverage, the matched-evaluation summary |
 | 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
 | 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v2/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |

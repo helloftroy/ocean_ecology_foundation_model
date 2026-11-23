@@ -62,6 +62,14 @@
    both by default). Platform == year (2020-22 Illumina, 2023-24 Element, test all Element; ~20-30x
    depth). Stage 2 / any later eDNA head must include them too. User step A2: scp the new eDNA
    files + STEPS=evalsets.
+   (2026-11-23) Stage 1 evaluated (A leads; decision log). Before 2.11, after a pasted review:
+   arm D = stage 1.5 / design fork 2 (C + A's band decoder at loss.nu = 0.1, own decoder query
+   embeddings r_*; net.JEPA_ARMS/RECON_ARMS/RESID_ARMS) and oefm/model/robust.py
+   (--steps robust: test-year rotation, within-group paired bootstrap on the official split,
+   PACE-era visible vs dropped with PACE-era training, input retention; --steps amplitude: the
+   design amplitude test on trained weights, token + E1). evaluate.probes refactored into
+   probe_inputs/fit_predict (output identical). eDNA probes in `probes` can't show PACE value: no
+   eDNA training label is in the PACE era. User steps G, H, I in cluster_instructions.md.
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).

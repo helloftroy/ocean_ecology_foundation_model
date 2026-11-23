@@ -70,7 +70,7 @@ class TestDDP(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as d:
-            for arm in ("A", "B", "C"):
+            for arm in ("A", "B", "C", "D"):
                 torch.multiprocessing.spawn(_worker, args=(2, arm, _port(), d), nprocs=2)
                 w0, w1 = torch.load(f"{d}/{arm}_0.pt"), torch.load(f"{d}/{arm}_1.pt")
                 self.assertTrue(torch.isfinite(w0).all(), arm)

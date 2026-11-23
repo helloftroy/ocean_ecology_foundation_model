@@ -146,7 +146,7 @@ class TestModel(unittest.TestCase):
             items.append({"obs": obs, "mode": "x"})
         batch = collate(items)
         batch = {**batch, "device": torch.device("cpu"), "dtype": torch.float32}
-        for arm in ("A", "B", "C"):
+        for arm in ("A", "B", "C", "D"):
             m = Model({**TINY, "arm": arm})
             from oefm.model.sigreg import GroupSIGReg
 
@@ -159,11 +159,49 @@ class TestModel(unittest.TestCase):
             from oefm.model.net import embed_e3
             z, gm, _ = m.encode_context(batch)
             self.assertEqual(tuple(embed_e3(e, z, gm).shape), (2, 1024, 64))           # E3 = 2 D
-            if arm in ("B", "C"):
+            if arm in ("B", "C", "D"):
                 e2 = m.embed_e2(batch)  # default MODIS-Aqua reference bands
                 self.assertEqual(tuple(e2.shape), (2, 1024, 32))
                 self.assertTrue(torch.isfinite(e2).all())
             self.assertGreater(effective_rank(e[mask][:500]), 1.0)
+
+    def test_arm_d_is_c_plus_light_reconstruction(self):
+        """Arm D (fork 2): loss = arm C's loss + nu x band reconstruction; the decoder has its own
+        query embeddings, so reconstruction does not train the predictor's mask token (E2)."""
+        rng = np.random.default_rng(4)
+        items = []
+        for b in range(2):
+            obs = [fake_obs("viirsn_oc", [410, 443, 486, 551, 671], dt=float(t), rng=rng) for t in range(-2, 3)]
+            obs.append(fake_obs("pace_oci_aop", [350, 400, 450, 500, 550, 600], dt=-1, rng=rng, pace=True))
+            sample_mask(obs, rng)
+            items.append({"obs": obs, "mode": "x"})
+        batch = {**collate(items), "device": torch.device("cpu"), "dtype": torch.float32}
+        from oefm.model.sigreg import GroupSIGReg
+
+        sig = GroupSIGReg(["MODIS", "VIIRS", "OLCI", "PACE", "SURFACE"], 64)
+        torch.manual_seed(0)
+        m = Model({**TINY, "arm": "D"})
+        kw = dict(sigreg=sig, lam=0.05, mu=0.1, sigreg_tokens=512)
+        out = m(batch, nu=0.1, **kw)
+        for k in ("pred", "sigreg", "pace_residual", "recon"):
+            self.assertIn(k, out)
+        c_part = 0.95 * out["pred"] + 0.05 * out["sigreg"] + 0.1 * out["pace_residual"]
+        self.assertAlmostEqual(float(out["loss"]), float(c_part + 0.1 * out["recon"]), places=4)
+        self.assertGreater(float(out["recon"]), 0)
+        # reconstruction alone: gradients reach the encoder and decoder queries, not the predictor's
+        m.zero_grad()
+        z, gm, dts = m.encode_context(batch)
+        l_rec, _, n = m.recon_loss(batch, z, gm, dts)
+        self.assertGreater(n, 0)
+        l_rec.backward()
+        self.assertIsNone(m.mask_token.grad)
+        self.assertIsNone(m.p_in.weight.grad)
+        self.assertGreater(float(m.r_mask_token.grad.abs().sum()), 0)
+        self.assertGreater(float(m.tok.trunk[0].weight.grad.abs().sum()), 0)
+        # arm A keeps its parameter names (stage 1 checkpoints load unchanged)
+        a = Model({**TINY, "arm": "A"}).state_dict()
+        self.assertTrue({"p_in.weight", "dec.blocks.0.attn.in_proj_weight", "band_query.0.weight", "mask_token"} & set(a))
+        self.assertFalse(any(k.startswith("r_") for k in a))
 
     def test_forward_under_bf16_autocast(self):
         """Training runs under bf16 autocast on GPUs (job 116190 failed on a float32/bf16 index put)."""
@@ -178,7 +216,7 @@ class TestModel(unittest.TestCase):
         batch = {**collate(items), "device": torch.device("cpu"), "dtype": torch.float32}
         from oefm.model.sigreg import GroupSIGReg
 
-        for arm in ("A", "B", "C"):
+        for arm in ("A", "B", "C", "D"):
             m = Model({**TINY, "arm": arm})
             with torch.autocast("cpu", dtype=torch.bfloat16):
                 out = m(batch, sigreg=GroupSIGReg(["MODIS", "VIIRS", "OLCI", "PACE", "SURFACE"], 64), lam=0.05,
@@ -187,7 +225,7 @@ class TestModel(unittest.TestCase):
             out["loss"].backward()
             with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
                 e, _ = m.embed_e1(batch)
-                if arm in ("B", "C"):
+                if arm in ("B", "C", "D"):
                     self.assertTrue(torch.isfinite(m.embed_e2(batch).float()).all())
 
 

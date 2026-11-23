@@ -18,7 +18,7 @@
 set -euo pipefail
 export OEFM_ENV="${OEFM_GPU_ENV:-/scratch/ptolemy/users/${USER}/envs/oefm_gpu}"
 source "${SLURM_SUBMIT_DIR:-$(pwd)}/cluster/env.sh"
-ARM="${ARM:?set ARM=A, B or C}"
+ARM="${ARM:?set ARM=A, B, C or D}"
 if [ "${CHAIN:-0}" -gt 0 ]; then
   next=$(sbatch --parsable --dependency=afterany:${SLURM_JOB_ID} --account="${SLURM_JOB_ACCOUNT}" \
          --export=ALL,ARM=${ARM},CHAIN=$((CHAIN - 1)) "${REPO_ROOT}/cluster/train.sbatch")
