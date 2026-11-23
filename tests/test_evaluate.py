@@ -108,8 +108,35 @@ def build_root(root):
                         "seq_log10_table_reads": 5.0, "nmf_k5_1": 0.5 * elem + 0.1 * np.sin(i / 9) + rng.normal(0, 0.02),
                         "pc_1": np.cos(i / 11) + rng.normal(0, 0.05),
                         # nearly absent in the test period (like 18S NMF component 10 in 2024)
-                        "pc_2": (np.cos(i / 5) if p["label_split"] == "train" else 0.001 * np.cos(i / 5))})
-    pd.DataFrame(ed_rows).to_csv(ed / "edna_16S.csv.gz", index=False)
+                        "pc_2": (np.cos(i / 5) if p["label_split"] == "train" else 0.001 * np.cos(i / 5)),
+                        "phyto_synechococcus": np.sin(i / 6) + rng.normal(0, 0.1),
+                        "phyto_chloroplast": np.cos(i / 8) + rng.normal(0, 0.1)})
+    edf = pd.DataFrame(ed_rows)
+    edf.to_csv(ed / "edna_16S.csv.gz", index=False)
+    # MOANA matchups (oefm/moana.py) for every eDNA sample, keyed like the embeddings
+    key = edf["lat"].round(5).astype(str) + "|" + edf["lon"].round(5).astype(str) + "|" + edf["time_utc"].astype(str)
+    mo = edf[["dataset", "sample_id", "lat", "lon", "time_utc"]].assign(key=key)
+    for w in (1, 3):
+        for g, col in (("pro", "phyto_chloroplast"), ("syn", "phyto_synechococcus"), ("pico", "phyto_chloroplast")):
+            mo[f"moana_{g}_pm{w}"] = 4 + 0.3 * edf[col] + rng.normal(0, 0.2, len(edf))
+        mo[f"moana_ndays_pm{w}"] = 2
+    mo.to_csv(eval_dir(cfg) / "moana_matchups.csv.gz", index=False)
+    # CRCP-like reef fish: survey units on 15 sites, habitat covariates, counts tied to depth
+    fr = []
+    for i in range(150):
+        t = tiles[i % 5]
+        day = pd.Timestamp("2025-03-25T14:00Z") + pd.Timedelta(days=int(i * 1.7))
+        depth = 0.6 + 0.8 * ((i * 7) % 15) / 15
+        row = {"sample_id": f"S{i % 15:02d}_{day:%Y-%m-%d}_{i}", "dataset": "fish_crcp",
+               "lat": float(centres.loc[t, "lat_centre"]), "lon": float(centres.loc[t, "lon_centre"]),
+               "time_utc": day.strftime("%Y-%m-%dT%H:%M:%SZ"),
+               "label_split": "train" if day < pd.Timestamp("2025-08-15", tz="UTC") else "test",
+               "causal_PACE": 1, "tile_id": t, "hab_log10_depth_m": depth, "hab_type_1": float(i % 3 == 0)}
+        for k, (a, b) in enumerate(((1.5, 0.8), (2.0, -2.5))):
+            cnt = rng.poisson(np.exp(a + b * depth))
+            row[f"present_sp{k}"], row[f"log1p_sp{k}"] = int(cnt > 0), float(np.log1p(cnt))
+        fr.append(row)
+    pd.DataFrame(fr).to_csv(ed / "fish_crcp.csv.gz", index=False)
     return cfg
 
 
@@ -139,6 +166,35 @@ class TestRidge(unittest.TestCase):
         Xr = Xw - R @ np.linalg.lstsq(R, Xw, rcond=None)[0]
         Yr = Y[:20] - R @ np.linalg.lstsq(R, Y[:20], rcond=None)[0]
         np.testing.assert_allclose(Wd, np.linalg.solve(Xr.T @ Xr + 3.0 * np.eye(50), Xr.T @ Yr), atol=1e-8)
+
+
+@unittest.skipIf(torch is None, "PyTorch / processing dependencies not installed")
+class TestPoisson(unittest.TestCase):
+    def test_matches_sklearn_and_unpenalised_covariates(self):
+        from sklearn.linear_model import PoissonRegressor
+
+        from oefm.model.focused import _d2, poisson_fit, poisson_predict
+
+        rng = np.random.default_rng(2)
+        n = 400
+        X, C = rng.normal(size=(n, 5)), rng.normal(size=(n, 1))
+        y = rng.poisson(np.exp(0.5 + 0.4 * X[:, 0] + 0.8 * C[:, 0])).astype(float)
+        # no covariates: sum-form penalty alpha = n x sklearn's mean-form alpha
+        b = poisson_fit(X, np.zeros((n, 0)), y, alpha=n * 0.01)
+        sk = PoissonRegressor(alpha=0.01, max_iter=1000, tol=1e-10).fit(X, y)
+        np.testing.assert_allclose(b[1:], sk.coef_, atol=1e-4)
+        self.assertAlmostEqual(b[0], sk.intercept_, places=4)
+        # heavy penalty: X shrinks to ~0, the covariate keeps its full effect
+        b = poisson_fit(X, C, y, alpha=1e8)
+        self.assertLess(np.abs(b[2:]).max(), 1e-4)
+        self.assertAlmostEqual(b[1], 0.8, delta=0.1)
+        mu = poisson_predict(X, C, poisson_fit(X, C, y, 1.0))
+        d2, d2r = _d2(y, mu)
+        self.assertGreater(d2[0], 0.3)
+        # a pure level shift: D^2 drops, the level-free D^2 does not
+        d2s, d2rs = _d2(y, mu * 3)
+        self.assertLess(d2s[0], d2[0] - 0.2)
+        self.assertAlmostEqual(d2rs[0], d2r[0], places=6)
 
 
 @unittest.skipIf(torch is None, "PyTorch / processing dependencies not installed")
@@ -187,7 +243,8 @@ class TestEvaluate(unittest.TestCase):
                 out.mkdir(parents=True)
                 models = [ev.load_run(cfg, r, "final", torch.device("cpu")) for r in ("stage1_A", "stage1_B")]
                 tc = models[0][0].train_config
-                ev.embed(cfg, models, out, tc, ["causal", "retro"], ["visible", "drop"], batch=4, workers=0, log=logs.append)
+                ev.embed(cfg, models, out, tc, ["causal", "retro", "retro3", "seasonal"], ["visible", "drop"], batch=4,
+                         workers=0, log=logs.append)
                 e = np.load(out / "embeddings_retro_visible.npz")
                 self.assertEqual(e["stage1_A__e1"].shape[1], 32)
                 self.assertEqual(e["stage1_B__e3"].shape[1], 64)
@@ -197,11 +254,21 @@ class TestEvaluate(unittest.TestCase):
                 self.assertGreater((e["n_pace"] > 0).mean(), 0.5)
                 dr = np.load(out / "embeddings_retro_drop.npz")
                 self.assertEqual(int((dr["n_pace"] > 0).sum()), 0)
+                # window spans: +/- 3 d stays within 3 d; seasonal covers fish only and reaches back > 30 d
+                r3 = np.load(out / "embeddings_retro3_visible.npz")
+                self.assertLessEqual(np.nanmax(r3["span_days"]), 3.0 + 1e-6)
+                self.assertGreater(np.nanmax(e["span_days"]), 3.0)
+                se = np.load(out / "embeddings_seasonal_visible.npz")
+                self.assertEqual(len(se["key"]), 150)
+                self.assertGreater(np.nanmax(se["span_days"]), 30)
+                self.assertGreater(np.isfinite(se["stage1_A__e1"]).all(1).mean(), 0.9)
                 ev.probes(cfg, out, ["causal", "retro"], ["visible", "drop"], log=logs.append)
                 p = pd.read_csv(out / "probes.csv")
                 self.assertEqual(set(p.loc[p["dataset"] == "sfer", "target"]), {"po4", "no3", "si", "chl"})
                 ed = p[p["dataset"] == "edna_16S"]
-                self.assertEqual(set(ed["target"]), {"nmf_k5_1", "pc_1", "pc_2"})  # seq_* are covariates, not targets
+                # seq_* are covariates, not targets
+                self.assertEqual(set(ed["target"]), {"nmf_k5_1", "pc_1", "pc_2", "phyto_synechococcus", "phyto_chloroplast"})
+                self.assertFalse(p["target"].str.startswith("hab_").any())        # habitat = covariates
                 chl = p[(p["dataset"] == "sfer") & (p["target"] == "chl")]
                 self.assertTrue((chl["n_train"] < p.loc[(p["dataset"] == "sfer") & (p["target"] == "po4"), "n_train"].max()).all())
                 self.assertTrue((chl["n_test_target"] < chl["n_test"]).all())
@@ -213,7 +280,9 @@ class TestEvaluate(unittest.TestCase):
                 self.assertEqual(set(ed.loc[ed["features"] == "seq", "covariates"]), {"seq"})
                 self.assertEqual(set(p.loc[p["dataset"] == "sfer", "covariates"]), {"none"})
                 self.assertTrue({"meta", "raw", "stage1_A/e1", "stage1_B/e2", "stage1_B/e3"} <= set(p["features"]))
-                self.assertTrue(p["test_r2"].notna().all())
+                cont = ~p["target"].str.startswith("present_")
+                self.assertTrue(p.loc[cont, "test_r2"].notna().all())
+                self.assertTrue(p.loc[~cont, "test_auc"].notna().all())
                 # same samples for every feature set within a dataset and window
                 self.assertEqual(p.groupby(["dataset", "window"])["n_test"].nunique().max(), 1)
                 # robustness (test periods = quarters in this one-year synthetic set)
@@ -239,6 +308,23 @@ class TestEvaluate(unittest.TestCase):
                 amp = pd.read_csv(out / "amplitude_check.csv")
                 self.assertEqual(set(amp["level"]), {"token", "e1"})
                 self.assertTrue(amp.loc[amp["metric"] == "log_amplitude_r2", "pass"].astype(bool).all())
+                # focused: PACE-era phytoplankton (with MOANA) and fish over habitat
+                from oefm.model import focused as fo
+
+                fo.phyto(cfg, out, ["retro", "retro3"], n_boot=50, log=logs.append)
+                ph = pd.read_csv(out / "focused_phyto_summary.csv")
+                self.assertTrue({"moana", "seq", "stage1_A/e1", "stage1_B/e1"} <= set(ph["features"]))
+                self.assertEqual(set(ph["window"]), {"retro", "retro3"})
+                self.assertEqual(ph.groupby("window")["n"].nunique().max(), 1)     # same samples per window
+                self.assertTrue({"delta_vs_drop", "delta_vs_moana"} <= set(ph.columns))
+                self.assertGreater(ph.loc[ph["features"] == "moana", "r2_median"].min(), 0.2)
+                fo.fish(cfg, out, ["causal", "seasonal"], n_boot=50, period="quarter", min_period=10, log=logs.append)
+                fs = pd.read_csv(out / "focused_fish_summary.csv")
+                off = fs[fs["split"] == "official"]
+                self.assertTrue({"habitat", "meta", "raw", "stage1_A/e1"} <= set(off["features"]))
+                self.assertGreater(off.loc[off["features"] == "habitat", "d2"].min(), 0.1)  # counts follow depth
+                self.assertTrue((off.loc[off["features"] == "habitat", "delta_d2_vs_habitat"] == 0).all())
+                self.assertGreater((fs["split"] != "official").sum(), 0)
                 ev.pace_retention(cfg, models, out, tc, n_train=30, n_test=10, cells_per=8, log=logs.append)
                 r = pd.read_csv(out / "pace_retention_summary.csv")
                 self.assertTrue({"train_mean", "stage1_A", "stage1_B"} <= set(r["model"]))

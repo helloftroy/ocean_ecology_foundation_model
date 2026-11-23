@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (Stage 1 evaluated; before the 2.11 decision: robustness checks on A/B/C (**G**), then arm D = stage 1.5, fork 2 (**H**), then evaluate all four (**I**)).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (Stage 1 evaluated; before the 2.11 decision: refreshed targets + MOANA (**G0**), robustness and focused checks on A/B/C (**G**), then arm D at ν = 0.1 and 0.3 = stage 1.5, fork 2 (**H**), then evaluate all five (**I**)).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -110,39 +110,73 @@ sbatch --account=191001-366746 --export=ALL,EXTRA="--steps probes" cluster/evalu
 Paste back `tail -80 logs/oefm_eval_<id>.out` and copy `data/runs/eval_stage1/probes*.csv` to the
 laptop (into `multimodal_seusmbol/eval_results/stage1/`, outside the repo).
 
-**G. Robustness checks on A, B, C (2026-11-23)** ▶️. They reuse the stage 1 embeddings, so no
-re-embedding is needed. Decision log: "Stage 1.5 and robustness checks". The run takes about 1–3 h
-on 1 A100; it is mostly CPU ridge fits. Steps:
+**G0. Refreshed targets + NASA MOANA matchups (2026-11-23, second review)** ▶️. On `service`, minutes
+plus a ~1 GB download; run it before G. New target columns, every existing column identical (checked):
+`phyto_*` in both eDNA files (CLR of phytoplankton groups: 18S diatoms, Dinophyceae, haptophytes,
+prasinophytes, other Chlorophyta; 16S Prochlorococcus, Synechococcus, plastids) and `hab_*` habitat
+covariates in both fish files (CRCP survey depth and habitat type; MaxN depth and distance to shore).
+`moana` downloads PACE_OCI_L4M_MOANA daily 4 km files (~6 MB each) only for the days within ±3 d of a
+PACE-era eDNA or SFER sample and writes `eval/moana_matchups.csv.gz`. From the laptop, in
+`multimodal_seusmbol/`:
+```bash
+scp eval_targets/* hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/processed/regional/eval/
+```
+Then on Ptolemy (`credentials.sh` must be sourced for Earthdata, as for the downloads):
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,STEPS="evalsets moana" cluster/targets.sbatch
+zcat data/processed/regional/eval/matched/edna_18S.csv.gz | head -1 | tr ',' '\n' | grep -c '^phyto_'   # expect 5
+zcat data/processed/regional/eval/matched/fish_crcp.csv.gz | head -1 | tr ',' '\n' | grep -c '^hab_'    # expect 9
+```
+Paste back `tail -20 logs/oefm_targets_<id>.out` (the `moana:` lines give the files found and the
+samples with a matchup) and the two numbers.
+
+**G. Robustness and focused checks on A, B, C (2026-11-23)** ▶️ after G0. They reuse the stage 1
+embeddings (windows causal and retro), so no re-embedding is needed. Decision log: "Stage 1.5 and
+robustness checks". About 2–4 h on 1 A100, mostly CPU fits. Steps:
 - test-year rotation (`robust_rotate*.csv`);
 - paired bootstrap intervals on the official split (`robust_bootstrap.csv`);
 - PACE visible vs dropped, with probes trained on PACE-era samples (`robust_pace_era.csv`);
 - input retention (`robust_retention.csv`);
-- the design-document amplitude test on the trained weights, at the token and E1 levels
-  (`amplitude_check.csv`).
+- the design-document amplitude test on the trained weights, token and E1 levels (`amplitude_check.csv`);
+- **focused phyto:** PACE-era eDNA only, phytoplankton groups, leave-one-cruise-out, E1 PACE visible
+  vs dropped and vs the MOANA baseline (`focused_phyto*.csv`; the ±1/±3 d windows come in I);
+- **focused fish:** Poisson ridge on counts with habitat covariates, added value over habitat alone,
+  D², level-free D² and Spearman (`focused_fish*.csv`; the 90-day seasonal window comes in I).
 ```bash
 git pull
-sbatch --account=191001-366746 --export=ALL,EXTRA="--steps robust amplitude" cluster/evaluate.sbatch
+sbatch --account=191001-366746 --export=ALL,EXTRA="--steps robust amplitude focused" cluster/evaluate.sbatch
 ```
-Paste back `tail -150 logs/oefm_eval_<id>.out`. Copy `data/runs/eval_stage1/robust_*.csv` and
-`amplitude_check.csv` to `multimodal_seusmbol/eval_results/stage1/`.
+Paste back `tail -250 logs/oefm_eval_<id>.out`. Copy `data/runs/eval_stage1/robust_*.csv`,
+`focused_*.csv` and `amplitude_check.csv` to `multimodal_seusmbol/eval_results/stage1/`.
 
-**H. Stage 1.5: train arm D (2026-11-23)** ▶️. Arm D is fork 2, hybrid JEPA + light reconstruction:
-arm C's loss plus arm A's band decoder at weight ν = 0.1 (`loss.nu`). The config, data and 30,000
-steps are the same as the other arms. Expect about 28–32 h; peak memory should be about 30 GB of
-80 (A 26.0, C 26.7). It needs all 4 GPUs, so submit it after G; it queues until G frees its GPU.
+**H. Stage 1.5: train arm D at two reconstruction weights** ⏳ submit after G's amplitude lines are
+reviewed (the review asks that a B/C amplitude failure be fixed in the hybrid before it is trained;
+effective rank is already fine: E1 A 116, B 103, C 127). Arm D is fork 2, hybrid JEPA + light
+reconstruction: arm C's loss plus arm A's band decoder at weight ν (`loss.nu`): ν = 0.1 (`stage1_D`)
+and ν = 0.3 (`stage1_D3`). Config, data and 30,000 steps are the same as the other arms. Each run
+takes about 28–32 h; peak memory should be about 30 GB of 80. Each needs all 4 GPUs, so they run one
+after the other (the second queues behind the first).
 ```bash
+git pull
 sbatch --account=191001-366746 --export=ALL,ARM=D,CHAIN=1 cluster/train.sbatch
+sbatch --account=191001-366746 --export=ALL,ARM=D,NAME=stage1_D3,OVERRIDES="loss.nu=0.3",CHAIN=1 cluster/train.sbatch
 ```
-After about 10 minutes, paste back the first lines of `logs/oefm_train_<id>.out` and
-`tail -3 data/runs/stage1_D/log.jsonl`. The log should show `recon` and the `recon_*` keys next to
-`pred`, `sigreg` and `pace_residual`.
+After about 10 minutes of each, paste back the first lines of `logs/oefm_train_<id>.out` (it prints
+the run name and overrides) and `tail -3 data/runs/<run>/log.jsonl`. The log should show `recon` and
+the `recon_*` keys next to `pred`, `sigreg` and `pace_residual`; for D3, check
+`data/runs/stage1_D3/train_config.json` has `"nu": 0.3`.
 
-**I. Evaluate all four arms (after H)** ⏳. Use a new tag. `embed` writes every run into the same
-`embeddings_*.npz`, so evaluating only D under the tag `stage1` would overwrite A, B and C.
+**I. Evaluate all five runs (after H)** ⏳. Use a new tag. `embed` writes every run into the same
+`embeddings_*.npz`, so evaluating only D under the tag `stage1` would overwrite A, B and C. Windows:
+causal and retro as before, plus ±1 d and ±3 d matchups (eDNA and SFER) and the 90-day seasonal
+window (fish). Each embedding file now records the span actually covered (`span_days`; at most 16
+observations nearest the sample are used, so the nominal ±15 d may cover only a few days; the log
+prints the median).
 ```bash
-sbatch --account=191001-366746 --export=ALL,RUNS="stage1_A stage1_B stage1_C stage1_D",TAG=stage1_5,EXTRA="--steps embed probes pace robust amplitude" cluster/evaluate.sbatch
+sbatch --account=191001-366746 --export=ALL,RUNS="stage1_A stage1_B stage1_C stage1_D stage1_D3",TAG=stage1_5,EXTRA="--windows causal retro retro1 retro3 seasonal --steps embed probes pace robust amplitude focused" cluster/evaluate.sbatch
 ```
-The run takes about 3–5 h. Paste back `tail -250 logs/oefm_eval_<id>.out` and copy
+The run takes about 6–10 h. Paste back `tail -400 logs/oefm_eval_<id>.out` and copy
 `data/runs/eval_stage1_5/*.csv` to `multimodal_seusmbol/eval_results/stage1_5/`.
 
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
@@ -404,7 +438,8 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ✅ all three at step 30,000 |
 | 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ✅ 116376 (SFER probes rerun: F2 ✅) |
 | 2.10b | Robustness: test-year rotation, bootstrap intervals, PACE-era visible vs dropped, input retention, amplitude test on trained weights (`--steps robust amplitude`, `oefm/model/robust.py`) | gpu-a100 | ▶️ G |
-| 2.9b | **Stage 1.5, arm D** (design document fork 2, hybrid JEPA + light reconstruction): arm C + arm A's band decoder at ν = 0.1 | gpu-a100 | ▶️ H, then evaluate all four (I) |
+| 2.10c | Focused tests (`--steps focused`, `oefm/model/focused.py`): PACE-era phytoplankton groups vs NASA MOANA (`oefm/moana.py`), ±1/±3 d windows; fish added value over habitat (Poisson ridge, 90-day seasonal window) | gpu-a100 (+ `moana` on service) | ▶️ G0, G; all runs in I |
+| 2.9b | **Stage 1.5, arm D** (design document fork 2, hybrid JEPA + light reconstruction): arm C + arm A's band decoder at ν = 0.1 and 0.3 | gpu-a100 | ⏳ H after G's amplitude check, then evaluate all five (I) |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | ⏳ after G–I (A leads so far) |
 
 ### Running Stage 1 on Ptolemy (2.8–2.9)
@@ -492,6 +527,69 @@ without re-downloading.
 
 ## Decision log
 
+### Second review: what PACE can see, fish over habitat, two reconstruction weights (2026-11-23)
+Built after a second pasted review (steps G0, G, H, I). Code: `oefm/model/focused.py`
+(`--steps focused`), `oefm/moana.py` (`targets.sbatch STEPS=moana`), the `WINDOWS` registry in
+`oefm/model/evaluate.py`, `phyto_*`/`hab_*` columns in `scripts/make_eval_targets.py`.
+
+- **Phytoplankton targets, not whole-community NMF.** CLR of group read sums (all ASVs, 0.5-read
+  pseudocount, one 'other' part). Mean read share over all 913 samples:
+
+| Marker | Group (taxonomy) | Mean share |
+|---|---|---|
+| 18S | Dinophyceae (Syndiniales parasites are 'other') | 13.4% |
+| 18S | Diatoms (Bacillariophyceae, Mediophyceae, Coscinodiscophyceae) | 7.2% |
+| 18S | Prasinophytes (Mamiello-, Chloropico-, Pyramimonado-phyceae, Prasino-Clades) | 4.8% |
+| 18S | Other Chlorophyta (mostly Trebouxiophyceae, e.g. *Picochlorum*) | 3.3% |
+| 18S | Haptophytes | 1.5% |
+| 16S | Synechococcus (Cyanobiaceae other than Prochlorococcus, incl. Cyanobium) | 19.7% |
+| 16S | Plastid 16S (o__Chloroplast) | 9.6% |
+| 16S | Prochlorococcus | 3.5% |
+
+  Metazoa are ~40% of 18S reads, which is why NMF k5 mixes in signal optics can reach only
+  indirectly. The phyto family also enters the ordinary probes (2018–2023 → 2024).
+- **Sample size for the PACE test.** The review's 459 does not match the data. Per marker there
+  are 138 PACE-era eDNA samples (all 2024), 100 with usable PACE in the 3 × 3 cells (±15 d), from
+  3 cruises; tighter windows and the MOANA requirement reduce this further. Leave-one-cruise-out
+  has 3 folds, so the intervals will be wide. Kept small as advised: 5 (18S) or 3 (16S) targets,
+  ridge.
+- **Tight matchups.** New windows `retro1` and `retro3` (±1 and ±3 d; eDNA and SFER). The eDNA set
+  is surface samples only (as built in 2.7). Caveat found while building this: every window uses at
+  most 16 observations nearest the sample (the training length), and the pilot area has several
+  products per day, so the nominal ±15 d window may already cover only a few days. The embeddings
+  now record the span actually covered (`span_days`), and I prints its median.
+- **MOANA baseline.** PACE_OCI_L4M_MOANA v3.2 (OB_CLOUD; the only version in CMR on 2026-11-23),
+  daily 4 km files: Prochlorococcus, Synechococcus and picoeukaryote cells/mL (Lange et al.
+  2020), domain 85 W–25 E. 3 × 3-pixel median per sample and day, log10(1 + cells) averaged over
+  the days in ±1 / ±3 d. Every feature set is scored on the samples that also have a MOANA value.
+  Bootstrap within cruises of E1 visible − dropped and E1 visible − MOANA.
+- **Fish over habitat.** Habitat covariates enter every model unpenalised:
+  - CRCP: survey depth (log10) and habitat type (8 types ≥ 2% of training units; reef type ×
+    vertical relief);
+  - MaxN: GEBCO depth and distance to shore from the Granite manifest.
+
+  No distance-to-reef layer exists in the repo. CRCP underwater visibility is left out (an in-situ
+  optical measurement). The baseline is habitat alone; each feature set adds a penalised block.
+- **Count models.** Poisson ridge GLM (Newton; checked against sklearn) on counts. CRCP counts per
+  survey unit = expm1 of the log1p targets; MaxN as counts. Features standardised and reduced to
+  ≤ 50 PCs fitted on the training labels, the same for every feature set. Metrics:
+  - D² (deviance explained vs the test mean; penalises a year-level shift, like R²);
+  - D² after rescaling the predictions to the test total (`d2_level_free`: separates CRCP's
+    level shift from ranking skill; uses one number from the test labels, so it is a diagnostic);
+  - Spearman.
+
+  Official split with bootstrap intervals of the difference to habitat, plus test-year rotation.
+- **Longer windows for fish.** `seasonal` = the mean of three causal 30 d windows ending at the
+  survey, 30 d and 60 d before it (0–90 d). This keeps the encoder within the time offsets it was
+  trained on (±15 d); a single 90 d window would use offsets never seen in training.
+- **Optically shallow reefs.** Bottom reflectance contaminates Rrs at CRCP sites. This is printed
+  as a caveat, and MaxN (deeper, 10–100 m) is the cleaner fish test. **Fish eDNA (12S):** none in
+  `eDNA_data_sources/` (only 16S and 18S), so that suggestion needs new data.
+- **Stage 1.5 at two weights.** ν = 0.1 (`stage1_D`) and ν = 0.3 (`stage1_D3`,
+  `OVERRIDES="loss.nu=0.3"`, `NAME=stage1_D3`); same steps and data as stage 1.
+- **Order:** the amplitude test on trained B/C (G) is read before H is submitted, so that a failure
+  can be fixed in the hybrid first. Effective rank is fine for every arm (above).
+
 ### Stage 1.5 and robustness checks before 2.11 (2026-11-23)
 **Proposed.** A review of the Stage 1 results (pasted 2026-11-23) proposed two things before the
 2.11 decision:
@@ -555,8 +653,9 @@ The review's points, and what the data already say:
 - ν = 0.1 (design-document default). The loss scales differ (embedding MSE vs MSE of transformed
   reflectance), so the logged `recon` against `pred` will show the actual balance.
 
-**What reopens 2.11:** D matches A on Chl and PACE retention while keeping B/C's NMF k5 and Si.
-If D trails A on those, A stands.
+**What reopens 2.11:** D (at ν = 0.1 or 0.3) matches A on Chl and PACE retention while keeping
+B/C's NMF k5 and Si, and is not behind A on the focused tests: PACE-era phytoplankton groups (E1
+visible vs dropped, vs MOANA) and fish added value over habitat. If both D runs trail A on those, A stands.
 
 ### Stage 1 results (job 116376, 2026-11-22): arm A (masked reconstruction) leads on every measure
 Frozen final weights (step 30,000) of all three arms. CSVs on the laptop in
@@ -1134,8 +1233,9 @@ Paste the text output (not the data files). If a file is long, the listed `tail`
 | 2.8b GPU env + check | `tail -10 logs/oefm_gpuenv_<id>.out`; `tail -30 logs/oefm_gpucheck_<id>.out` | torch/CUDA versions, all-reduce = 10, each arm runs |
 | 2.8c benchmark | the summary table at the end of `logs/oefm_bench_<id>.out` | batch, length and steps to set for the runs |
 | 2.9 training | `tail -5 data/runs/stage1_<ARM>/log.jsonl` | losses per modality, SIGReg, effective rank, no collapse |
-| 2.10 / 2.10b evaluation, robustness | `tail -150 logs/oefm_eval_<id>.out`; copy `data/runs/eval_<TAG>/*.csv` to `multimodal_seusmbol/eval_results/<TAG>/` | probe tables, intervals, rotation, PACE-era test, retention, amplitude |
-| 2.9b arm D | first lines of `logs/oefm_train_<id>.out` and `tail -3 data/runs/stage1_D/log.jsonl` | `recon` next to `pred`/`sigreg`/`pace_residual`, memory, speed |
+| G0 targets + MOANA | `tail -20 logs/oefm_targets_<id>.out`; the `phyto_`/`hab_` column counts (5, 9) | MOANA files found, samples with a matchup, new columns joined |
+| 2.10 / 2.10b / 2.10c evaluation, robustness, focused | `tail -250 logs/oefm_eval_<id>.out` (I: `tail -400`); copy `data/runs/eval_<TAG>/*.csv` to `multimodal_seusmbol/eval_results/<TAG>/` | probe tables, intervals, rotation, PACE-era test, retention, amplitude, phytoplankton vs MOANA, fish over habitat, window spans |
+| 2.9b arm D (ν 0.1, 0.3) | first lines of `logs/oefm_train_<id>.out` and `tail -3 data/runs/<run>/log.jsonl` (`stage1_D`, `stage1_D3`) | `recon` next to `pred`/`sigreg`/`pace_residual`, ν, memory, speed |
 | 2.6–2.7 targets | `tail -40 logs/oefm_targets_<id>.out` | PISCES days per source, tile coverage, the matched-evaluation summary |
 | 2.0–2.4b trial (`LIMIT=40`) | `tail -40 logs/oefm_prep_<id>.out` | speed per granule, no failures |
 | 2.0–2.5a full | `tail -80 logs/oefm_prep_<id>.out` (includes the sequence summary and physics coverage); `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`; copy back `data/processed/regional/tiles/v2/examples/` | tile counts, the PACE-usable evaluation counts, the visual check |

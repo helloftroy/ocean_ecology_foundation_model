@@ -8,7 +8,12 @@ to data/runs/eval_<tag>/.
 embed   Embeddings at every evaluation sample (eval/matched/*.csv.gz; 16S and 18S share samples, so
         each place and time is encoded once). Sequences come from all imagery around the sample
         (split 'all': the label hold-out concerns labels, not imagery), length as in training,
-        two windows: causal (30 d up to the sample) and retro (+/- 15 d), and two PACE settings:
+        windows (WINDOWS): causal (30 d up to the sample) and retro (+/- 15 d) for every set;
+        retro1 / retro3 (+/- 1 / 3 d: tight matchups, eDNA and SFER only); seasonal (fish only:
+        the mean of three causal 30 d windows ending at the sample, 30 and 60 d before it, so the
+        encoder stays within the time offsets it was trained on). At most `length` observations
+        nearest the sample are used in any window, so the span actually covered is recorded
+        (span_days: largest |dt| of a valid observation in the 3 x 3 cells). Two PACE settings:
         visible and dropped (PACE on/off). Per run: E1 (valid-weighted mean of temporal-stage tokens),
         E2 (predictor query at dt = 0 with MODIS-Aqua bands; arms B and C), E3 (E1 + spread, 2D),
         each averaged over the valid cells of the 3 x 3 cells around the sample (the coverage rule of
@@ -42,6 +47,9 @@ pace    PACE spectral retention: anchors = PACE observations (retro window), the
         spectrum, and the heritage-band ridge of arm C (pace_ridge.npz) applied to the same PACE
         observation. -> pace_retention.csv (per wavelength), pace_retention_summary.csv
 
+focused PACE-era phytoplankton groups (with the NASA MOANA baseline) and fish added value over
+        habitat (Poisson ridge): oefm/model/focused.py. Not in the default steps.
+
 robust, amplitude   Test-year rotation, bootstrap intervals, PACE-era visible vs dropped, retention
         of input reflectance quantities; amplitude test on trained weights: oefm/model/robust.py.
         Not in the default steps.
@@ -54,6 +62,7 @@ import json
 import re
 import time
 import warnings
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -126,12 +135,32 @@ def _raw_at(raw12: np.ndarray, wl: np.ndarray, nb: np.ndarray) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------------- embed
+# Evaluation windows: loader mode, window length (None: config training.sequence), offsets of the
+# window end before the sample (days; features are averaged over the offsets) and the datasets
+# embedded (None: all).
+WINDOWS = {
+    "causal": {"mode": "causal", "days": None, "offsets": (0,), "datasets": None},
+    "retro": {"mode": "retro", "days": None, "offsets": (0,), "datasets": None},
+    "retro1": {"mode": "retro", "days": 1, "offsets": (0,), "datasets": ("edna_16S", "edna_18S", "sfer")},
+    "retro3": {"mode": "retro", "days": 3, "offsets": (0,), "datasets": ("edna_16S", "edna_18S", "sfer")},
+    "seasonal": {"mode": "causal", "days": None, "offsets": (0, 30, 60), "datasets": ("fish_crcp", "fish_maxn")},
+}
+
+
+def window_spec(window: str) -> dict:
+    if window not in WINDOWS:
+        raise SystemExit(f"unknown window {window!r}; choose from {sorted(WINDOWS)}")
+    return WINDOWS[window]
+
+
 class PointSet(torch.utils.data.Dataset):
-    def __init__(self, cfg, points, window: str, pace: str, length: int, sensors) -> None:
+    def __init__(self, cfg, points, window: str, pace: str, length: int, sensors, offset_days: float = 0) -> None:
+        spec = window_spec(window)
         self.pts = points.reset_index(drop=True)
-        self.seq = TileSequences(cfg, split="all", mode=window, length=length, anchors="pace", sensors=sensors,
+        self.offset = float(offset_days) * 86400.0
+        self.seq = TileSequences(cfg, split="all", mode=spec["mode"], length=length, anchors="pace", sensors=sensors,
                                  pace="drop" if pace == "drop" else "visible", selection="recent",
-                                 include_300m=True, physics=False)
+                                 include_300m=True, physics=False, window_days=spec["days"])
         self.te = _obs_maker(cfg)
 
     def __len__(self) -> int:
@@ -139,17 +168,20 @@ class PointSet(torch.utils.data.Dataset):
 
     def __getitem__(self, k: int) -> dict:
         r = self.pts.iloc[k]
-        s = self.seq.sequence_for_point(float(r["lat"]), float(r["lon"]), str(r["time_utc"]))
+        t = datetime.fromisoformat(str(r["time_utc"]).replace("Z", "+00:00")).timestamp() - self.offset
+        s = self.seq.sequence_for_point(float(r["lat"]), float(r["lon"]), t)
         item = {"k": k, "obs": [], "mode": "eval", "raw": np.full(len(MODIS_REF_WL), np.nan), "nb": None,
-                "n_obs": 0, "n_pace": 0}
+                "n_obs": 0, "n_pace": 0, "span": np.nan}
         if s is None:
             return item
         nb = _nb_cells(s["cell"])
-        raws, obs = [], []
+        raws, obs, dts = [], [], []
         for o in s["obs"]:
             x = self.te._obs(o, s["anchor_time"], None)
             if not x["cell_valid"].any():
                 continue
+            if x["cell_valid"][nb].any():
+                dts.append(abs(float(o["time"]) - float(s["anchor_time"])) / 86400.0)
             if x["view"] == "rrs" and x["cell_valid"][nb].any():
                 raws.append(_raw_at(x["_raw12"], x["wl"], nb))
             x.pop("_raw12", None)
@@ -158,14 +190,14 @@ class PointSet(torch.utils.data.Dataset):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", RuntimeWarning)
                 item["raw"] = np.nanmean(np.stack(raws), axis=0)
-        item.update(obs=obs, nb=nb if obs else None, n_obs=sum(bool(o["cell_valid"][nb].any()) for o in obs),
+        item.update(obs=obs, nb=nb if obs else None, span=max(dts) if dts else np.nan, n_obs=sum(bool(o["cell_valid"][nb].any()) for o in obs),
                     n_pace=sum(bool(o["is_pace"] and o["cell_valid"][nb].any()) for o in obs))
         return item
 
 
 def _collate_points(items: list[dict]) -> tuple[dict | None, list[dict]]:
     keep = [it for it in items if it["obs"]]
-    meta = [{k: it[k] for k in ("k", "raw", "nb", "n_obs", "n_pace")} for it in items]
+    meta = [{k: it[k] for k in ("k", "raw", "nb", "n_obs", "n_pace", "span")} for it in items]
     return (collate(keep) if keep else None), meta
 
 
@@ -190,12 +222,14 @@ def _point_embeddings(model: Model, batch: dict, nbs: list[np.ndarray]) -> dict[
     return res
 
 
-def load_points(cfg, limit: int = 0):
+def load_points(cfg, limit: int = 0, datasets=None):
     import pandas as pd
 
     frames = []
     for f in sorted((eval_dir(cfg) / "matched").glob("*.csv.gz")):
         t = pd.read_csv(f, dtype={"sample_id": str}, usecols=lambda c: c in META_COLS)
+        if datasets is not None:
+            t = t[t["dataset"].isin(datasets)]
         frames.append(t)
     if not frames:
         raise SystemExit(f"No matched evaluation sets in {eval_dir(cfg) / 'matched'} (run targets.sbatch, step 2.7)")
@@ -209,44 +243,77 @@ def load_points(cfg, limit: int = 0):
 
 def embed(cfg, models: list[tuple[Model, dict]], out_dir: Path, tcfg: dict, windows, paces, batch: int = 16,
           workers: int = 8, limit: int = 0, log=print) -> None:
-    pts = load_points(cfg, limit)
     device = next(models[0][0].parameters()).device
     amp = dict(device_type=device.type, dtype=torch.bfloat16, enabled=device.type == "cuda")
     for window in windows:
+        spec = window_spec(window)
+        pts = load_points(cfg, limit, spec["datasets"])
         for pace in paces:
             t0 = time.time()
-            ds = PointSet(cfg, pts, window, pace, int(tcfg["data"]["length"]), tcfg["data"].get("sensors"))
-            dl = torch.utils.data.DataLoader(ds, batch_size=batch, num_workers=workers, collate_fn=_collate_points)
             n = len(pts)
-            feats: dict[str, np.ndarray] = {}
-            raw = np.full((n, len(MODIS_REF_WL)), np.nan, np.float32)
-            n_obs = np.zeros(n, np.int16)
-            n_pace = np.zeros(n, np.int16)
-            for bt, meta in dl:
-                for mm in meta:
-                    raw[mm["k"]], n_obs[mm["k"]], n_pace[mm["k"]] = mm["raw"], mm["n_obs"], mm["n_pace"]
-                if bt is None:
-                    continue
-                # collate keeps items with observations, in order; those are exactly the ones with nb set
-                has = [mm for mm in meta if mm["nb"] is not None]
-                bt = to_device(bt, device)
-                for model, info in models:
-                    with torch.autocast(**amp):
-                        res = _point_embeddings(model, bt, [h["nb"] for h in has])
-                    for name, arr in res.items():
-                        key = f"{info['run']}__{name}"
-                        if key not in feats:
-                            feats[key] = np.full((n, arr.shape[1]), np.nan, np.float32)
-                        feats[key][[h["k"] for h in has]] = arr
+            parts: list[tuple[dict, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+            for off in spec["offsets"]:
+                ds = PointSet(cfg, pts, window, pace, int(tcfg["data"]["length"]), tcfg["data"].get("sensors"), off)
+                dl = torch.utils.data.DataLoader(ds, batch_size=batch, num_workers=workers, collate_fn=_collate_points)
+                feats: dict[str, np.ndarray] = {}
+                raw = np.full((n, len(MODIS_REF_WL)), np.nan, np.float32)
+                n_obs = np.zeros(n, np.int16)
+                n_pace = np.zeros(n, np.int16)
+                span = np.full(n, np.nan, np.float32)
+                for bt, meta in dl:
+                    for mm in meta:
+                        raw[mm["k"]], n_obs[mm["k"]], n_pace[mm["k"]] = mm["raw"], mm["n_obs"], mm["n_pace"]
+                        span[mm["k"]] = mm["span"]
+                    if bt is None:
+                        continue
+                    # collate keeps items with observations, in order; those are exactly the ones with nb set
+                    has = [mm for mm in meta if mm["nb"] is not None]
+                    bt = to_device(bt, device)
+                    for model, info in models:
+                        with torch.autocast(**amp):
+                            res = _point_embeddings(model, bt, [h["nb"] for h in has])
+                        for name, arr in res.items():
+                            key = f"{info['run']}__{name}"
+                            if key not in feats:
+                                feats[key] = np.full((n, arr.shape[1]), np.nan, np.float32)
+                            feats[key][[h["k"] for h in has]] = arr
+                parts.append((feats, raw, n_obs, n_pace, span))
+            feats, raw, n_obs, n_pace, span = _combine_offsets(parts, spec["offsets"])
             dest = out_dir / f"embeddings_{window}_{pace}.npz"
-            np.savez_compressed(dest, key=pts["key"].to_numpy().astype(str), raw=raw, n_obs=n_obs, n_pace=n_pace, **feats)
+            np.savez_compressed(dest, key=pts["key"].to_numpy().astype(str), raw=raw, n_obs=n_obs, n_pace=n_pace,
+                                span_days=span, **feats)
+            fin = np.isfinite(span)
             msg = [f"embed {window}/{pace}: {n:,} samples, {(n_obs > 0).sum():,} with a valid observation "
-                   f"in the 3x3 cells ({(n_pace > 0).sum():,} with PACE), {time.time() - t0:.0f} s"]
+                   f"in the 3x3 cells ({(n_pace > 0).sum():,} with PACE), {time.time() - t0:.0f} s; "
+                   f"span of the observations used (days from the window end): median "
+                   f"{np.median(span[fin]) if fin.any() else np.nan:.1f}, 90th percentile "
+                   f"{np.percentile(span[fin], 90) if fin.any() else np.nan:.1f}"]
             for k, v in feats.items():
                 ok = np.isfinite(v).all(1)
                 if ok.sum() > 10:
                     msg.append(f"  {k}: dim {v.shape[1]}, effective rank {effective_rank(torch.from_numpy(v[ok])):.1f}")
             log("\n".join(msg))
+
+
+def _combine_offsets(parts, offsets):
+    """One window = one offset: as is. Several offsets (seasonal): features and raw averaged over the
+    offsets where they exist, observation counts summed, span = the largest distance from the
+    sample (offset + span)."""
+    if len(parts) == 1:
+        return parts[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        keys = sorted({k for p in parts for k in p[0]})
+        feats = {}
+        for k in keys:
+            ref = next(p[0][k] for p in parts if k in p[0])
+            stack = np.stack([p[0].get(k, np.full_like(ref, np.nan)) for p in parts])
+            feats[k] = np.nanmean(stack, axis=0).astype(np.float32)
+        raw = np.nanmean(np.stack([p[1] for p in parts]), axis=0).astype(np.float32)
+        n_obs = np.sum([p[2] for p in parts], axis=0).astype(np.int16)
+        n_pace = np.sum([p[3] for p in parts], axis=0).astype(np.int16)
+        span = np.nanmax(np.stack([p[4] + off for p, off in zip(parts, offsets)]), axis=0).astype(np.float32)
+    return feats, raw, n_obs, n_pace, span
 
 
 # ----------------------------------------------------------------------------- probes
@@ -263,7 +330,7 @@ def group_of(dataset: str, sample_id: str, time_utc: str) -> str:
 
 def target_columns(df) -> list[str]:
     skip = set(META_COLS) | {"tile_id", "usable_any", "year", "window", "full_window_in_pace_era", "key"}
-    return [c for c in df.columns if c not in skip and not c.startswith(("causal_", "sameday_", "seq_"))
+    return [c for c in df.columns if c not in skip and not c.startswith(("causal_", "sameday_", "seq_", "hab_"))
             and np.issubdtype(df[c].dtype, np.number)]
 
 
@@ -288,7 +355,7 @@ def transform_target(name: str, y: np.ndarray) -> np.ndarray:
 def target_family(name: str) -> str:
     if name in NUTRIENTS:
         return name
-    m = re.match(r"(nmf_k\d+|pc|present|log1p|maxn|genus|taxon|g)_", name)
+    m = re.match(r"(nmf_k\d+|pc|present|log1p|maxn|genus|taxon|phyto|g)_", name)
     return m.group(1) if m else name.rsplit("_", 1)[0]
 
 
@@ -395,6 +462,8 @@ def probe_inputs(cfg, out_dir: Path, window: str, paces, seq_covariates_mode: st
         ds = df["dataset"].iloc[0]
         df["key"] = df["lat"].round(5).astype(str) + "|" + df["lon"].round(5).astype(str) + "|" + df["time_utc"].astype(str)
         df = df[df["key"].isin(key_index)].reset_index(drop=True)
+        if df.empty:  # dataset not embedded in this window (WINDOWS[...]["datasets"])
+            continue
         ix = df["key"].map(key_index).to_numpy()
         t = pd.to_datetime(df["time_utc"], utc=True)
         doy = 2 * np.pi * t.dt.day_of_year.to_numpy() / 365.25
@@ -714,12 +783,14 @@ def main(argv=None) -> None:
     ap.add_argument("--weights", default="final", help="final (falls back to checkpoint) | checkpoint | path")
     ap.add_argument("--tag", default="stage1")
     ap.add_argument("--steps", nargs="+", default=["embed", "probes", "pace"],
-                    choices=["embed", "probes", "pace", "robust", "amplitude"])
+                    choices=["embed", "probes", "pace", "robust", "amplitude", "focused"])
     ap.add_argument("--robust", nargs="+", default=["rotate", "bootstrap", "pace_era", "retention"],
                     choices=["rotate", "bootstrap", "pace_era", "retention"], help="parts of --steps robust")
+    ap.add_argument("--focused", nargs="+", default=["phyto", "fish"], choices=["phyto", "fish"],
+                    help="parts of --steps focused (oefm/model/focused.py)")
     ap.add_argument("--ref", default="stage1_A/e1", help="reference feature set for robustness differences")
     ap.add_argument("--n-boot", type=int, default=1000)
-    ap.add_argument("--windows", nargs="+", default=["causal", "retro"])
+    ap.add_argument("--windows", nargs="+", default=["causal", "retro"], choices=sorted(WINDOWS))
     ap.add_argument("--pace", nargs="+", default=["visible", "drop"])
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--workers", type=int, default=8)
@@ -755,6 +826,10 @@ def main(argv=None) -> None:
             rb.robustness(cfg, out_dir, args.windows, args.robust, ref=args.ref, n_boot=args.n_boot)
         if "amplitude" in args.steps:
             rb.amplitude(cfg, models, out_dir)
+    if "focused" in args.steps:
+        from .focused import focused
+
+        focused(cfg, out_dir, args.windows, args.focused, n_boot=args.n_boot)
 
 
 if __name__ == "__main__":

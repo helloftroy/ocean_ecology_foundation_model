@@ -130,6 +130,8 @@ class TileSequences:
     split: 'train' | 'val' | 'test_temporal' | 'test_geo' | 'all' (no partition filter; used for
            embedding extraction at evaluation points)
     mode: 'causal' (window [t - causal_days, t]) or 'retro' (t +/- retro_half_days)
+    window_days: overrides causal_days (causal) or retro_half_days (retro), e.g. 3 for the tight
+                 +/- 3 d evaluation matchups
     length: maximum observations per sequence (8 / 16 / 24); the anchor is always kept
     anchors: 'all' (every eligible observation) or 'pace' (PACE observations only: the spectral-
              retention set)
@@ -143,7 +145,8 @@ class TileSequences:
     def __init__(self, cfg: Config, split: str = "train", mode: str = "causal", length: int = 16,
                  anchors: str = "all", sensors: list[str] | None = None, pace: str = "visible",
                  selection: str = "recent", masking: bool | dict | None = None, include_300m: bool = False,
-                 physics: bool = True, targets: bool = False, seed: int = 0, index=None) -> None:
+                 physics: bool = True, targets: bool = False, seed: int = 0, index=None,
+                 window_days: float | None = None) -> None:
         import pandas as pd
 
         if split not in SPLITS + ("all",):
@@ -151,7 +154,9 @@ class TileSequences:
         self.cfg, self.split, self.mode, self.length = cfg, split, mode, int(length)
         self.pace, self.selection, self.include_300m = pace, selection, include_300m
         tr = cfg.raw["training"]
-        self.seq = tr["sequence"]
+        self.seq = dict(tr["sequence"])
+        if window_days is not None:
+            self.seq["causal_days" if mode == "causal" else "retro_half_days"] = float(window_days)
         self.mask_cfg = ({**tr["masking"], **masking} if isinstance(masking, dict) else tr["masking"]) if masking else None
         self.rng = np.random.default_rng(seed)
         self.grid = TileGrid(cfg)

@@ -18,10 +18,21 @@ unchanged to the test labels:
   are the probe covariates (oefm.model.evaluate.SEQ_COVARIATES); seq_n_replicates,
   seq_log10_table_reads (log10(1 + total of the replicate-mean ASV counts in the source table)),
   seq_platform and seq_runs are kept for reference.
+  Phytoplankton groups (phyto_<group>, what ocean colour can see; no fitting): reads of every ASV
+  (not only the prevalence-filtered ones) summed into PHYTO_GROUPS plus one 'other' part, 0.5
+  reads added to each part, centred log-ratio over the parts; the CLR of each named group is the
+  target. 18S (PR2): diatoms (Bacillariophyceae, Mediophyceae, Coscinodiscophyceae), Dinophyceae
+  (Syndiniales, the parasitic dinoflagellates, are 'other'), haptophytes, prasinophytes
+  (Mamiello-, Chloropico-, Pyramimonado-, Nephroselmido-phyceae, Prasino-Clades) and other
+  Chlorophyta; 16S (SILVA): Prochlorococcus, Synechococcus (other Cyanobiaceae, incl. Cyanobium)
+  and plastid 16S (o__Chloroplast).
 - SFER (<= 5 m): PO4, NO3, Si, fluorometric Chl as measured (no fitting).
 - Fish CRCP: per survey unit, the --species most prevalent species in training: presence and
   log1p(count). Fish MaxN: the top-10 species columns of the Granite manifest (as already chosen
-  there; month-precision dates).
+  there; month-precision dates). Habitat covariates (hab_*, never targets; the baseline that fish
+  probes must beat): CRCP survey depth (log10) and habitat type (one-hot, types in >= 2% of
+  training units); MaxN log10 GEBCO depth and log10 distance to shore from the Granite manifest.
+  CRCP underwater visibility is NOT used (an in-situ optical measurement).
 
 Rerun when a source table changes:  python scripts/make_eval_targets.py --root ..
 """
@@ -99,6 +110,49 @@ def sequencing(root: Path, marker: str, sample_ids, table_reads: pd.Series) -> p
     return out
 
 
+PRASINO = {"Mamiellophyceae", "Chloropicophyceae", "Pyramimonadophyceae", "Nephroselmidophyceae",
+           "Pseudoscourfieldiophyceae", "Prasinophyceae"}
+DIATOM = {"Bacillariophyceae", "Mediophyceae", "Coscinodiscophyceae", "Bacillariophyta"}
+PHYTO_GROUPS = {"18S": ["diatoms", "dinophyceae", "haptophytes", "prasinophytes", "other_chlorophyta"],
+                "16S": ["prochlorococcus", "synechococcus", "chloroplast"]}
+
+
+def phyto_group(tax: str, marker: str) -> str:
+    """Phytoplankton group of one ASV ('other' for everything else)."""
+    t = str(tax)
+    if marker == "16S":
+        parts = dict(p.split("__", 1) for p in t.split(";") if "__" in p)
+        if parts.get("o", "") == "Chloroplast":
+            return "chloroplast"
+        if parts.get("g", "").startswith("Prochlorococcus"):
+            return "prochlorococcus"
+        if parts.get("f", "") == "Cyanobiaceae":
+            return "synechococcus"
+        return "other"
+    r = [x.strip() for x in t.split(";")] + [""] * 9
+    division, klass = r[2], r[4]
+    if klass in DIATOM or division == "Bacillariophyta":
+        return "diatoms"
+    if klass == "Dinophyceae":
+        return "dinophyceae"
+    if division == "Haptophyta":
+        return "haptophytes"
+    if division == "Chlorophyta":
+        return "prasinophytes" if (klass in PRASINO or klass.startswith("Prasino")) else "other_chlorophyta"
+    return "other"
+
+
+def phyto_clr(X: pd.DataFrame, tax: pd.Series, marker: str, pseudo: float = 0.5) -> tuple[pd.DataFrame, dict]:
+    """CLR of the phytoplankton group read sums (X: samples x ASVs, replicate-mean reads)."""
+    grp = tax.reindex(X.columns).fillna("").map(lambda t: phyto_group(t, marker))
+    G = X.T.groupby(grp).sum().T.reindex(columns=PHYTO_GROUPS[marker] + ["other"], fill_value=0.0)
+    L = np.log(G.to_numpy(float) + pseudo)
+    clr = L - L.mean(axis=1, keepdims=True)
+    out = pd.DataFrame(clr[:, :-1], index=X.index, columns=[f"phyto_{g}" for g in PHYTO_GROUPS[marker]])
+    share = G.div(G.sum(axis=1).replace(0, np.nan), axis=0)
+    return out, {"mean_read_share": share.mean().round(4).to_dict(), "asvs_per_group": grp.value_counts().to_dict()}
+
+
 def edna(cfg, root: Path, pts: pd.DataFrame, marker: str, ks: list[int], n_genera: int, n_pcs: int):
     from sklearn.decomposition import NMF
 
@@ -151,6 +205,8 @@ def edna(cfg, root: Path, pts: pd.DataFrame, marker: str, ks: list[int], n_gener
     for name in top:
         out[f"taxon_{name}"] = g[name].to_numpy()
     info["dominant_genera"] = list(top)
+    ph, info["phyto"] = phyto_clr(X, tax, marker)
+    out = out.join(ph)
     out.index.name = "sample_id"
     return out.reset_index(), info, comp_dir
 
@@ -171,7 +227,8 @@ def sfer(cfg, root: Path, pts: pd.DataFrame):
 
 def crcp(cfg, root: Path, pts: pd.DataFrame, n_species: int):
     c = pd.read_csv(root / "eDNA_data_sources/fish_other_data_sources/CRCP_Reef_Fish_Surveys_Florida_0941_6202_3050.csv",
-                    usecols=["time", "PRIMARY_SAMPLE_UNIT", "SCIENTIFIC_NAME", "NUM"], low_memory=False)
+                    usecols=["time", "PRIMARY_SAMPLE_UNIT", "SCIENTIFIC_NAME", "NUM", "DEPTH", "HABITAT_TYPE"],
+                    low_memory=False)
     c = c[c["time"] != "UTC"]
     c["sample_id"] = c["PRIMARY_SAMPLE_UNIT"].astype(str) + "_" + c["time"].str[:10]
     c["NUM"] = pd.to_numeric(c["NUM"], errors="coerce").fillna(0)
@@ -185,9 +242,20 @@ def crcp(cfg, root: Path, pts: pd.DataFrame, n_species: int):
         key = sp.replace(" ", "_")
         out[f"present_{key}"] = (counts[sp] > 0).astype(int).to_numpy()
         out[f"log1p_{key}"] = np.log1p(counts[sp].to_numpy())
+    # habitat covariates per survey unit (mean depth over stations, most common habitat type)
+    h = c.groupby("sample_id").agg(depth=("DEPTH", lambda x: pd.to_numeric(x, errors="coerce").mean()),
+                                   habitat=("HABITAT_TYPE", lambda x: x.mode().iloc[0] if len(x.mode()) else ""))
+    h = h.reindex(out.index)
+    out["hab_log10_depth_m"] = np.log10(h["depth"].clip(lower=0.5)).to_numpy()
+    types = h["habitat"].fillna("")[train].value_counts(normalize=True)
+    keep_types = [t for t, f in types.items() if f >= 0.02 and t]
+    for j, t in enumerate(keep_types):
+        out[f"hab_type_{j + 1}"] = (h["habitat"] == t).astype(float).to_numpy()
     out.index.name = "sample_id"
     return out.reset_index(), {"dataset": "fish_crcp", "samples": int(len(out)), "train": int(train.sum()),
-                               "test": int((~train).sum()), "species": list(top)}
+                               "test": int((~train).sum()), "species": list(top),
+                               "habitat_types": {f"hab_type_{j + 1}": t for j, t in enumerate(keep_types)},
+                               "habitat_missing_depth": int(h["depth"].isna().sum())}
 
 
 def maxn(cfg, root: Path, pts: pd.DataFrame):
@@ -202,6 +270,8 @@ def maxn(cfg, root: Path, pts: pd.DataFrame):
     for sp in species:
         v = pd.to_numeric(m.reindex(out.index)[sp], errors="coerce")
         out[f"maxn_{sp}"] = v
+    for col, name in (("log10_ocean_depth_m", "hab_log10_depth_m"), ("log10_distance_to_shore_km", "hab_log10_shore_km")):
+        out[name] = pd.to_numeric(m.reindex(out.index)[col], errors="coerce").to_numpy() if col in m.columns else np.nan
     out.index.name = "sample_id"
     return out.reset_index(), {"dataset": "fish_maxn", "samples": int(len(out)),
                                "train": int((out["label_split"] == "train").sum()),

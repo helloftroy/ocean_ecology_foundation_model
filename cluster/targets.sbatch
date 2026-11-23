@@ -15,6 +15,8 @@
 #
 #   sbatch --account=191001-366746 cluster/targets.sbatch
 #   # only some steps: --export=ALL,STEPS="build evalsets"
+#   # after new laptop targets: --export=ALL,STEPS="evalsets moana" (moana: PACE MOANA phytoplankton
+#   # matchups for the PACE-era eDNA/SFER samples, oefm/moana.py; not in the default steps)
 
 set -euo pipefail
 source "${SLURM_SUBMIT_DIR:-$(pwd)}/cluster/env.sh"
@@ -27,6 +29,7 @@ for step in ${STEPS}; do
     download)  python -m oefm download --products pisces_nutrients --connections 2 ;;
     build)     python -m oefm targets --workers "${SLURM_CPUS_PER_TASK:-8}" ;;
     evalsets)  python -m oefm evalsets ;;
+    moana)     python -m oefm.moana --days 3 ;;
     *) echo "unknown step ${step}" >&2; exit 1 ;;
   esac
 done

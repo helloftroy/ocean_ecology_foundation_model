@@ -70,6 +70,14 @@
    design amplitude test on trained weights, token + E1). evaluate.probes refactored into
    probe_inputs/fit_predict (output identical). eDNA probes in `probes` can't show PACE value: no
    eDNA training label is in the PACE era. User steps G, H, I in cluster_instructions.md.
+   (2026-11-23, second review) focused tests: phyto_* CLR phytoplankton-group targets and hab_*
+   habitat covariates (make_eval_targets.py; old columns identical), oefm/moana.py (NASA
+   PACE_OCI_L4M_MOANA v3.2 daily 4 km matchups, targets.sbatch STEPS=moana), evaluate.WINDOWS
+   (retro1/retro3 tight matchups; seasonal = mean of 3 causal 30 d windows for fish; span_days
+   recorded: only the 16 nearest obs are used), oefm/model/focused.py (--steps focused: PACE-era
+   phyto LOCO vs MOANA; fish Poisson ridge over habitat, D2 / level-free D2 / Spearman). Stage 1.5
+   at nu 0.1 (stage1_D) and 0.3 (stage1_D3; train.sbatch NAME + OVERRIDES). H waits for G's
+   amplitude check on B/C. No 12S fish eDNA exists in the sources.
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).
