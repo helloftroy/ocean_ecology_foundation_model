@@ -97,7 +97,7 @@ table, the PACE table) and copy back `data/runs/eval_stage1/*.csv` for the full 
 Optional, to try it on intermediate weights once a GPU is free:
 `--export=ALL,TAG=check,WEIGHTS=checkpoint,EXTRA="--limit 300 --pace-anchors 100 50"`.
 
-**F2. Probes again (2026-11-23), after two fixes:** (1) SFER ran with 0 targets: Chl is missing for
+**F2. Probes again (2026-11-23), after two fixes:** ✅ job of 2026-11-23 10:05 (SFER results in the decision log; the CSVs with PACE on/off still to copy). (1) SFER ran with 0 targets: Chl is missing for
 13% of the samples and any target with a missing training value was dropped; each target now uses
 its own measured samples. (2) The summary now uses the median over the targets of a family and
 leaves out targets whose test spread is < 0.25 × the training spread (18S NMF k15/k20 component 10
@@ -582,12 +582,39 @@ CRCP counts with A/e1 have a strongly negative R² (−0.57) but the best Spearm
 ranking carries over but the level does not: the training years are 2018/2021/2022 and the test
 year is 2024. A/e3 (−0.07) is far less affected.
 
+**SFER (F2, 2026-11-23).** Surface samples, test 2025 (464 samples, 459 with PACE). Training
+2018–2024: 2,433 samples (causal) / 2,358 (retro), 346 of them with PACE. Chl has 2,301 training
+labels. Test R² with PACE visible (one target per family, so median = value):
+
+| Target | Window | meta | raw | A/e1 | A/e3 | B/e1 | B/e2 | C/e1 | C/e2 |
+|---|---|---|---|---|---|---|---|---|---|
+| Chl | causal | −0.080 | 0.740 | **0.800** | 0.787 | 0.573 | 0.556 | 0.601 | 0.543 |
+| Chl | retro | −0.080 | 0.771 | **0.838** | 0.808 | 0.610 | 0.555 | 0.647 | 0.539 |
+| Si | causal | −0.012 | 0.338 | 0.378 | 0.404 | 0.406 | **0.411** | 0.404 | 0.400 |
+| Si | retro | −0.011 | 0.360 | 0.387 | 0.387 | **0.408** | 0.405 | 0.407 | 0.395 |
+| NO₃ | causal | −0.016 | −0.079 | 0.013 | 0.016 | −0.044 | 0.022 | −0.044 | **0.026** |
+| NO₃ | retro | 0.003 | −0.049 | 0.022 | 0.022 | 0.023 | 0.040 | 0.039 | **0.044** |
+| PO₄ | causal | −0.178 | −0.049 | 0.012 | −0.029 | 0.008 | **0.073** | 0.029 | 0.066 |
+| PO₄ | retro | −0.176 | −0.064 | 0.026 | −0.042 | **0.107** | 0.082 | 0.083 | 0.076 |
+
+E3: B 0.425 / 0.426 and C 0.516 / 0.530 for Chl; B 0.231 / 0.248 and C 0.319 / 0.334 for Si.
+
+Reading:
+- Chl: A is best. It beats the raw reflectance baseline by +0.06 / +0.07, while B and C fall
+  0.14–0.20 below raw.
+- Si: all arms ≈ 0.38–0.41, raw 0.34–0.36.
+- NO₃ and PO₄: no skill from any feature set (≤ 0.11). Surface nutrients at these stations are
+  mostly not optically expressed. They are the targets Stage 2 (PISCES supervision) is meant to
+  help.
+- PACE on/off for SFER (the fair test; 346 training samples with PACE): needs the F2 CSVs.
+
 **Summary for 2.11:**
 - A wins the eDNA probes in 10 of 12 families (median R²).
 - B or C wins 16S NMF k5 (C/e1 0.745 vs A 0.711) and 18S NMF k5 (C/e2 0.578 vs A 0.489), by small
   margins.
 - A is the only arm that retains PACE spectra (0.74 / 0.64 vs ≤ 0.20).
-- Pending: SFER nutrients and Chl with PACE on/off (F2).
+- SFER Chl: A 0.80 / 0.84 vs B/C ≤ 0.65 (raw 0.74 / 0.77). Si: tie. NO₃/PO₄: no skill.
+- Pending: SFER with PACE visible vs dropped (from the F2 CSVs).
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
 
