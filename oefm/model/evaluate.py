@@ -357,12 +357,15 @@ def _metrics(y, p, binary: bool) -> dict:
     from sklearn.metrics import roc_auc_score
 
     out = {}
+    ok = np.isfinite(y)
+    y, p = y[ok], p[ok]
+    out["n_test_target"] = int(ok.sum())
     if binary:
         out["test_auc"] = float(roc_auc_score(y, p)) if len(np.unique(y)) == 2 else np.nan
     else:
         ss = ((y - y.mean()) ** 2).sum()
         out["test_r2"] = float(1 - ((y - p) ** 2).sum() / ss) if ss > 0 else np.nan
-        out["test_spearman"] = float(spearmanr(y, p).statistic) if np.std(y) > 0 and np.std(p) > 0 else np.nan
+        out["test_spearman"] = float(spearmanr(y, p)[0]) if np.std(y) > 0 and np.std(p) > 0 else np.nan
     return out
 
 
@@ -419,9 +422,21 @@ def probes(cfg, out_dir: Path, windows, paces, log=print, seq_covariates_mode: s
                 log(f"probes {ds}/{window}: too few samples with features (train {tr.sum()}, test {te.sum()}); skipped")
                 continue
             Y = np.column_stack([transform_target(c, df[c].to_numpy(float)) for c in tcols])
-            ok_t = np.isfinite(Y[tr]).all(0) & (np.nanstd(Y[tr], axis=0) > 0)
+            # a target may be missing for some samples (SFER Chl: 13%): each target uses the samples
+            # where it is measured; it must have >= 20 training values with spread
+            n_ok = np.isfinite(Y[tr]).sum(0)
+            ok_t = (n_ok >= 20) & (np.nanstd(np.where(np.isfinite(Y[tr]), Y[tr], np.nan), axis=0) > 0)
             tcols = [c for c, o in zip(tcols, ok_t) if o]
             Y = Y[:, ok_t]
+            # test spread relative to training spread: R^2 is not meaningful when the test labels are
+            # nearly constant (18S NMF k15/k20 component 10 is almost absent in 2024: ratio 0.07-0.10)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                sd_ratio = np.nanstd(Y[te], axis=0) / np.nanstd(Y[tr], axis=0)
+            # targets sharing one pattern of measured training samples are fitted together
+            patterns: dict[bytes, list[int]] = {}
+            for j in range(Y.shape[1]):
+                patterns.setdefault(np.isfinite(Y[tr, j]).tobytes(), []).append(j)
             groups = np.array([group_of(ds, s, tt) for s, tt in zip(df["sample_id"], df["time_utc"])])
             pace_ok = (df.get("causal_PACE", pd.Series(0, index=df.index)).fillna(0).to_numpy() >= 1) & te
             for (name, pace), X in fsets.items():
@@ -433,16 +448,22 @@ def probes(cfg, out_dir: Path, windows, paces, log=print, seq_covariates_mode: s
                         mu = np.nanmean(X[tr], axis=0)
                         mu = np.where(np.isfinite(mu), mu, 0.0)
                         X = np.where(np.isfinite(X), X, mu)
-                    yt = Y[tr]
-                    fin = np.isfinite(yt).all(1)
                     Cx = C if cov == "seq" else None
-                    pred, alphas, cv = ridge_probe(X[tr][fin], yt[fin], groups[tr][fin], X, Ctr=None if Cx is None
-                                                   else Cx[tr][fin], Cte=Cx)
+                    pred = np.full(Y.shape, np.nan)
+                    alphas, cv = np.full(Y.shape[1], np.nan), np.full(Y.shape[1], np.nan)
+                    n_tr = np.zeros(Y.shape[1], int)
+                    for cols in patterns.values():
+                        yt = Y[tr][:, cols]
+                        fin = np.isfinite(yt).all(1)
+                        pr, al, cvs = ridge_probe(X[tr][fin], yt[fin], groups[tr][fin], X,
+                                                  Ctr=None if Cx is None else Cx[tr][fin], Cte=Cx)
+                        pred[:, cols], alphas[cols], cv[cols], n_tr[cols] = pr, al, cvs, fin.sum()
                     for j, c in enumerate(tcols):
                         binary = c.startswith("present_")
                         rec = {"dataset": ds, "window": window, "pace": pace, "features": name, "covariates": cov,
                                "target": c,
-                               "family": target_family(c), "n_train": int(fin.sum()), "n_test": int(te.sum()),
+                               "family": target_family(c), "n_train": int(n_tr[j]), "n_test": int(te.sum()),
+                               "test_sd_ratio": float(sd_ratio[j]),
                                "alpha": float(alphas[j]), "cv_r2": float(cv[j]),
                                **_metrics(Y[te, j], pred[te, j], binary)}
                         if pace_ok.sum() >= 10:
@@ -456,15 +477,37 @@ def probes(cfg, out_dir: Path, windows, paces, log=print, seq_covariates_mode: s
         return
     res = pd.DataFrame(rows)
     res.to_csv(out_dir / "probes.csv", index=False)
-    val = [c for c in res.columns if c.startswith("test_")]
-    summ = res.groupby(["dataset", "family", "window", "pace", "features", "covariates"], as_index=False)[val].mean()
+    # summary per target family: targets whose test spread is < 0.25 x the training spread are left
+    # out (R^2 undefined in practice; still in probes.csv); median R^2 is the headline (robust to
+    # single components), means are kept
+    val = [c for c in res.columns if c.startswith("test_") and c != "test_sd_ratio"]
+    keys = ["dataset", "family", "window", "pace", "features", "covariates"]
+    use = res[~(res["test_sd_ratio"] < 0.25)]
+    summ = use.groupby(keys, as_index=False)[val].mean()
+    med = use.groupby(keys)[["test_r2"]].median().rename(columns={"test_r2": "test_r2_median"}) \
+        if "test_r2" in use else None
+    if med is not None:
+        summ = summ.merge(med.reset_index(), on=keys, how="left")
+    summ = summ.merge(use.groupby(keys).size().rename("n_targets").reset_index(), on=keys, how="left")
     summ.to_csv(out_dir / "probes_summary.csv", index=False)
-    with_r2 = summ.dropna(subset=["test_r2"]) if "test_r2" in summ else summ.iloc[:0]
+    excl = res.loc[res["test_sd_ratio"] < 0.25, ["dataset", "target", "test_sd_ratio"]].drop_duplicates(["dataset", "target"])
+    if len(excl):
+        log("Left out of the summary (test spread < 0.25 x training spread): "
+            + ", ".join(f"{d}/{t} ({r:.2f})" for d, t, r in excl.itertuples(index=False)))
+    with_r2 = summ.dropna(subset=["test_r2_median"]) if "test_r2_median" in summ else summ.iloc[:0]
     if len(with_r2):
-        cols = ["features", "pace"] + (["covariates"] if summ["covariates"].nunique() > 1 else [])
-        piv = with_r2.pivot_table(index=["dataset", "family", "window"], columns=cols, values="test_r2")
-        log("Mean test R^2 per target family (rows) and feature set / PACE setting (columns):")
+        # compact table: PACE visible, sequencing covariates where they exist
+        tab = with_r2[with_r2["pace"] == "visible"] if (with_r2["pace"] == "visible").any() else with_r2
+        has_seq = tab.groupby("dataset")["covariates"].transform(lambda x: (x == "seq").any())
+        tab = tab[(tab["covariates"] == "seq") | ~has_seq]
+        piv = tab.pivot_table(index=["dataset", "family", "window"], columns="features", values="test_r2_median")
+        log("Median test R^2 per target family (PACE visible; eDNA with sequencing covariates). "
+            "All settings: probes_summary.csv")
         log(piv.round(3).to_string())
+        if "test_auc" in summ and summ["test_auc"].notna().any():
+            a = summ[summ["test_auc"].notna() & (summ["pace"] == "visible")]
+            log("Mean test AUC (presence targets, PACE visible):")
+            log(a.pivot_table(index=["dataset", "family", "window"], columns="features", values="test_auc").round(3).to_string())
     log(f"probes -> {out_dir / 'probes.csv'}, {out_dir / 'probes_summary.csv'}")
 
 

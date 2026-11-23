@@ -81,7 +81,7 @@ Check now and then: `tail -3 data/runs/stage1_<ARM>/log.jsonl` (per-sensor losse
 effective rank of E1). Warning signs: `effective_rank_e1` falling steadily toward single digits
 (collapse), a loss rising for one sensor while the others fall, or NaN.
 
-**F. Evaluation (2.10), when all three arms have finished** (`weights_final.pt` in each
+**F. Evaluation (2.10)** ✅ job 116376 (1 h 30 min; results in the decision log, "Stage 1 results"). **F2 below is still to run.** Original instructions, when all three arms have finished (`weights_final.pt` in each
 `data/runs/stage1_<ARM>/`; it needs a GPU, and training holds all four until arm C is done):
 ```bash
 git pull
@@ -96,6 +96,19 @@ log, 2026-11-20); needs A2 first. Results in
 table, the PACE table) and copy back `data/runs/eval_stage1/*.csv` for the full tables.
 Optional, to try it on intermediate weights once a GPU is free:
 `--export=ALL,TAG=check,WEIGHTS=checkpoint,EXTRA="--limit 300 --pace-anchors 100 50"`.
+
+**F2. Probes again (2026-11-23), after two fixes:** (1) SFER ran with 0 targets: Chl is missing for
+13% of the samples and any target with a missing training value was dropped; each target now uses
+its own measured samples. (2) The summary now uses the median over the targets of a family and
+leaves out targets whose test spread is < 0.25 × the training spread (18S NMF k15/k20 component 10
+and *Chloropicon*: almost absent in 2024, R² of −15 to −31 dominated the means). Only the probes
+rerun (the embeddings are reused; a few minutes):
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,EXTRA="--steps probes" cluster/evaluate.sbatch
+```
+Paste back `tail -80 logs/oefm_eval_<id>.out` and copy `data/runs/eval_stage1/probes*.csv` to the
+laptop (into `multimodal_seusmbol/eval_results/stage1/`, outside the repo).
 
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
@@ -353,9 +366,9 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | 2.8a | Frozen training statistics: reflectance transform curves and the PACE heritage ridge (`oefm normstats`, last step of `prep.sbatch`) | service | ✅ prep v2 (116124) |
 | 2.8b | GPU environment (`setup_gpu_env.sbatch`), then `gpu_check.sbatch` | service, gpu-a100 | ✅ |
 | 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ✅ L16, batch 32 |
-| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ✅ C (116240); A, B: confirm `weights_final.pt` |
-| 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ⏳ built (`oefm/model/evaluate.py`, `evaluate.sbatch`); run after 2.9 |
-| 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | 🛠 |
+| 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ✅ all three at step 30,000 |
+| 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ✅ 116376 (SFER probes rerun: F2) |
+| 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | ▶️ your decision (A leads on every measure so far; SFER pending F2) |
 
 ### Running Stage 1 on Ptolemy (2.8–2.9)
 
@@ -440,6 +453,141 @@ without re-downloading.
 ---
 
 ## Decision log
+
+### Stage 1 results (job 116376, 2026-11-22): arm A (masked reconstruction) leads on every measure
+Frozen final weights (step 30,000) of all three arms. CSVs on the laptop in
+`multimodal_seusmbol/eval_results/stage1/` (outside the repo). The SFER probes are missing (bug,
+rerun F2), so the main PACE on/off test is still to come.
+
+**Embeddings.** 10,725 unique evaluation places/times. 10,021 (causal window) and 9,996 (retro)
+have a valid observation in the 3 × 3 cells; 2,006 and 2,098 of those include PACE. Effective
+rank at the evaluation samples (causal, PACE visible; other settings within ±3):
+
+| Arm | E1 (512) | E2 (512) | E3 (1024) |
+|---|---|---|---|
+| A | 115.9 | – | 280.0 |
+| B | 103.2 | 243.1 | 119.4 |
+| C | 127.1 | 244.2 | 151.4 |
+
+No collapse in any arm. In training, arm C's E1 rank was 212 on training batches.
+
+**Probes, median test R² per target family.** Settings:
+- causal window, PACE visible;
+- eDNA with the sequencing covariates;
+- targets with test spread < 0.25 × training spread left out (three of them).
+
+Test sets: eDNA 183 samples (2024), CRCP 1,057, MaxN 616.
+
+| Dataset | Family | meta | raw | A/e1 | A/e3 | B/e1 | B/e2 | C/e1 | C/e2 |
+|---|---|---|---|---|---|---|---|---|---|
+| 16S | NMF k5 | 0.269 | 0.376 | 0.711 | 0.679 | 0.645 | 0.680 | **0.745** | 0.678 |
+| 16S | NMF k10 | 0.188 | 0.171 | **0.423** | 0.411 | 0.186 | 0.176 | 0.196 | 0.171 |
+| 16S | NMF k15 | 0.151 | 0.125 | **0.389** | 0.354 | 0.137 | 0.144 | 0.056 | 0.141 |
+| 16S | NMF k20 | 0.073 | 0.075 | **0.297** | 0.288 | 0.062 | 0.070 | 0.094 | 0.066 |
+| 16S | PCs | 0.104 | 0.141 | **0.377** | 0.305 | 0.076 | 0.074 | 0.053 | 0.070 |
+| 16S | genera | 0.084 | 0.141 | **0.304** | 0.274 | 0.167 | 0.147 | 0.144 | 0.141 |
+| 18S | NMF k5 | 0.181 | 0.181 | 0.489 | 0.419 | 0.400 | 0.573 | 0.460 | **0.578** |
+| 18S | NMF k10 | 0.151 | 0.071 | 0.417 | **0.418** | 0.165 | 0.203 | 0.183 | 0.203 |
+| 18S | NMF k15 | 0.132 | 0.176 | 0.345 | **0.359** | 0.121 | 0.124 | 0.110 | 0.126 |
+| 18S | NMF k20 | 0.093 | 0.140 | 0.284 | **0.285** | 0.069 | 0.106 | 0.107 | 0.109 |
+| 18S | PCs | 0.057 | 0.070 | **0.220** | 0.215 | 0.103 | 0.123 | 0.115 | 0.122 |
+| 18S | genera | −0.030 | 0.020 | **0.096** | 0.062 | 0.007 | 0.023 | 0.027 | 0.034 |
+| CRCP | log1p count | 0.016 | 0.040 | −0.568 | −0.067 | 0.040 | 0.060 | 0.041 | **0.067** |
+| MaxN | log1p MaxN | 0.050 | 0.009 | 0.069 | **0.076** | 0.068 | 0.027 | 0.055 | 0.034 |
+
+The same comparison as mean Spearman: A/e1 is highest for every eDNA family.
+
+| Dataset | Family | meta | raw | A/e1 | best of B or C |
+|---|---|---|---|---|---|
+| 16S | NMF k5 | 0.597 | 0.726 | 0.775 | 0.709 |
+| 16S | NMF k20 | 0.383 | 0.396 | 0.543 | 0.450 |
+| 16S | PCs | 0.483 | 0.465 | 0.626 | 0.476 |
+| 18S | NMF k5 | 0.572 | 0.593 | 0.717 | 0.683 |
+| 18S | NMF k20 | 0.446 | 0.501 | 0.574 | 0.476 |
+| 18S | PCs | 0.352 | 0.393 | 0.588 | 0.443 |
+| CRCP | log1p count | 0.254 | 0.281 | 0.290 | 0.318 |
+| MaxN | log1p MaxN | 0.270 | 0.221 | 0.329 | 0.298 |
+
+CRCP presence, mean AUC (causal):
+
+| meta | raw | A/e1 | A/e3 | B/e1 | B/e2 | C/e1 | C/e2 |
+|---|---|---|---|---|---|---|---|
+| 0.542 | 0.612 | 0.642 | 0.628 | 0.626 | 0.624 | 0.631 | 0.624 |
+
+Retro vs causal windows: within a few hundredths for A. B and C are lower in the retro window for
+NMF k5.
+
+**PACE in the probes (visible − dropped).** Mean change in R² on the test samples with usable PACE:
+
+| Dataset | raw | A/e1 | A/e3 | B/e1 | B/e2 | C/e1 | C/e2 |
+|---|---|---|---|---|---|---|---|
+| 16S | −0.049 | −0.003 | +0.005 | −0.001 | 0.000 | −0.002 | 0.000 |
+| 18S | −0.056 | +0.025 | +0.042 | −0.001 | 0.000 | −0.003 | 0.000 |
+| CRCP | +0.004 | −0.235 | −0.038 | −0.003 | 0.000 | −0.005 | 0.000 |
+| MaxN | +0.002 | −0.005 | −0.006 | −0.001 | −0.002 | −0.001 | −0.005 |
+
+Why the eDNA and fish probes can't show a PACE benefit:
+- Their training labels have no PACE (all pre-2024), so a probe never sees PACE-influenced
+  embeddings until the test.
+- A's embeddings move when PACE is present: E1 R² differs by up to 0.72 between settings. For A,
+  PACE-visible is therefore partly a distribution shift (CRCP −0.235).
+- B's and C's E2 barely change: mean |ΔR²| is 0.0001–0.0002.
+
+SFER (346 training samples with PACE) is the fair test of PACE: rerun F2.
+
+**PACE spectral retention.** Ridge decoder from E1 to the normalised PACE spectrum (172 bands,
+346–719 nm). Trained on 1,959 anchors (61,845 cells); tested on 777 anchors each:
+- test_temporal: Apr–Oct 2026, 24,354 cells;
+- test_geo: geographic blocks, 24,512 cells.
+
+R² by band group:
+
+| Model | Setting | geo all | geo UV | geo blue | geo green | geo red | temp all | temp UV | temp blue | temp green | temp red |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| heritage ridge* | – | 0.967 | 0.940 | 1.000 | 0.999 | 0.942 | 0.968 | 0.946 | 1.000 | 0.998 | 0.943 |
+| A | visible | **0.738** | 0.673 | 0.889 | 0.939 | 0.578 | **0.637** | 0.535 | 0.579 | 0.855 | 0.592 |
+| A | hidden | 0.687 | 0.626 | 0.873 | 0.929 | 0.487 | 0.572 | 0.451 | 0.538 | 0.836 | 0.497 |
+| B | visible | −0.126 | −0.449 | −0.287 | 0.500 | −0.248 | 0.188 | 0.077 | 0.003 | 0.565 | 0.139 |
+| B | hidden | −0.119 | −0.437 | −0.282 | 0.507 | −0.240 | 0.190 | 0.076 | 0.005 | 0.570 | 0.138 |
+| C | visible | −0.033 | −0.335 | −0.208 | 0.579 | −0.147 | 0.204 | 0.060 | −0.011 | 0.598 | 0.171 |
+| C | hidden | −0.030 | −0.334 | −0.212 | 0.580 | −0.137 | 0.204 | 0.056 | −0.010 | 0.602 | 0.170 |
+| train mean | – | −0.074 | −0.083 | −0.131 | −0.015 | −0.069 | −0.092 | −0.144 | −0.110 | −0.013 | −0.104 |
+
+RMSE (all bands, normalised units), test_geo / test_temporal: heritage 0.101 / 0.126; A visible
+0.393 / 0.598; A hidden 0.428 / 0.650; B 0.859 / 0.895; C 0.822 / 0.885; train mean
+0.862 / 1.046.
+
+\* The heritage ridge maps the same observation's own heritage bands to its PACE spectrum. It is a
+ceiling for "spectrum given the heritage bands", not a competitor for an embedding.
+
+Reading:
+- A's E1 keeps most of the spectrum.
+- B's and C's E1 keep almost none outside the green, and hiding PACE changes nothing. Their
+  embeddings ignore the PACE observation.
+- C's PACE-residual term did not create retention (C − B: +0.09 geo, +0.02 temporal).
+- A is worse in Apr–Oct 2026 than on the geographic blocks (blue 0.58 vs 0.89). That period has
+  no OLCI (OB.DAAC ends April 2026), and it is outside the training years.
+
+**Sequencing covariates (eDNA).** They raise every feature set. The mean R² of 16S NMF k10 (causal,
+PACE dropped) goes:
+- meta 0.023 → 0.187;
+- A/e1 0.204 → 0.442;
+- B/e2 0.126 → 0.273.
+
+For the strongest target the gain is small (16S NMF k5 A/e1: 0.738 → 0.744).
+
+**Fish.** Weak for all arms. MaxN R² ≤ 0.08, CRCP presence AUC ≤ 0.64.
+
+CRCP counts with A/e1 have a strongly negative R² (−0.57) but the best Spearman and AUC. So the
+ranking carries over but the level does not: the training years are 2018/2021/2022 and the test
+year is 2024. A/e3 (−0.07) is far less affected.
+
+**Summary for 2.11:**
+- A wins the eDNA probes in 10 of 12 families (median R²).
+- B or C wins 16S NMF k5 (C/e1 0.745 vs A 0.711) and 18S NMF k5 (C/e2 0.578 vs A 0.489), by small
+  margins.
+- A is the only arm that retains PACE spectra (0.74 / 0.64 vs ≤ 0.20).
+- Pending: SFER nutrients and Chl with PACE on/off (F2).
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
 
@@ -857,6 +1005,7 @@ Newest first. Add a line when something notable happens.
 | Date | Job | What happened |
 |---|---|---|
 | 2026-11-18 | 116167 | targets rerun after the xarray pin: 109/109 PISCES files; 3,295 of 3,301 days (3,218 reanalysis, 77 forecast), median tile coverage 1.00; evaluation sets re-matched (same counts as 116161). Stage 1 training A, B, C submitted (user) |
+| 2026-11-22 | 116376 | evaluate (all three arms, final weights) ✅ 1 h 30 min: embeddings 4 × ~815 s, probes, PACE retention. A leads (decision log, Stage 1 results). Bugs: SFER 0 targets (missing Chl dropped every target), family means dominated by 3 near-constant test targets; fixed, rerun probes (F2) |
 | 2026-11-21 | 116240 | train arm C ✅ 30,000 steps in 25.6 h (41.7 seq/s, 27.1 GB peak, loader wait 0.1%); follow-on 116366 cancelled itself. Last steps: prediction loss 0.003-0.007 per sensor, SIGReg ~2.0 per group (from 1,456 at the start), PACE residual 0.02-0.17, total loss ~0.11; effective rank of E1 212 (no collapse). Next: confirm weights_final.pt for A, B, C, then step F |
 | 2026-11-20 | 116353 | targets `STEPS=evalsets` with the refreshed eDNA files (sequencing covariates): all sets matched in 4 s; counts identical to 116161/116167 (eDNA test 183, 100/92 with PACE; SFER test 465, 459/457; CRCP 1,057, 1,027/995; MaxN 616, all). PISCES 109/109 verified |
 | 2026-11-18 | 116200, 116201 | benchmark B/C (fix works) and A at batch 16/32. L16 b32: A 42.2 seq/s 26.0 GB 25.3 h; B 40.1, 26.0 GB, 26.6 h; C 39.9, 26.7 GB, 26.7 h (30k steps × 128). L8 b32 ~74 seq/s (~14.5 h); L24 b32 ~27 seq/s (~39 h), 38-39 GB. Loader wait ≤ 0.14. Over 200 steps SIGReg fell 1,456 → ~34, effective rank of E1 ~150-170 (no collapse), per-sensor losses all falling. Chosen: L16, b32, 30k steps for all arms; train.sbatch cancels its follow-on when an arm finishes |

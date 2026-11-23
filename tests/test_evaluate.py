@@ -92,7 +92,8 @@ def build_root(root):
                     "time_utc": day.strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "label_split": "train" if day < pd.Timestamp("2025-08-01", tz="UTC") else "test",
                     "po4": abs(rng.normal(0.05, 0.02)), "no3": abs(rng.normal(0.1, 0.05)), "si": 2.0 + np.sin(i / 7),
-                    "chl": 0.3 + 0.1 * np.sin(i / 9) + abs(rng.normal(0, 0.02)), "causal_PACE": 1, "tile_id": t})
+                    "chl": np.nan if i % 7 == 3 else 0.3 + 0.1 * np.sin(i / 9) + abs(rng.normal(0, 0.02)),
+                    "causal_PACE": 1, "tile_id": t})  # Chl missing for some samples, as in the real SFER table
     pd.DataFrame(pts).to_csv(ed / "sfer.csv.gz", index=False)
     # eDNA-like set on the same points: sequencing platform switches mid-training (as Illumina ->
     # Element in the real data; every test sample on Element), with a platform offset in the target
@@ -105,7 +106,9 @@ def build_root(root):
                         "seq_element_frac": elem, "seq_n_replicates": 3.0,
                         "seq_log10_input_reads": 5.5 + rng.normal(0, 0.1) if elem else 4.1 + rng.normal(0, 0.1),
                         "seq_log10_table_reads": 5.0, "nmf_k5_1": 0.5 * elem + 0.1 * np.sin(i / 9) + rng.normal(0, 0.02),
-                        "pc_1": np.cos(i / 11) + rng.normal(0, 0.05)})
+                        "pc_1": np.cos(i / 11) + rng.normal(0, 0.05),
+                        # nearly absent in the test period (like 18S NMF component 10 in 2024)
+                        "pc_2": (np.cos(i / 5) if p["label_split"] == "train" else 0.001 * np.cos(i / 5))})
     pd.DataFrame(ed_rows).to_csv(ed / "edna_16S.csv.gz", index=False)
     return cfg
 
@@ -177,7 +180,14 @@ class TestEvaluate(unittest.TestCase):
                 p = pd.read_csv(out / "probes.csv")
                 self.assertEqual(set(p.loc[p["dataset"] == "sfer", "target"]), {"po4", "no3", "si", "chl"})
                 ed = p[p["dataset"] == "edna_16S"]
-                self.assertEqual(set(ed["target"]), {"nmf_k5_1", "pc_1"})  # seq_* are covariates, not targets
+                self.assertEqual(set(ed["target"]), {"nmf_k5_1", "pc_1", "pc_2"})  # seq_* are covariates, not targets
+                chl = p[(p["dataset"] == "sfer") & (p["target"] == "chl")]
+                self.assertTrue((chl["n_train"] < p.loc[(p["dataset"] == "sfer") & (p["target"] == "po4"), "n_train"].max()).all())
+                self.assertTrue((chl["n_test_target"] < chl["n_test"]).all())
+                self.assertTrue((ed.loc[ed["target"] == "pc_2", "test_sd_ratio"] < 0.25).all())
+                sm = pd.read_csv(out / "probes_summary.csv")
+                self.assertIn("test_r2_median", sm)
+                self.assertTrue((sm.loc[(sm["dataset"] == "edna_16S") & (sm["family"] == "pc"), "n_targets"] == 1).all())
                 self.assertEqual(set(ed["covariates"]), {"seq", "none"})
                 self.assertEqual(set(ed.loc[ed["features"] == "seq", "covariates"]), {"seq"})
                 self.assertEqual(set(p.loc[p["dataset"] == "sfer", "covariates"]), {"none"})
