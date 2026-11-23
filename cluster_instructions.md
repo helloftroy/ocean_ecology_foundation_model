@@ -97,7 +97,7 @@ table, the PACE table) and copy back `data/runs/eval_stage1/*.csv` for the full 
 Optional, to try it on intermediate weights once a GPU is free:
 `--export=ALL,TAG=check,WEIGHTS=checkpoint,EXTRA="--limit 300 --pace-anchors 100 50"`.
 
-**F2. Probes again (2026-11-23), after two fixes:** ✅ job of 2026-11-23 10:05 (SFER results in the decision log; the CSVs with PACE on/off still to copy). (1) SFER ran with 0 targets: Chl is missing for
+**F2. Probes again (2026-11-23), after two fixes:** ✅ job of 2026-11-23 10:05 (SFER results and PACE on/off in the decision log; CSVs in `eval_results/stage1/`). (1) SFER ran with 0 targets: Chl is missing for
 13% of the samples and any target with a missing training value was dropped; each target now uses
 its own measured samples. (2) The summary now uses the median over the targets of a family and
 leaves out targets whose test spread is < 0.25 × the training spread (18S NMF k15/k20 component 10
@@ -606,7 +606,29 @@ Reading:
 - NO₃ and PO₄: no skill from any feature set (≤ 0.11). Surface nutrients at these stations are
   mostly not optically expressed. They are the targets Stage 2 (PISCES supervision) is meant to
   help.
-- PACE on/off for SFER (the fair test; 346 training samples with PACE): needs the F2 CSVs.
+- PACE on/off for SFER, the fair test (346 training samples with PACE): **no benefit for any arm**.
+  The table shows test R² on the 459 test samples with usable PACE, as dropped → visible (Δ).
+  Training labels: 2,431 (causal) / 2,357 (retro); Chl 2,028 / 1,956.
+
+| Target | Window | raw | A/e1 | A/e3 | B/e1 | B/e2 | C/e1 | C/e2 |
+|---|---|---|---|---|---|---|---|---|
+| Chl | causal | 0.728 → 0.735 (+0.007) | 0.787 → 0.796 (+0.009) | 0.780 → 0.783 (+0.003) | 0.561 → 0.564 (+0.003) | 0.546 → 0.545 (0.000) | 0.589 → 0.591 (+0.002) | 0.531 → 0.531 (0.000) |
+| Chl | retro | 0.769 → 0.766 (−0.003) | 0.839 → 0.833 (−0.005) | 0.811 → 0.804 (−0.007) | 0.602 → 0.600 (−0.002) | 0.544 → 0.544 (0.000) | 0.639 → 0.639 (0.000) | 0.526 → 0.527 (0.000) |
+| Si | causal | 0.315 → 0.326 (+0.011) | 0.382 → 0.365 (−0.017) | 0.393 → 0.392 (−0.001) | 0.398 → 0.394 (−0.004) | 0.399 → 0.399 (0.000) | 0.396 → 0.392 (−0.003) | 0.388 → 0.388 (0.000) |
+| Si | retro | 0.322 → 0.348 (+0.027) | 0.357 → 0.374 (+0.017) | 0.396 → 0.375 (−0.021) | 0.406 → 0.396 (−0.010) | 0.393 → 0.393 (0.000) | 0.414 → 0.395 (−0.019) | 0.383 → 0.383 (0.000) |
+| PO₄ | causal | −0.098 → −0.094 | −0.017 → −0.051 (−0.034) | −0.027 → −0.096 (−0.069) | −0.076 → −0.074 | −0.011 → −0.011 | −0.049 → −0.047 | −0.019 → −0.019 |
+| NO₃ | causal | −0.088 → −0.088 | 0.009 → 0.004 | 0.013 → 0.006 | −0.054 → −0.054 | 0.009 → 0.009 | −0.055 → −0.055 | 0.015 → 0.015 |
+
+  The changes are within ±0.03 everywhere (PO₄ A/e3 −0.07, on a target with no skill).
+
+  Why PACE adds nothing here:
+  - PACE presence is not where the information gain is: the embeddings already reach R² 0.80–0.84
+    on Chl from the heritage sensors.
+  - Only 14% of the probe's training samples carry PACE.
+  - B/E2 and C/E2 do not respond to PACE at all (Δ 0.000), consistent with the retention result.
+
+  The PACE question for this phase: hyperspectral PACE does not improve these frozen-embedding
+  probes in Stage 1.
 
 **Summary for 2.11:**
 - A wins the eDNA probes in 10 of 12 families (median R²).
@@ -614,7 +636,9 @@ Reading:
   margins.
 - A is the only arm that retains PACE spectra (0.74 / 0.64 vs ≤ 0.20).
 - SFER Chl: A 0.80 / 0.84 vs B/C ≤ 0.65 (raw 0.74 / 0.77). Si: tie. NO₃/PO₄: no skill.
-- Pending: SFER with PACE visible vs dropped (from the F2 CSVs).
+- PACE visible vs dropped: no gain on SFER (|Δ| ≤ 0.03 for Chl and Si, every arm), eDNA or fish.
+- Recommendation: A. It is best or tied on every probe family except 16S/18S NMF k5, and it is the
+  only arm that retains PACE spectra.
 
 Each entry gives the decision, the evidence, the reasoning, and what would reopen it. Newest first.
 
