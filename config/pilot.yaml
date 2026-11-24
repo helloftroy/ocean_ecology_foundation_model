@@ -311,7 +311,8 @@ processing:
       min_cloud_for_clear: 0.05   # clear water next to land is kept. The overpass index records cloud / land /
                          #   clear fractions and the drop reason for every overpass
     refl_unc: log_uint8  # PACE Rrs_unc as uint8 on a log10 scale 1e-6..1e-1 (<= 2.3 % relative); int16 = full
-    max_senz_deg: null   # swath-edge cut: not applied (decide from scripts/v3_whatif.py)
+    max_senz_deg: null   # swath-edge cut: not applied (your decision 2026-11-24, after scripts/v3_whatif.py)
+    log_int16_extras: [chlor_a]   # stored as int16 round(log10(v) / 1e-4): 0.023 % relative, 0.42-0.50 x float32 (K1d)
     zstd_level: 7        # lossless at every level; K1d bench: 3-6 % larger than 9 at ~1/10 of its compression time
     flag_share_bits:     # per-bit pixel shares only for bits a flag policy can use; flags_or keeps all 32 bits
       [HISATZEN, STRAYLIGHT, HIGLINT, MODGLINT, HIPOL, COASTZ, ATMWARN, MAXAERITER, LOWLW, ABSAER,

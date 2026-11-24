@@ -312,7 +312,9 @@ re-tile of the trial with the chosen settings, before K2. Note: the code now def
 cloud/land rule (0.75, basis tile) and compact Rrs_unc, so do not run tiles3 until this is settled.
 
 *K1d result (2026-11-24):* see the decision log "Tiling v3". Settings chosen: zstd level 7, your
-tile rule, compact Rrs_unc. Swath-edge cut and chlor_a as log int16: yours to decide.
+tile rule, compact Rrs_unc, chlor_a as log10 int16 (your decision); no swath-edge cut (your decision).
+Tiling needs no internet, so it should not run on `service` (your note, 2026-11-24): partition to
+confirm (`sinfo -s`), then pass it with `--partition=...` below.
 
 *K1e. Re-tile the trial with the final settings, then the K1c checks:*
 ```bash
@@ -853,6 +855,9 @@ windows, sampling) move to the loader.
   cloud_fraction, land_fraction, clear_fraction, drop_reason. Expected saving close to the tile
   > 0.75 column (most of it SFREFL: ~half its bytes). Florida with this rule, compact Rrs_unc and
   level 7: ~1.7 TB.
+- **2026-11-24, your decisions:** no swath-edge cut (`max_senz_deg: null`); chlor_a stored as
+  int16 round(log10(v) / 1e-4) (0.023 % relative, range 5.3e-4..1,890 mg m-3; `tiling3.read_extra`
+  decodes every extra); ~100 GB less for Florida → ~1.6 TB. Offline jobs (tiling) off `service`.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project

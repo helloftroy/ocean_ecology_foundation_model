@@ -198,10 +198,14 @@ class TestTiling3(unittest.TestCase):
         self.assertTrue(ok[:, 0][stray].any())
         self.assertGreater(int(g["flags_or"][:].max()), 1 << 30)               # bit 31 kept
         # extras
-        self.assertEqual(g["x_chlor_a"].dtype, np.float32)
+        self.assertEqual(g["x_chlor_a"].dtype, np.int16)            # log10 int16 (pilot.yaml)
+        self.assertEqual(a["extras_encoding"], {"chlor_a": "log10_int16"})
         self.assertEqual(g["x_Kd_490"].dtype, np.int16)
-        ch = g["x_chlor_a"][:]
-        self.assertTrue(np.allclose(ch[np.isfinite(ch)], 0.2, atol=1e-5))
+        ch = tiling3.read_extra(g, "chlor_a")
+        self.assertTrue(np.isfinite(ch).any())
+        self.assertTrue(np.allclose(ch[np.isfinite(ch)], 0.2, rtol=2.4e-4))
+        kd = tiling3.read_extra(g, "Kd_490")
+        self.assertTrue(np.allclose(kd[np.isfinite(kd)], 0.03, atol=1e-4))
         # only the listed extras; the rest named in attrs
         self.assertEqual(sorted(k for k in g.array_keys() if k.startswith("x_")), ["x_Kd_490", "x_chlor_a"])
         # flag shares only for the policy bits the file defines (no ATMFAIL, NAVFAIL ...); flags_or all 32

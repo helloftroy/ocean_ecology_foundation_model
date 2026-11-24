@@ -30,7 +30,8 @@ Per cell, per stored tile (one zipped Zarr per granule and zone, `<granule>__<zo
                 `decode_unc`) or int16 at the source scale (`int16`)
   x_<name>      (tile, n, n)  the single-layer fields listed in `processing.v3_store.extras` (nflh,
                 chlor_a, Kd_490 baselines; PACE BGC chlor_a, carbon_phyto, poc), if the file has them:
-                int16 with the source scale/offset, or float32 for float sources. Every other field
+                int16 log10 (step 1e-4, 0.023 % relative) for `log_int16_extras` (chlor_a), else int16
+                with the source scale/offset, or float32 for float sources (`read_extra` decodes all). Every other field
                 the file had is named in attrs `fields_not_stored`
   w_all         (tile, n, n) float32  pixel-equivalents overlapping the cell (swath coverage)
   w_valid       (tile, n, n) float32  pixel-equivalents with a finite reflectance (after the SFREFL rule)
@@ -90,7 +91,32 @@ def store_settings(cfg: Config) -> dict[str, Any]:
     rule = st.get("tile_rule") or {}
     return {"max_cloud": rule.get("max_cloud"), "min_clear": rule.get("min_clear"),
             "min_cloud_for_clear": float(rule.get("min_cloud_for_clear", 0.05)),
-            "refl_unc": st.get("refl_unc", "int16"), "max_senz_deg": st.get("max_senz_deg")}
+            "refl_unc": st.get("refl_unc", "int16"), "max_senz_deg": st.get("max_senz_deg"),
+            "log_extras": tuple(st.get("log_int16_extras", ()))}
+
+
+LOG_STEP = 1e-4    # log10 step of log-int16 extras: 0.023 % relative; range 10**+-3.2766 (5.3e-4 .. 1,890)
+
+
+def encode_log_int16(v: np.ndarray) -> np.ndarray:
+    """Positive field (e.g. chlor_a, mg m-3) -> int16 round(log10(v) / 1e-4); FILL for NaN; v <= 0 -> lowest code."""
+    out = np.full(v.shape, FILL, "i2")
+    ok = np.isfinite(v)
+    lg = np.log10(np.maximum(v[ok], 10 ** (-32766 * LOG_STEP)))
+    out[ok] = np.clip(np.round(lg / LOG_STEP), -32766, 32767).astype("i2")
+    return out
+
+
+def read_extra(group, name: str) -> np.ndarray:
+    """x_<name> of a store in physical units (NaN = no value), whatever its encoding."""
+    a = group[f"x_{name}"][:]
+    enc = (group.attrs.get("extras_encoding") or {}).get(name)
+    if enc == "log10_int16":
+        return np.where(a == FILL, np.nan, 10 ** (a.astype("f8") * LOG_STEP))
+    ei = group.attrs["variables"]["extras"][name]
+    if a.dtype.kind == "f":
+        return a.astype("f8")
+    return np.where(a == FILL, np.nan, a.astype("f8") * ei["scale"] + ei["offset"])
 
 
 def encode_unc(v: np.ndarray) -> np.ndarray:
@@ -525,9 +551,13 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
             clipped += c if key == "refl" else 0
             a[tj, k, rr_, cc_] = q[keep]
         A[key] = a
+    extras_enc = {}
     for name, v in extras.items():
         ei = info["extras"][name]
-        if ei["dtype"].startswith("float") or not ei.get("scale"):
+        if name in ss["log_extras"]:
+            A[f"x_{name}"] = dense(encode_log_int16(v), "i2", FILL)
+            extras_enc[name] = "log10_int16"
+        elif ei["dtype"].startswith("float") or not ei.get("scale"):
             A[f"x_{name}"] = dense(v.astype("f4"), "f4", np.nan)
         else:
             A[f"x_{name}"] = dense(_quantise(v, ei)[0], "i2", FILL)
@@ -557,6 +587,7 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
              "source_file": row["filename"], "source_sha256": row.get("sha256"), "time_source": tsrc,
              "flag_meanings": list(fmap), "flag_masks": list(fmap.values()), "flag_share_bits": share_names,
              "fields_not_stored": info.get("not_stored", []),
+             "extras_encoding": extras_enc, "log_step": LOG_STEP,
              "refl_unc_encoding": ({"kind": "log10_uint8", "log10_min": UNC_LOG10_MIN, "log10_step": UNC_LOG10_STEP,
                                     "fill": UNC_FILL, "decode": "tiling3.decode_unc"}
                                    if ss["refl_unc"] == "log_uint8" and "refl_unc" in arrays else None),
