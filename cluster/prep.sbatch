@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=oefm_prep
-#SBATCH --partition=service
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=96G
+#SBATCH --partition=gpu-a100-mig7
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=256G
 #SBATCH --time=48:00:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
@@ -16,14 +16,15 @@
 #   # a quick trial first (the first LIMIT files of crop and of tiles):
 #   sbatch --account=191001-366746 --export=ALL,LIMIT=40 cluster/prep.sbatch
 #
-# STEPS (default "layout grid crop tiles examples evalcover physics sequences normstats"), WORKERS (default 12), LIMIT (default 0 = all).
+# STEPS (default "layout grid crop tiles examples evalcover physics sequences normstats"), WORKERS (default 28), LIMIT (default 0 = all).
+# No internet: runs on gpu-a100-mig7 (CPU only, no GPU requested); 'service' is for downloads only (2026-11-24).
 # Tiling v3 (catalog_v1, raw kept): STEPS=tiles3 (PER_PRODUCT=N for a trial on N granules per product,
 # PRODUCTS="..." to restrict, FORCE=1 to re-tile granules already done); STEPS=index3 re-exports the v3 indexes.
 
 set -euo pipefail
 source "${SLURM_SUBMIT_DIR:-$(pwd)}/cluster/env.sh"
 STEPS="${STEPS:-layout grid crop tiles examples evalcover physics sequences normstats}"
-WORKERS="${WORKERS:-12}"
+WORKERS="${WORKERS:-28}"
 LIMIT="${LIMIT:-0}"
 echo "Job started: $(date) | steps: ${STEPS} | workers: ${WORKERS} | limit: ${LIMIT}"
 for step in ${STEPS}; do

@@ -313,8 +313,8 @@ cloud/land rule (0.75, basis tile) and compact Rrs_unc, so do not run tiles3 unt
 
 *K1d result (2026-11-24):* see the decision log "Tiling v3". Settings chosen: zstd level 7, your
 tile rule, compact Rrs_unc, chlor_a as log10 int16 (your decision); no swath-edge cut (your decision).
-Tiling needs no internet, so it should not run on `service` (your note, 2026-11-24): partition to
-confirm (`sinfo -s`), then pass it with `--partition=...` below.
+Tiling needs no internet, so prep.sbatch now runs on `gpu-a100-mig7` (32 CPUs, 256 GB, 28 workers, no
+GPU requested; your note, 2026-11-24).
 
 *K1e. Re-tile the trial with the final settings, then the K1c checks:*
 ```bash
@@ -374,8 +374,11 @@ sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OE
    SQLite manifest on GPFS can corrupt it. `scancel` any leftover `CHAIN` follow-on before
    submitting a new download.
 4. Work from `/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model`. Never write to `$HOME`.
-5. Every job asks for 48 h. Downloads and QC run on the `service` partition (the only one with
-   internet; there is no CPU-only partition). Training will use `gpu-a100`.
+5. Every job asks for 48 h. Only jobs that need the internet run on `service` (inventory, download,
+   stream, targets, smoke_test, setup_env, setup_gpu_env). Offline CPU jobs (prep incl. tiling, qc,
+   biogoship_bench) run on `gpu-a100-mig7` without a GPU request (2026-11-24: 2 nodes x 128 CPUs,
+   1 TB; the default partition). Training uses `gpu-a100`. If a CPU-only job is refused there, add
+   `--gres=gpu:a100_1g.10gb:1` (one 10 GB MIG slice).
 6. Logs: `logs/<job name>_<job id>.out` and `.err` (e.g. `logs/oefm_download_116018.out`).
 7. Progress at any time, on a login node:
    `source cluster/env.sh && python -m oefm status`

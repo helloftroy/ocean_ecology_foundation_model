@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=oefm_bgs_bench
-#SBATCH --partition=service
+#SBATCH --partition=gpu-a100-mig7
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00

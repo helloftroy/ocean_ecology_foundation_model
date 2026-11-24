@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=oefm_qc
-#SBATCH --partition=service
+#SBATCH --partition=gpu-a100-mig7
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
 #SBATCH --time=48:00:00
@@ -11,8 +11,7 @@
 # product (structure, flags, mask scenarios, maps), build the observation index, compare
 # overlapping sensors, and rewrite the report. No internet needed.
 #
-# Ptolemy has no CPU-only compute partition; 'service' is used by default. If it is too small
-# or slow for the index, try a GPU partition with:  sbatch --partition=gpu-a100-mig7 ...
+# No internet: runs on gpu-a100-mig7 (CPU only, no GPU requested); 'service' is for downloads only.
 #
 #   cd /scratch/ptolemy/users/$USER/ocean_ecology_foundation_model
 #   sbatch --account=191001-366746 cluster/qc.sbatch
