@@ -311,6 +311,17 @@ Paste back both outputs. From them: `processing.v3_store.zstd_level`; the cloud/
 re-tile of the trial with the chosen settings, before K2. Note: the code now defaults to the
 cloud/land rule (0.75, basis tile) and compact Rrs_unc, so do not run tiles3 until this is settled.
 
+*K1d result (2026-11-24):* see the decision log "Tiling v3". Settings chosen: zstd level 7, your
+tile rule, compact Rrs_unc. Swath-edge cut and chlor_a as log int16: yours to decide.
+
+*K1e. Re-tile the trial with the final settings, then the K1c checks:*
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PER_PRODUCT=3,FORCE=1 cluster/prep.sbatch
+```
+When it's done: `python scripts/v3_size_breakdown.py`, `du -sh data/processed/global/tiles/v3/*/`,
+`grep "s per granule" logs/oefm_prep_<id>.out`, and the K1c fill check and test_ddp (K1c.2, K1c.3).
+
 *K1c. Before deleting raw at scale (after the K1b job has finished; do not `git pull` while a
 tiles3 job runs, because its worker processes re-read the code):*
 1. **(Not needed: job 116510 already ran with this rule.) SFREFL keeps cloud pixels (2026-11-24, your decision):** re-tile the trial's SFREFL granules
@@ -809,6 +820,39 @@ windows, sampling) move to the loader.
     computed at load). Kept per band, so it can weight the loss for noisy bands.
   - Swath edge (cells beyond ~60° sensor zenith): not applied; decide from `v3_whatif.py`
     (`max_senz_deg`). It partly reverses keeping HISATZEN pixels.
+- **K1d: zstd level and what-if, measured on the K1b stores (2026-11-24).**
+  zstd, size relative to level 9 / seconds per granule single-threaded (level 3 → 7 → 9):
+  MODIS 1.137/2.5 → 1.062/9.5 → 1.000/71.0; OLCI-A 1.132/4.1 → 1.060/19.2 → 1.000/242.0;
+  OLCI-B 1.108/4.1 → 1.051/22.4 → 1.000/242.6; PACE AOP 1.095/10.4 → 1.051/51.6 → 1.000/588.2;
+  SFREFL 1.209/3.7 → 1.051/18.1 → 1.000/218.6; VIIRS-J1 1.120/2.4 → 1.048/11.5 → 1.000/120.3;
+  VIIRS-J2 1.080/1.1 → 1.028/7.0 → 1.000/58.1; VIIRS-N 1.122/2.0 → 1.055/9.7 → 1.000/118.0.
+  **Chosen: level 7** (3-6 % larger than 9, ~1/10 of its time; ~+12 s CPU per granule over level 3,
+  ~+1 s wall with 12 workers). chlor_a as int16 log10 (step 1e-4) would be 0.42-0.50 x its float32
+  size: MODIS 2.3 → 1.2, OLCI-A 19.6 → 9.6, OLCI-B 28.5 → 13.6, VIIRS 6.6-8.1 → 3.1-3.4 MB per
+  granule (~100 GB for Florida): not applied, yours to decide.
+  What-if (share of stored tiles / of bytes dropped; tile basis = cloud-or-land of covered weight):
+
+  | product | tile > 0.75 | water > 0.75 | edge senz > 60: cells / bytes / tiles left < 1 % | Rrs_unc |
+  |---|---|---|---|---|
+  | modisa_oc | 0.311 / 0.089 | 0.293 / 0.082 | 0.107 / 0.092 / 0.097 | |
+  | olcia_efr_oc | 0.285 / 0.067 | 0.255 / 0.058 | 0 / 0 / 0 | |
+  | olcib_efr_oc | 0.215 / 0.048 | 0.205 / 0.044 | 0 / 0 / 0 | |
+  | pace_oci_aop | 0.266 / 0.060 | 0.254 / 0.055 | 0.161 / 0.156 / 0.190 | 0.473 of bytes; uint8 log 0.11 x int16 (max rel. error 0.023, median 0.011) |
+  | pace_oci_sfrefl | 0.638 / 0.509 | 0.630 / 0.505 | 0.321 / 0.319 / 0.289 | |
+  | viirsj1_oc | 0.175 / 0.041 | 0.164 / 0.036 | 0.193 / 0.206 / 0.218 | |
+  | viirsj2_oc | 0.057 / 0.010 | 0.032 / 0.004 | 0.202 / 0.219 / 0.209 | |
+  | viirsn_oc | 0.171 / 0.040 | 0.159 / 0.035 | 0.230 / 0.238 / 0.243 | |
+
+  Edge at 55° / 65°: PACE 0.259 / 0.076 of cells, SFREFL 0.424 / 0.194, VIIRS 0.27-0.34 / 0.10-0.12,
+  MODIS 0.204 / 0.010. Florida (all manifest granules, at level 9): 2,289 GB now; tile > 0.75 saves
+  374 GB; compact Rrs_unc 260 GB → 1,655 GB; edge > 60° ~366 GB more (overlaps the cloud rule).
+- **Tile rule (2026-11-24, your decision, replaces the tile/water basis):** drop a tile observation
+  when cloud > 75 % of its covered pixel weight, or when it has cloud (≥ 5 %, `min_cloud_for_clear`)
+  and clear water (neither cloud nor land) < 25 %. Clear water next to land is kept; land cells hold
+  fill Rrs and compress to almost nothing. `processing.v3_store.tile_rule`; overpasses record
+  cloud_fraction, land_fraction, clear_fraction, drop_reason. Expected saving close to the tile
+  > 0.75 column (most of it SFREFL: ~half its bytes). Florida with this rule, compact Rrs_unc and
+  level 7: ~1.7 TB.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project

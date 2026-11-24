@@ -167,8 +167,7 @@ class TestTiling3(unittest.TestCase):
         self.assertEqual(z["status"], "done")
         self.assertGreaterEqual(len(z["overpasses"]), len(z["tiles"]))
         self.assertTrue(all(o["stored"] == (o["drop_reason"] is None) for o in z["overpasses"]))
-        self.assertTrue(all(o["valid_fraction"] >= 0.01 and o["cloud_land_fraction"] <= 0.75
-                            for o in z["overpasses"] if o["stored"]))
+        self.check_rule(z["overpasses"], 0.75, 0.25, 0.05)          # pilot.yaml tile rule
         g, st = self.open(z)
         a = g.attrs.asdict()
         self.assertEqual(a["catalog"], "catalog_v1")
@@ -264,21 +263,32 @@ class TestTiling3(unittest.TestCase):
         self.assertEqual(g.attrs["sfrefl_empty_flags"], ["LAND"])
         st.close()
 
-    def test_cloud_land_rule_and_compact_unc(self):
-        cfgp = self.d / "rules.yaml"
-        cfgp.write_text(f"extends: {self.cfg.path}\nprocessing:\n  v3_store:\n"
-                        "    cloud_land_rule: {max_fraction: 0.05, basis: tile}\n    refl_unc: log_uint8\n")
-        src = self.d / "pace_rules.nc"
-        make_l2(src, "pace")
-        row = {"granule_key": "k_rules", "product": "pace_oci_aop", "filename": src.name,
-               "time_start": "2024-06-10T17:00:00Z", "sha256": "x"}
-        res = tiling3.tile_granule((str(cfgp), row, str(src), str(self.d / "v3_rules"), {"git": "test"}))
-        self.assertIsNone(res["error"])
-        ov = [o for z in res["zones"] for o in z["overpasses"]]
-        dropped = [o for o in ov if o["drop_reason"] == "cloud_land>0.05"]
-        self.assertTrue(dropped)
-        self.assertTrue(all(not o["stored"] and o["valid_fraction"] >= 0.01 for o in dropped))
-        self.assertTrue(all(o["cloud_land_fraction"] <= 0.05 for o in ov if o["stored"]))
+    def check_rule(self, ov, max_cloud, min_clear, min_cloud):
+        for o in ov:
+            if o["valid_fraction"] < 0.01:
+                self.assertFalse(o["stored"])
+                continue
+            drop = o["cloud_fraction"] > max_cloud or (o["cloud_fraction"] >= min_cloud and o["clear_fraction"] < min_clear)
+            self.assertEqual(o["stored"], not drop, o)
+            if drop:
+                self.assertIn(o["drop_reason"], (f"cloud>{max_cloud}", f"clear<{min_clear}"))
+
+    def test_tile_rule_and_compact_unc(self):
+        for name, mc, mn, mcc in (("a", 0.05, 0.0, 0.05), ("b", 1.0, 0.99, 0.0)):
+            cfgp = self.d / f"rules_{name}.yaml"
+            cfgp.write_text(f"extends: {self.cfg.path}\nprocessing:\n  v3_store:\n"
+                            f"    tile_rule: {{max_cloud: {mc}, min_clear: {mn}, min_cloud_for_clear: {mcc}}}\n"
+                            "    refl_unc: log_uint8\n")
+            src = self.d / f"pace_rules_{name}.nc"
+            make_l2(src, "pace")
+            row = {"granule_key": f"k_rules_{name}", "product": "pace_oci_aop", "filename": src.name,
+                   "time_start": "2024-06-10T17:00:00Z", "sha256": "x"}
+            res = tiling3.tile_granule((str(cfgp), row, str(src), str(self.d / f"v3_rules_{name}"), {"git": "test"}))
+            self.assertIsNone(res["error"])
+            ov = [o for z in res["zones"] for o in z["overpasses"]]
+            self.assertTrue(any(o["drop_reason"] and o["drop_reason"] != "valid<1%" for o in ov))
+            self.assertTrue(any(o["stored"] for o in ov))
+            self.check_rule(ov, mc, mn, mcc)
         z = [z for z in res["zones"] if z["status"] == "done"][0]
         g, st = self.open(z)
         u = g["refl_unc"][:]
