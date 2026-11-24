@@ -295,9 +295,21 @@ Paste back all three. The header line of each product says which rules its store
 if SFREFL says "SFREFL empty CLDICE+LAND", the job ran the code before the cloud change and step K1c.1
 re-tiles it.
 
+*K1b result (job 116510, 2026-11-24):* 24/24 done with the size rules and SFREFL clouds kept
+(stores say "SFREFL empty LAND", so K1c.1 is not needed). Florida ~2.3 TB (was ~3.0 TB) but
+59.5 s per granule wall (was 16.1 s): zstd level 9. All of Florida at that rate: ~400 h on 12
+workers. Numbers in the decision log "Tiling v3".
+
+*K1d. zstd level (login node, read-only, ~1-3 min):*
+```bash
+git pull
+python scripts/v3_codec_bench.py
+```
+Paste back the table. I set `processing.v3_store.zstd_level` from it (every level is lossless).
+
 *K1c. Before deleting raw at scale (after the K1b job has finished; do not `git pull` while a
 tiles3 job runs, because its worker processes re-read the code):*
-1. **SFREFL keeps cloud pixels (2026-11-24, your decision):** re-tile the trial's SFREFL granules
+1. **(Not needed: job 116510 already ran with this rule.) SFREFL keeps cloud pixels (2026-11-24, your decision):** re-tile the trial's SFREFL granules
    with the new rule:
    ```bash
    git pull
@@ -765,7 +777,23 @@ windows, sampling) move to the loader.
   is deleted. Land pixels stay dropped. The int16 range widens to scale 4e-5, offset 1.2
   (-0.11..2.51; half a step 2e-5, well below the sensor noise), so bright cloud is not clipped. If
   storage becomes a concern, decide then.
-  Real numbers: step K1b.
+- **K1b, size rules + SFREFL clouds kept (job 116510, 2026-11-24, same 3 granules per product).**
+
+  | product | MB per granule K1 → K1b | x | tiles / raw | Florida | largest fields (share of bytes) |
+  |---|---|---|---|---|---|
+  | modisa_oc | 34 → 17.0 | 0.50 | 0.51 | 71 GB | refl 0.49, chlor_a 0.12, refl_clean 0.08 |
+  | olcia_efr_oc | 207 → 134.4 | 0.65 | 0.55 | 299 GB | refl 0.61, chlor_a 0.13, refl_clean 0.10 |
+  | olcib_efr_oc | 244 → 163.0 | 0.67 | 0.66 | 347 GB | refl 0.63, chlor_a 0.13, refl_clean 0.08 |
+  | pace_oci_aop | 465 → 369.8 | 0.80 | 1.72 | 657 GB | Rrs_unc 0.47, refl 0.46, refl_clean 0.05 |
+  | pace_oci_sfrefl | 167 → 309.2 (clouds now kept) | 1.85 | 0.41 | 549 GB | refl 0.97 |
+  | viirsj1/j2/n | 66/63/67 → 30.0/29.4/30.1 | 0.45–0.47 | 0.34–0.39 | 148/72/147 GB | refl 0.39–0.40, chlor_a 0.18–0.19, flag_share 0.06–0.08 |
+  | **total** | | | | **~2.3 TB (K1 3.0 TB; raw 4.0 TB)** | |
+
+  SFREFL stored tiles doubled (4,671 → 9,292) because cloudy tiles now pass the 1 % rule.
+  Bio-GO-SHIP at these ratios: ~6.8 TB without SFREFL + ~3.1 TB SFREFL ≈ 10 TB.
+  Timing 59.5 s per granule wall (K1 16.1 s), from zstd level 9: level now a setting
+  (`processing.v3_store.zstd_level`), chosen from `scripts/v3_codec_bench.py` (K1d). Compression
+  now runs single-threaded inside each worker (blosc threads off).
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
