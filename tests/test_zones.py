@@ -73,8 +73,11 @@ class TestZones(unittest.TestCase):
         cfg = self.cfg
         self.assertIn("grid", cfg.raw["processing"])                 # merged from pilot.yaml
         self.assertIn("stats_dir", cfg.raw["processing"])
-        self.assertEqual(set(cfg.satellite_products), set(load_config().satellite_products))
         self.assertEqual(cfg.physical_products, {})
+        self.assertNotIn("pace_oci_sfrefl", cfg.satellite_products)          # not an encoder input
+        self.assertEqual(set(cfg.satellite_products) | {"pace_oci_sfrefl"}, set(load_config().satellite_products))
+        self.assertEqual(cfg.core_start(), date(2024, 1, 1))
+        self.assertEqual(load_config().core_start(), date(2024, 1, 1))
         for r in cfg.regions.values():
             self.assertIn(r.zone, cfg.zones)
             names = {n for w in r.windows for n in w.names}
@@ -151,6 +154,15 @@ class TestZones(unittest.TestCase):
                 lon, lat = g.cell_centres(*[int(v) for v in (g.ix[g.ids.index(out["tile_id"])], g.iy[g.ids.index(out["tile_id"])])])
                 r, c = out["cell"]
                 self.assertLess(abs(lat[r, c] - s["lat"]), 0.02)
+
+    def test_status_runs_without_time_core(self):
+        from oefm import cli
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict("os.environ", {"OEFM_DATA_ROOT": d}):
+            out = []
+            with mock.patch.object(cli, "log", out.append):
+                cli.cmd_status(load_config(self.cfg_path), None)
+            self.assertTrue(any(l.startswith("TOTAL") for l in out))
 
     def test_inventory_uses_region_windows(self):
         from oefm.sources import nasa

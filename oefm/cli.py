@@ -226,11 +226,12 @@ def cmd_status(cfg, args) -> None:
     man = Manifest(cfg.manifest_path)
     from datetime import timedelta
 
-    core = date.fromisoformat(str(cfg.raw["time"]["core"]["start"]))
-    lead = core - timedelta(days=int(cfg.raw["time"].get("physical_lead_days", 0)))
+    core = cfg.core_start()
+    lead = core - timedelta(days=int((cfg.raw.get("time") or {}).get("physical_lead_days", 0)))
+    keys = list(cfg.products)
     # "core" = the 2024-onward period (for physical products including its lead-in days)
     rows = man.db.execute(
-        """SELECT product, COUNT(*) n, SUM(size_bytes) b,
+        f"""SELECT product, COUNT(*) n, SUM(size_bytes) b,
                   SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) nv,
                   SUM(CASE WHEN status='verified' THEN bytes_on_disk ELSE 0 END) bv,
                   SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) nf,
@@ -238,7 +239,8 @@ def cmd_status(cfg, args) -> None:
                              OR substr(time_start,1,10) >= (CASE WHEN kind='physical' THEN ? ELSE ? END)
                            THEN size_bytes ELSE 0 END) b_core,
                   MIN(substr(time_start,1,10)) t0, MAX(substr(time_start,1,10)) t1
-           FROM granules GROUP BY product ORDER BY product""", (lead.isoformat(), core.isoformat())).fetchall()
+           FROM granules WHERE product IN ({",".join("?" * len(keys))})
+           GROUP BY product ORDER BY product""", (lead.isoformat(), core.isoformat(), *keys)).fetchall()
     log(f"{'product':18s} {'files':>7s} {'expected GB':>11s} {'core GB':>9s} {'hist GB':>8s} {'verified':>8s} "
         f"{'GB on disk':>10s} {'failed':>6s}  first .. last")
     tb = tv = 0

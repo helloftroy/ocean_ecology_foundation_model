@@ -192,8 +192,8 @@ protocol; instructions in `multimodal_seusmbol/instructions_agent_biogoship.md`)
 by `scripts/make_biogoship_config.py`) and data root (`data_biogoship/`), so nothing in `data/`
 changes: 16 cruises (2011–2025), 1,977 samples → 50 zones (each its own LAEA projection, ≤ 1,500 km),
 377 corridor boxes, ~13,400 tiles. Windows per box: the cruise window (30 d before the first sample
-to 15 d after the last) plus two 45-day PACE-era windows in other seasons. All eight satellite
-products as in Florida; no physical products (stage 1 is optical).
+to 15 d after the last) plus two 45-day PACE-era windows in other seasons. The seven encoder
+products as in Florida (no PACE SFREFL: not an encoder input); no physical products (stage 1 is optical).
 
 *J1. Copy the bundle and link GEBCO* (from the laptop, in `multimodal_seusmbol/`):
 ```bash
@@ -215,6 +215,16 @@ sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OE
 ```
 Paste back `tail -60 logs/oefm_inventory_<id>.out` (the per-product file counts and GB). I check the
 size (estimate 8–10 TB raw) before anything downloads.
+✅ Inventory job 116443 (2026-11-24): the searches all ran and the manifest was written per product;
+the closing status table crashed (`KeyError: 'core'`, it assumed Florida's `time.core`; fixed).
+PACE SFREFL alone was 10,546 files, 7,632 GB. SFREFL is not an encoder input
+(`training.sensors.include`), so config/biogoship.yaml now has `exclude_products: [pace_oci_sfrefl]`:
+it is never downloaded or tiled (its manifest rows stay `planned`, unused). Per-product totals
+without it, on the login node (reads the manifest only):
+```bash
+git pull
+source cluster/env.sh && OEFM_CONFIG=config/biogoship.yaml OEFM_DATA_ROOT=$PWD/data_biogoship python -m oefm status
+```
 
 *J3 (after review). Download, then tiles:*
 ```bash

@@ -178,10 +178,18 @@ class Config:
         return merge_windows([Window(w.start - lead, w.end, w.names) for w in self.satellite_windows()])
 
     # ------------------------------------------------------------- products
+    def core_start(self) -> date:
+        """Start of the 2024-onward 'core' period (status and report columns); 2024-01-01 when the
+        config has no global time.core (global configs with per-region windows)."""
+        core = (self.raw.get("time") or {}).get("core")
+        return self._date(core["start"]) if core else date(2024, 1, 1)
+
     @property
     def satellite_products(self) -> dict[str, dict]:
+        """Satellite products, minus `exclude_products` (a config extending another can drop some)."""
+        skip = set(self.raw.get("exclude_products") or [])
         return {k: {**v, "key": k, "kind": "satellite", "source": v.get("source", "nasa_earthdata")}
-                for k, v in self.raw.get("satellite", {}).items()}
+                for k, v in self.raw.get("satellite", {}).items() if k not in skip}
 
     @property
     def physical_products(self) -> dict[str, dict]:

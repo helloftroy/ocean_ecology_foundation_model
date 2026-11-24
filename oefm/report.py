@@ -62,8 +62,8 @@ def write(cfg: Config, log=print) -> Path:
 
     # -------------------------------------------------------------- 2 storage
     add("## 2. Storage estimates\n")
-    core = date.fromisoformat(str(cfg.raw["time"]["core"]["start"]))
-    lead = core - timedelta(days=int(cfg.raw["time"].get("physical_lead_days", 0)))
+    core = cfg.core_start()
+    lead = core - timedelta(days=int((cfg.raw.get("time") or {}).get("physical_lead_days", 0)))
     add("Raw = files as distributed (whole swaths / global grids). Regional = only pixels inside the regions, as "
         "float32 for every band plus flags and lat/lon (upper bound: assumes each granule covers its whole region).\n")
     add("| product | raw GB, 2024+ | raw GB, 2018-2023 | raw GB total | on disk GB | regional GB (est.) |\n|---|---|---|---|---|---|")

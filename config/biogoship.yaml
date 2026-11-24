@@ -10,6 +10,8 @@ domain_margin_deg: 0.5
 time:
   physical_lead_days: 0
 physical: {}
+exclude_products:
+- pace_oci_sfrefl
 targets: {}
 processing:
   stats_dir: data/processed/regional/tiles/v2/train_stats
