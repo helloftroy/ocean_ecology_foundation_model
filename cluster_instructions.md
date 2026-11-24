@@ -281,23 +281,19 @@ decision log "Tiling v3" for the numbers. Extrapolated to all Florida granules: 
 vs ~4.0 TB raw. PACE AOP tiles are 2.2x their raw size, so K2 waits for the size breakdown.
 
 *K1b. Size cuts 1-4 on the same granules (2026-11-24, your decision; decision log "Tiling v3").*
-1. **Per-field breakdown of the K1 stores** (login node, read-only, a few minutes). It also predicts
-   the size under the new rules from these same stores:
-   ```bash
-   git pull
-   python scripts/v3_size_breakdown.py 2>&1 | tee reports_v3_size_k1.txt
-   grep "s per granule" logs/oefm_prep_116488.out
-   ```
-2. **Re-tile the same 3 granules per product with the new rules** (FORCE replaces their stores):
-   ```bash
-   sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PER_PRODUCT=3,FORCE=1 cluster/prep.sbatch
-   ```
-3. **When it's done, measure again:**
-   ```bash
-   python scripts/v3_size_breakdown.py 2>&1 | tee reports_v3_size_k1_new.txt
-   du -sh data/processed/global/tiles/v3/*/ ; grep "s per granule" logs/oefm_prep_<id>.out
-   ```
-Paste back both reports, both `grep` lines and the `du`.
+The re-tile with the new rules (FORCE=1) was submitted 2026-11-24, after the first breakdown script
+ran > 20 min without output (it recompressed every tile; now it reads only the zip directories, in
+seconds). K1 timing: 24/24 done, 16.1 s per granule wall (12 workers). The forced re-tile replaced
+the K1 stores, so the before-per-field split is gone; the before totals are the K1 `du` above.
+When the job is done:
+```bash
+git pull
+python scripts/v3_size_breakdown.py
+du -sh data/processed/global/tiles/v3/*/ ; grep "s per granule" logs/oefm_prep_<id>.out
+```
+Paste back all three. The header line of each product says which rules its stores were written with;
+if SFREFL says "SFREFL empty CLDICE+LAND", the job ran the code before the cloud change and step K1c.1
+re-tiles it.
 
 *K1c. Before deleting raw at scale (after the K1b job has finished; do not `git pull` while a
 tiles3 job runs, because its worker processes re-read the code):*
@@ -727,7 +723,7 @@ windows, sampling) move to the loader.
   Tables: data/reports/flag_fill_check*.csv.
 - Blocked meanwhile: the /scratch data pool returns ENOSPC for large writes (2026-11-24; reads work).
 - **K1 trial (job 116488, 2026-11-24, 3 Florida granules per product, raw kept).** All 24 done,
-  0 failed; SFREFL clipped 1,142 cell-band values to the int16 range (rhos outside -0.055..1.255;
+  0 failed, 16.1 s per granule wall with 12 workers (all of Florida, 24,335 granules: ~109 h); SFREFL clipped 1,142 cell-band values to the int16 range (rhos outside -0.055..1.255;
   about 2e-6 of the stored values). Stored tiles / overpasses (tiles under 1 % valid not stored):
 
   | product | stored tiles | overpasses | MB per granule (tiles) | MB per granule (raw) | tiles / raw | KB per tile | Florida extrapolated |
