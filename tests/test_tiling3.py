@@ -166,7 +166,9 @@ class TestTiling3(unittest.TestCase):
         z = zones["Z+15_05"]
         self.assertEqual(z["status"], "done")
         self.assertGreaterEqual(len(z["overpasses"]), len(z["tiles"]))
-        self.assertTrue(all(o["stored"] == (o["valid_fraction"] >= 0.01) for o in z["overpasses"]))
+        self.assertTrue(all(o["stored"] == (o["drop_reason"] is None) for o in z["overpasses"]))
+        self.assertTrue(all(o["valid_fraction"] >= 0.01 and o["cloud_land_fraction"] <= 0.75
+                            for o in z["overpasses"] if o["stored"]))
         g, st = self.open(z)
         a = g.attrs.asdict()
         self.assertEqual(a["catalog"], "catalog_v1")
@@ -233,8 +235,9 @@ class TestTiling3(unittest.TestCase):
         z = [z for z in res["zones"] if z["status"] == "done"][0]
         g, st = self.open(z)
         self.assertIn("refl_unc", g)
-        u = g["refl_unc"][:]
-        self.assertTrue(np.allclose(u[u != -32767] * 5e-8 + 0.0015, 1e-4, atol=5e-8))
+        v = tiling3.decode_unc(g["refl_unc"][:])          # pilot.yaml: log_uint8
+        self.assertTrue(np.isfinite(v).any())
+        self.assertTrue((np.abs(v[np.isfinite(v)] / 1e-4 - 1) < 0.023).all())
         self.assertEqual(g["refl"].shape[1], 8)
         self.assertNotIn("x_avw", g)                       # not in the kept extras
         self.assertIn("avw", g.attrs["fields_not_stored"])
@@ -259,6 +262,32 @@ class TestTiling3(unittest.TestCase):
         self.assertTrue(land.any())
         self.assertFalse(ok[:, 0][land].any())
         self.assertEqual(g.attrs["sfrefl_empty_flags"], ["LAND"])
+        st.close()
+
+    def test_cloud_land_rule_and_compact_unc(self):
+        cfgp = self.d / "rules.yaml"
+        cfgp.write_text(f"extends: {self.cfg.path}\nprocessing:\n  v3_store:\n"
+                        "    cloud_land_rule: {max_fraction: 0.05, basis: tile}\n    refl_unc: log_uint8\n")
+        src = self.d / "pace_rules.nc"
+        make_l2(src, "pace")
+        row = {"granule_key": "k_rules", "product": "pace_oci_aop", "filename": src.name,
+               "time_start": "2024-06-10T17:00:00Z", "sha256": "x"}
+        res = tiling3.tile_granule((str(cfgp), row, str(src), str(self.d / "v3_rules"), {"git": "test"}))
+        self.assertIsNone(res["error"])
+        ov = [o for z in res["zones"] for o in z["overpasses"]]
+        dropped = [o for o in ov if o["drop_reason"] == "cloud_land>0.05"]
+        self.assertTrue(dropped)
+        self.assertTrue(all(not o["stored"] and o["valid_fraction"] >= 0.01 for o in dropped))
+        self.assertTrue(all(o["cloud_land_fraction"] <= 0.05 for o in ov if o["stored"]))
+        z = [z for z in res["zones"] if z["status"] == "done"][0]
+        g, st = self.open(z)
+        u = g["refl_unc"][:]
+        self.assertEqual(u.dtype, np.uint8)
+        v = tiling3.decode_unc(u)
+        ok = np.isfinite(v)
+        self.assertTrue(ok.any())
+        self.assertTrue((np.abs(v[ok] / 1e-4 - 1) < 0.023).all())
+        self.assertEqual(g.attrs["refl_unc_encoding"]["kind"], "log10_uint8")
         st.close()
 
     def test_run_record_index_and_resume(self):

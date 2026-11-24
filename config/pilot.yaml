@@ -305,6 +305,11 @@ processing:
     extras:              # single-layer fields kept (if the file has them); the rest are listed in attrs only
       default: [nflh, chlor_a, Kd_490]        # baselines
       pace_oci_bgc: [chlor_a, carbon_phyto, poc]   # PACE BGC fields evaluated against (check against the K3 file)
+    cloud_land_rule:     # a tile observation is not stored when cloud-or-land pixels exceed max_fraction of its
+      max_fraction: 0.75 # covered pixel weight (basis tile) or cloud exceeds it of the non-land weight (basis water);
+      basis: tile        # the overpass index records both fractions and the drop reason (your proposal 2026-11-24)
+    refl_unc: log_uint8  # PACE Rrs_unc as uint8 on a log10 scale 1e-6..1e-1 (<= 2.3 % relative); int16 = full
+    max_senz_deg: null   # swath-edge cut: not applied (decide from scripts/v3_whatif.py)
     zstd_level: 9        # lossless at every level; K1b: 59.5 s per granule at 9 vs 16.1 at 3 (see scripts/v3_codec_bench.py)
     flag_share_bits:     # per-bit pixel shares only for bits a flag policy can use; flags_or keeps all 32 bits
       [HISATZEN, STRAYLIGHT, HIGLINT, MODGLINT, HIPOL, COASTZ, ATMWARN, MAXAERITER, LOWLW, ABSAER,

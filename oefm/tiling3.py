@@ -7,8 +7,9 @@ Raw granules can then be deleted (download-tile-delete, oefm/stream.py).
 Coverage: every catalog_v1 tile the swath touches (full swath, every zone; border tiles in both
 zones), at native resolution: 1.2 km cells (32 x 32) for MODIS, VIIRS, PACE; 300 m cells (128 x 128)
 for OLCI only (the loader aggregates 1.2 km). A tile observation with under `min_valid` (1 %) of its
-cells valid stores no arrays, but every overpass (tile x granule with any pixel) is recorded in the
-overpass table.
+cells valid, or (`processing.v3_store.cloud_land_rule`) mostly cloud or land, stores no arrays, but
+every overpass (tile x granule with any pixel) is recorded in the overpass table with its valid,
+cloud-or-land and cloud-of-water fractions and the drop reason.
 
 Regridding as v2: area-weighted pixel footprints (sub-sampled), no flag mask in the mean.
 
@@ -22,7 +23,9 @@ Per cell, per stored tile (one zipped Zarr per granule and zone, `<granule>__<zo
                 flag share, as for Rrs.
   refl_clean    (tile, band, n, n) int16  mean over pixels passing the product's training mask, ONLY
                 in mixed cells (some contributing pixels hard-flagged, some not); fill elsewhere
-  refl_unc      (tile, band, n, n) int16  PACE Rrs_unc (same rule as refl)
+  refl_unc      (tile, band, n, n) PACE Rrs_unc (same rule as refl): uint8 on a log10 scale 1e-6..1e-1
+                (`processing.v3_store.refl_unc: log_uint8`, |relative error| <= 2.3 %, 255 = fill,
+                `decode_unc`) or int16 at the source scale (`int16`)
   x_<name>      (tile, n, n)  the single-layer fields listed in `processing.v3_store.extras` (nflh,
                 chlor_a, Kd_490 baselines; PACE BGC chlor_a, carbon_phyto, poc), if the file has them:
                 int16 with the source scale/offset, or float32 for float sources. Every other field
@@ -73,6 +76,33 @@ CHUNK_RAW_BYTES = 1 << 20
 DEFAULT_EXTRAS = ("nflh", "chlor_a", "Kd_490")
 DEFAULT_SHARE_BITS = ("HISATZEN", "STRAYLIGHT", "HIGLINT", "MODGLINT", "HIPOL", "COASTZ", "ATMWARN", "MAXAERITER",
                       "LOWLW", "ABSAER", "COCCOLITH", "TURBIDW", "OPSHAL", "CLDICE", "LAND")
+
+
+UNC_LOG10_MIN, UNC_LOG10_MAX, UNC_FILL = -6.0, -1.0, 255
+UNC_LOG10_STEP = (UNC_LOG10_MAX - UNC_LOG10_MIN) / 254      # codes 0..254; |relative error| <= 2.3 %
+
+
+def store_settings(cfg: Config) -> dict[str, Any]:
+    """Tile-selection and encoding settings of `processing.v3_store` (defaults: rules off, full Rrs_unc)."""
+    st = (cfg.raw.get("processing") or {}).get("v3_store") or {}
+    rule = st.get("cloud_land_rule") or {}
+    return {"max_cloud_land": rule.get("max_fraction"), "cloud_land_basis": rule.get("basis", "tile"),
+            "refl_unc": st.get("refl_unc", "int16"), "max_senz_deg": st.get("max_senz_deg")}
+
+
+def encode_unc(v: np.ndarray) -> np.ndarray:
+    """Rrs_unc (sr-1) -> uint8 code on a log10 scale from 1e-6 to 1e-1 (0 = <= 1e-6, 255 = fill)."""
+    out = np.full(v.shape, UNC_FILL, "u1")
+    ok = np.isfinite(v)
+    lg = np.log10(np.maximum(v[ok], 10 ** UNC_LOG10_MIN))
+    out[ok] = np.clip(np.round((lg - UNC_LOG10_MIN) / UNC_LOG10_STEP), 0, 254).astype("u1")
+    return out
+
+
+def decode_unc(code: np.ndarray) -> np.ndarray:
+    """uint8 Rrs_unc code -> sr-1 (NaN for fill)."""
+    v = 10 ** (UNC_LOG10_MIN + code.astype("f8") * UNC_LOG10_STEP)
+    return np.where(code == UNC_FILL, np.nan, v)
 
 
 def store_rules(cfg: Config, product: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -346,6 +376,10 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
             flags_or |= (wb > 0).astype("u4") << np.uint32(b)
             if b in share_bit:
                 share[share_bit[b]] = np.round(255 * wb / np.maximum(w_all, 1e-12)).astype("u1")
+    cl_bits = mask_bits(fmap, ["CLDICE", "LAND"]) & 0xFFFFFFFF
+    land_bits = mask_bits(fmap, ["LAND"]) & 0xFFFFFFFF
+    w_cl = bc(np.where((pb & cl_bits) != 0, w, 0.0))          # cloud or land
+    w_land = bc(np.where((pb & land_bits) != 0, w, 0.0))
     t_row = t_row_all[rs]
     t_row = np.where(np.isfinite(t_row), t_row, t0)
     trel = np.broadcast_to((t_row - t0)[:, None], x.shape).ravel()[pix]
@@ -423,6 +457,7 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
     # ------------------------------------------------------------- per tile
     tile_no, local = np.divmod(cells, n * n)
     nn = n * n
+    ss = store_settings(cfg)
     covered = np.unique(tile_no)
     when = datetime.fromtimestamp(t0, timezone.utc) if np.isfinite(t0) else None
     stored = []
@@ -432,13 +467,24 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
         nvalid = int((w_valid[sel] > 0).sum())
         vf = nvalid / nn
         tt = t0 + float(np.sum(w_all[sel] * t_cell[sel]) / max(np.sum(w_all[sel]), 1e-12))
+        wa, wcl, wl = float(np.sum(w_all[sel])), float(np.sum(w_cl[sel])), float(np.sum(w_land[sel]))
+        clf = wcl / max(wa, 1e-12)                                  # cloud or land, of the covered weight
+        cwf = (wcl - wl) / max(wa - wl, 1e-12) if wa - wl > 1e-9 else 1.0   # cloud, of the non-land weight
+        reason = None
+        if vf < MIN_VALID:
+            reason = "valid<1%"
+        elif ss["max_cloud_land"] is not None:
+            f = clf if ss["cloud_land_basis"] == "tile" else cwf
+            if f > float(ss["max_cloud_land"]):
+                reason = f"cloud_land>{ss['max_cloud_land']}"
         out["overpasses"].append({"tile_id": tid, "zone": zone.key, "product": row["product"], "family": fam,
                                   "granule_key": row["granule_key"],
                                   "time_utc": datetime.fromtimestamp(tt, timezone.utc).isoformat(timespec="seconds")
                                   if np.isfinite(tt) else row.get("time_start"),
                                   "cover_fraction": round(int(sel.sum()) / nn, 4), "valid_fraction": round(vf, 4),
-                                  "stored": vf >= MIN_VALID})
-        if vf >= MIN_VALID:
+                                  "cloud_land_fraction": round(clf, 4), "cloud_of_water_fraction": round(cwf, 4),
+                                  "stored": reason is None, "drop_reason": reason})
+        if reason is None:
             stored.append((t, tid, tt))
     if not stored:
         return out
@@ -459,6 +505,12 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
     clipped = 0
     for key in ("refl", "refl_clean", "refl_unc"):
         if key not in arrays:
+            continue
+        if key == "refl_unc" and ss["refl_unc"] == "log_uint8":
+            a = np.full((T, arrays[key].shape[0], n, n), UNC_FILL, "u1")
+            for k in range(arrays[key].shape[0]):
+                a[tj, k, rr_, cc_] = encode_unc(arrays[key][k])[keep]
+            A[key] = a
             continue
         vi = meta.get(key, meta.get("refl"))
         nb = arrays[key].shape[0]
@@ -500,6 +552,11 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
              "source_file": row["filename"], "source_sha256": row.get("sha256"), "time_source": tsrc,
              "flag_meanings": list(fmap), "flag_masks": list(fmap.values()), "flag_share_bits": share_names,
              "fields_not_stored": info.get("not_stored", []),
+             "refl_unc_encoding": ({"kind": "log10_uint8", "log10_min": UNC_LOG10_MIN, "log10_step": UNC_LOG10_STEP,
+                                    "fill": UNC_FILL, "decode": "tiling3.decode_unc"}
+                                   if ss["refl_unc"] == "log_uint8" and "refl_unc" in arrays else None),
+             "tile_rule": {"min_valid_fraction": MIN_VALID, "max_cloud_land_fraction": ss["max_cloud_land"],
+                           "cloud_land_basis": ss["cloud_land_basis"]},
              "solar_angles": "not stored: tiling3.cell_solar_angles(tile_id, tile_time, dt)",
              "training_mask": pol.training_mask, "training_flags": pol.training_flags,
              "sfrefl_empty_flags": list(SFREFL_EMPTY_FLAGS) if info["refl"] and info["refl"].get("requantised") else [],
@@ -589,7 +646,8 @@ CREATE TABLE IF NOT EXISTS v3_tiles (
     PRIMARY KEY (granule_key, tile_id));
 CREATE TABLE IF NOT EXISTS v3_overpasses (
     tile_id TEXT, zone TEXT, product TEXT, family TEXT, granule_key TEXT, time_utc TEXT,
-    cover_fraction REAL, valid_fraction REAL, stored INTEGER, PRIMARY KEY (granule_key, tile_id));
+    cover_fraction REAL, valid_fraction REAL, stored INTEGER, cloud_land_fraction REAL,
+    cloud_of_water_fraction REAL, drop_reason TEXT, PRIMARY KEY (granule_key, tile_id));
 """
 
 
@@ -603,6 +661,10 @@ def v3_db(cfg: Config):
     db = sqlite3.connect(p, timeout=300)
     db.execute("PRAGMA journal_mode=DELETE")
     db.executescript(SCHEMA_V3)
+    cols = {r[1] for r in db.execute("PRAGMA table_info(v3_overpasses)")}
+    for c, t in (("cloud_land_fraction", "REAL"), ("cloud_of_water_fraction", "REAL"), ("drop_reason", "TEXT")):
+        if c not in cols:                        # tables created before 2026-11-24
+            db.execute(f"ALTER TABLE v3_overpasses ADD COLUMN {c} {t}")
     return db
 
 
@@ -617,9 +679,12 @@ def record(cfg: Config, db, res: dict, code: dict) -> str:
                            [(t["tile_id"], t["zone"], t["product"], t["family"], t["granule_key"], rel(z["dest"]),
                              t["row"], t["time_utc"], t["valid_fraction"], t["clean_fraction"], t["cover_fraction"],
                              t["senz_mean"]) for t in z["tiles"]])
-            db.executemany("INSERT OR REPLACE INTO v3_overpasses VALUES (?,?,?,?,?,?,?,?,?)",
+            db.executemany("INSERT OR REPLACE INTO v3_overpasses (tile_id, zone, product, family, granule_key, "
+                           "time_utc, cover_fraction, valid_fraction, stored, cloud_land_fraction, "
+                           "cloud_of_water_fraction, drop_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                            [(o["tile_id"], o["zone"], o["product"], o["family"], o["granule_key"], o["time_utc"],
-                             o["cover_fraction"], o["valid_fraction"], int(o["stored"])) for o in z["overpasses"]])
+                             o["cover_fraction"], o["valid_fraction"], int(o["stored"]), o["cloud_land_fraction"],
+                             o["cloud_of_water_fraction"], o["drop_reason"]) for o in z["overpasses"]])
         db.execute("INSERT OR REPLACE INTO v3_granules VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                    (row["granule_key"], row["product"], row["filename"], row.get("sha256"), status, res["error"],
                     ",".join(z["zone"] for z in res["zones"]),

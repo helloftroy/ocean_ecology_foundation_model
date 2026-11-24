@@ -300,12 +300,16 @@ re-tiles it.
 59.5 s per granule wall (was 16.1 s): zstd level 9. All of Florida at that rate: ~400 h on 12
 workers. Numbers in the decision log "Tiling v3".
 
-*K1d. zstd level (login node, read-only, ~1-3 min):*
+*K1d. zstd level and the candidate tile rules (login node, read-only, a few minutes each), on the K1b stores:*
 ```bash
 git pull
 python scripts/v3_codec_bench.py
+python scripts/v3_whatif.py
 ```
-Paste back the table. I set `processing.v3_store.zstd_level` from it (every level is lossless).
+Paste back both outputs. From them: `processing.v3_store.zstd_level`; the cloud/land rule
+(threshold, basis tile or water); whether to cut the swath edge (`max_senz_deg`). Then one more forced
+re-tile of the trial with the chosen settings, before K2. Note: the code now defaults to the
+cloud/land rule (0.75, basis tile) and compact Rrs_unc, so do not run tiles3 until this is settled.
 
 *K1c. Before deleting raw at scale (after the K1b job has finished; do not `git pull` while a
 tiles3 job runs, because its worker processes re-read the code):*
@@ -794,6 +798,17 @@ windows, sampling) move to the loader.
   Timing 59.5 s per granule wall (K1 16.1 s), from zstd level 9: level now a setting
   (`processing.v3_store.zstd_level`), chosen from `scripts/v3_codec_bench.py` (K1d). Compression
   now runs single-threaded inside each worker (blosc threads off).
+- **Further cuts (2026-11-24, your proposals).**
+  - Cloud/land tile rule: a tile observation is not stored when cloud-or-land pixels exceed 75 % of
+    its covered pixel weight (`processing.v3_store.cloud_land_rule`, basis `tile`); basis `water`
+    (cloud over the non-land weight) is the alternative for coastal tiles (mostly land, with clear
+    water near reefs). Every overpass still goes in the index, now with cloud_land_fraction,
+    cloud_of_water_fraction and drop_reason. Threshold and basis to confirm from `v3_whatif.py`.
+  - PACE Rrs_unc compact: uint8 per band on a log10 scale 1e-6..1e-1 (≤ 2.3 % relative error; 255 =
+    fill; `tiling3.decode_unc`), not relative to Rrs (unc / Rrs blows up where Rrs ~ 0; it can be
+    computed at load). Kept per band, so it can weight the loss for noisy bands.
+  - Swath edge (cells beyond ~60° sensor zenith): not applied; decide from `v3_whatif.py`
+    (`max_senz_deg`). It partly reverses keeping HISATZEN pixels.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
