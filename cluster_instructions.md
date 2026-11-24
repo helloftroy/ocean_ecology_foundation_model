@@ -255,7 +255,7 @@ Not built yet: a training set over two data roots, and normalisation statistics 
 **K. Tiling v3: catalog_v1, download-tile-delete (2026-11-24)** ▶️ (decision log "Tiling v3").
 Built: `oefm/catalog.py` (catalog_v1: 196 zones, scale error ≤ 0.21 % in band zones, ≤ 0.86 % at the
 cap rims), `oefm/tiling3.py` (full swath, int16 at source scale, flag shares, clean mean in mixed
-cells, angles, all single-layer fields, PACE Rrs_unc, SFREFL int16 with cloud/land cells empty,
+cells, angles, all single-layer fields, PACE Rrs_unc, SFREFL int16 with land cells empty (cloud kept, K1c),
 OLCI at 300 m only), `oefm/stream.py` (download → tile → delete), `python -m oefm tiles3 | index3 |
 stream | purge-raw`, PACE BGC (`pace_oci_bgc`, v3.2) in the products. Tiles go to the shared store
 `data/processed/global/tiles/v3/` (catalog.json, `<product>/<year>/<granule>__<zone>.zarr.zip`,
@@ -298,6 +298,27 @@ vs ~4.0 TB raw. PACE AOP tiles are 2.2x their raw size, so K2 waits for the size
    du -sh data/processed/global/tiles/v3/*/ ; grep "s per granule" logs/oefm_prep_<id>.out
    ```
 Paste back both reports, both `grep` lines and the `du`.
+
+*K1c. Before deleting raw at scale (after the K1b job has finished; do not `git pull` while a
+tiles3 job runs, because its worker processes re-read the code):*
+1. **SFREFL keeps cloud pixels (2026-11-24, your decision):** re-tile the trial's SFREFL granules
+   with the new rule:
+   ```bash
+   git pull
+   sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PER_PRODUCT=3,FORCE=1,PRODUCTS=pace_oci_sfrefl cluster/prep.sbatch
+   ```
+   Then rerun the breakdown and `du` as in K1b step 3.
+2. **Fill-value check on more granules** (login node, read-only): Florida with 8 granules per
+   product, plus the Bio-GO-SHIP files already downloaded (other latitudes):
+   ```bash
+   python scripts/flag_fill_check.py --per-product 8 --out data/reports/flag_fill_check_8.csv 2>&1 | tail -80
+   OEFM_CONFIG=config/biogoship.yaml OEFM_DATA_ROOT=$PWD/data_biogoship python scripts/flag_fill_check.py --per-product 4 --out data_biogoship/reports/flag_fill_check.csv 2>&1 | tail -80
+   ```
+3. **test_ddp on Ptolemy** (two CPU processes over gloo, under a minute; it crashes locally from an OpenMP clash):
+   ```bash
+   python -m unittest discover -s tests -p test_ddp.py -v 2>&1 | tail -15
+   ```
+Paste back all of it.
 
 *K2 (after review). Re-tile all Florida raw (raw kept until verified):*
 `sbatch --account=191001-366746 --export=ALL,STEPS=tiles3 cluster/prep.sbatch`, then `purge-raw`
@@ -742,6 +763,12 @@ windows, sampling) move to the loader.
   4. Sun zenith/azimuth not stored; the loader computes them from tile_time + dt and the cell centres
      (`tiling3.cell_solar_angles`). Sensor angles stay int16 in 0.01°.
   Synthetic tiles: the prediction from old stores (45 % of the old size) matched the new stores.
+- **SFREFL keeps cloud pixels (2026-11-24, your decision).** Cloud-flagged pixels are kept, and the
+  loader decides from the CLDICE flag share, as for Rrs: dense Sargassum can trip the cloud mask, and
+  SFREFL is there mainly for floating seaweed. Dropping them at tiling would be irreversible once raw
+  is deleted. Land pixels stay dropped. The int16 range widens to scale 4e-5, offset 1.2
+  (-0.11..2.51; half a step 2e-5, well below the sensor noise), so bright cloud is not clipped. If
+  storage becomes a concern, decide then.
   Real numbers: step K1b.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)

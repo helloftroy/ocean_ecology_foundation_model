@@ -15,8 +15,11 @@ Regridding as v2: area-weighted pixel footprints (sub-sampled), no flag mask in 
 Per cell, per stored tile (one zipped Zarr per granule and zone, `<granule>__<zone>.zarr.zip`):
   refl          (tile, band, n, n) int16  Rrs (or PACE SFREFL rhos): mean over pixels with a finite
                 value (no flag mask), quantised with the source's scale/offset (|error| <= half a
-                source step). SFREFL (float32 source): scale 2e-5, offset 0.6, and pixels flagged
-                CLDICE or LAND excluded (cloud / land cells empty).
+                source step). SFREFL (float32 source): scale 4e-5, offset 1.2 (range -0.11..2.51, so
+                bright cloud is not clipped; half a step 2e-5, far below the sensor noise), and
+                pixels flagged LAND excluded (land cells empty). Cloud-flagged (CLDICE) pixels are
+                kept (dense Sargassum can trip the cloud mask); the loader decides from the CLDICE
+                flag share, as for Rrs.
   refl_clean    (tile, band, n, n) int16  mean over pixels passing the product's training mask, ONLY
                 in mixed cells (some contributing pixels hard-flagged, some not); fill elsewhere
   refl_unc      (tile, band, n, n) int16  PACE Rrs_unc (same rule as refl)
@@ -62,8 +65,8 @@ from .tiling import ROW_BLOCK, _track_vectors, dequantise, footprint_pairs
 from .zenith import nadir_column, sensor_zenith
 
 FILL = -32767
-SFREFL_SCALE, SFREFL_OFFSET = 2e-5, 0.6
-SFREFL_EMPTY_FLAGS = ("CLDICE", "LAND")
+SFREFL_SCALE, SFREFL_OFFSET = 4e-5, 1.2
+SFREFL_EMPTY_FLAGS = ("LAND",)   # 2026-11-24: cloud pixels kept (Sargassum)
 MIN_VALID = 0.01
 ANGLE_SCALE = 0.01
 CHUNK_RAW_BYTES = 1 << 20

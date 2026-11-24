@@ -240,21 +240,25 @@ class TestTiling3(unittest.TestCase):
         self.assertIn("avw", g.attrs["fields_not_stored"])
         st.close()
 
-    def test_sfrefl_quantised_and_cloud_land_empty(self):
+    def test_sfrefl_quantised_cloud_kept_land_empty(self):
         res, field = self.tile("sfrefl", "pace_oci_sfrefl")
         z = [z for z in res["zones"] if z["status"] == "done"][0]
         g, st = self.open(z)
         v = g["refl"][:]
         self.assertEqual(v.dtype, np.int16)
         ok = v != -32767
-        rh = v[ok] * 2e-5 + 0.6
+        rh = v[ok] * 4e-5 + 1.2
         self.assertTrue((rh > 0.033).all() and (rh < 0.071).all())
-        # cells with only cloud pixels are empty although rhos was finite there
-        cl = tiling3.flag_share_of(g, "CLDICE")
-        full_cloud = cl == 255
+        # cloud-only cells keep their rhos (Sargassum can be flagged cloud); the CLDICE share says so
+        cl, ld = tiling3.flag_share_of(g, "CLDICE"), tiling3.flag_share_of(g, "LAND")
+        full_cloud = (cl == 255) & (ld == 0)
         self.assertTrue(full_cloud.any())
-        self.assertFalse(ok[:, 0][full_cloud].any())
-        self.assertEqual(g.attrs["sfrefl_empty_flags"], ["CLDICE", "LAND"])
+        self.assertTrue(ok[:, 0][full_cloud].all())
+        # land-only cells are empty (also under cloud)
+        land = ld == 255
+        self.assertTrue(land.any())
+        self.assertFalse(ok[:, 0][land].any())
+        self.assertEqual(g.attrs["sfrefl_empty_flags"], ["LAND"])
         st.close()
 
     def test_run_record_index_and_resume(self):
