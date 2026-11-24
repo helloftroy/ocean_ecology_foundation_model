@@ -182,12 +182,26 @@ class TestModel(unittest.TestCase):
         torch.manual_seed(0)
         m = Model({**TINY, "arm": "D"})
         kw = dict(sigreg=sig, lam=0.05, mu=0.1, sigreg_tokens=512)
-        out = m(batch, nu=0.1, **kw)
-        for k in ("pred", "sigreg", "pace_residual", "recon"):
+        out = m(batch, nu=0.1, kappa=0.2, **kw)
+        for k in ("pred", "sigreg", "pace_residual", "recon", "amp"):
             self.assertIn(k, out)
         c_part = 0.95 * out["pred"] + 0.05 * out["sigreg"] + 0.1 * out["pace_residual"]
-        self.assertAlmostEqual(float(out["loss"]), float(c_part + 0.1 * out["recon"]), places=4)
+        self.assertAlmostEqual(float(out["loss"]), float(c_part + 0.1 * out["recon"] + 0.2 * out["amp"]), places=4)
         self.assertGreater(float(out["recon"]), 0)
+        self.assertGreater(float(out["amp"]), 0)
+        self.assertNotIn("amp", m(batch, nu=0.1, kappa=0.0, **kw))
+        # amplitude targets match the tokenizer's own amplitude input; a 2x copy shifts the raw feature
+        g = batch["groups"][0]
+        a = m.tok.amp_features(g, g["band_mask"])
+        self.assertEqual(tuple(a.shape), (g["values"].shape[0], 1024, 2))
+        self.assertTrue(torch.isfinite(a).all())
+        # amplitude loss alone: gradients reach the encoder and the head, not the predictor
+        m.zero_grad()
+        z, gm, dts = m.encode_context(batch)
+        m.amp_loss(batch, z).backward()
+        self.assertIsNone(m.p_in.weight.grad)
+        self.assertGreater(float(m.amp_head.weight.grad.abs().sum()), 0)
+        self.assertGreater(float(m.tok.trunk[0].weight.grad.abs().sum()), 0)
         # reconstruction alone: gradients reach the encoder and decoder queries, not the predictor's
         m.zero_grad()
         z, gm, dts = m.encode_context(batch)

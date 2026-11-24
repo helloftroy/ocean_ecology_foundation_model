@@ -30,7 +30,9 @@ oefm/model/data.py. Token width D (512), predictor width Dp (384).
 - Arm D (design document fork 2, "hybrid JEPA + light reconstruction"; stage 1.5): arm C's
   objective plus arm A's band decoder at weight nu (~0.1): loss = (1 - lambda) pred + lambda SIGReg
   + mu PACE residual + nu reconstruction. The decoder has its own mask-token embeddings (r_*), so
-  the predictor and E2 are built exactly as in arm C.
+  the predictor and E2 are built exactly as in arm C. Plus an amplitude-retention term at weight
+  kappa (0.1): a linear head on the context tokens predicts each cell's two amplitude features,
+  because trained B/C failed the amplitude test (see amp_loss).
 """
 
 from __future__ import annotations
@@ -164,6 +166,20 @@ class SpectralTokenizer(nn.Module):
         mean = (x * m).sum(dims) / m.sum(dims).clamp(min=1)
         return torch.stack([mean, torch.asinh(torch.nan_to_num(raw_mean.float()) / AMP_SCALE)], dim=-1)
 
+    def amp_features(self, g: dict, band_mask: torch.Tensor) -> torch.Tensor:
+        """[n, 1024, 2] per-cell amplitude features (the tokenizer's amplitude input): the arm D
+        amplitude-retention target."""
+        x = torch.nan_to_num(g["values"].float()) * band_mask
+        n, c = x.shape[:2]
+        raw = g["raw_mean"].reshape(n, 32, 32)
+        if g["olci"]:
+            xp = x.reshape(n, c, 32, 4, 32, 4).permute(0, 2, 4, 1, 3, 5).reshape(n, 32, 32, c, 16)
+            mp = band_mask.reshape(n, c, 32, 4, 32, 4).permute(0, 2, 4, 1, 3, 5).reshape(n, 32, 32, c, 16).float()
+            a = self._amp(xp, mp, raw, (-1, -2))
+        else:
+            a = self._amp(x.permute(0, 2, 3, 1), band_mask.permute(0, 2, 3, 1).float(), raw, -1)
+        return a.reshape(n, 1024, 2)
+
     def forward(self, g: dict, band_mask: torch.Tensor) -> torch.Tensor:
         """Tokens [n, 1024, D] for one product group (band_mask may differ from the stored one,
         e.g. after spectral dropout)."""
@@ -220,6 +236,8 @@ class Model(nn.Module):
             self.r_view = nn.Embedding(len(VIEW_TYPES), dp)
             self.r_band = nn.Linear(2 * m["n_fourier"], dp)
             self.r_dt = nn.Linear(32, dp)
+        if self.arm == "D":  # amplitude retention (stage 1 B/C failed the amplitude test on trained weights)
+            self.amp_head = nn.Linear(d, 2)
         if self.arm in RESID_ARMS:
             self.resid = nn.Sequential(nn.Linear(d, 512), nn.GELU(), nn.Linear(512, m["pace_bands"]))
         self.n_fourier = m["n_fourier"]
@@ -332,7 +350,7 @@ class Model(nn.Module):
 
     def forward(self, batch: dict, sigreg=None, lam: float = 0.05, mu: float = 0.1,
                 sigreg_tokens: int = 8192, balance: str = "modality", weights: dict | None = None,
-                nu: float = 0.1) -> dict:
+                nu: float = 0.1, kappa: float = 0.1) -> dict:
         z, gmask, dts = self.encode_context(batch)
         out: dict = {}
         if self.arm in JEPA_ARMS:
@@ -372,6 +390,11 @@ class Model(nn.Module):
                 loss = loss + nu * l_rec
                 out.update({f"recon_{k}": v for k, v in fam.items()})
                 out["recon"] = l_rec.detach()
+                if kappa > 0:
+                    l_amp = self.amp_loss(batch, z)
+                    if l_amp is not None:
+                        loss = loss + kappa * l_amp
+                        out["amp"] = l_amp.detach()
             out["loss"] = loss
         elif self.arm == "A":
             l_rec, fam, n = self.recon_loss(batch, z, gmask, dts, balance, weights)
@@ -414,6 +437,24 @@ class Model(nn.Module):
         else:
             l_rec, fam = z.sum() * 0, {}
         return l_rec, fam, n
+
+    def amp_loss(self, batch, z):
+        """Arm D: squared error of a linear read-out of the context tokens z against each visible
+        cell's amplitude features (mean transformed value, asinh of mean raw reflectance). Stage 1
+        B/C kept amplitude only in a direction of ~0.2 % of the E1 norm (amplitude test) and kept
+        log brightness at R^2 0.30 on real samples (A 0.98): the JEPA target is free to drop it.
+        A linear head keeps it linearly decodable from E1 at the cost of one D x 2 layer."""
+        errs = []
+        for g in batch["groups"]:
+            sel = g["ctx_cells"].any(1)
+            if not sel.any():
+                continue
+            gg = subset(g, sel)
+            a = self.tok.amp_features(gg, gg["band_mask_ctx"])
+            cells = gg["ctx_cells"]
+            pred = self.amp_head(z[gg["seq"], gg["slot"]][cells].float())
+            errs.append(((pred - a[cells]) ** 2).reshape(-1))
+        return torch.cat(errs).mean() if errs else None
 
     def pace_residual_loss(self, batch, z):
         errs = []

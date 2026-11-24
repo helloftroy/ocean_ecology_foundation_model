@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (Stage 1 evaluated; before the 2.11 decision: refreshed targets + MOANA (**G0**), robustness and focused checks on A/B/C (**G**), then arm D at ν = 0.1 and 0.3 = stage 1.5, fork 2 (**H**), then evaluate all five (**I**)).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (G0 and G done: B and C fail the amplitude test, so arm D gets an amplitude-retention term; next: arm D at ν = 0.1 and 0.3 = stage 1.5, fork 2 (**H**), then evaluate all five (**I**)).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -110,7 +110,7 @@ sbatch --account=191001-366746 --export=ALL,EXTRA="--steps probes" cluster/evalu
 Paste back `tail -80 logs/oefm_eval_<id>.out` and copy `data/runs/eval_stage1/probes*.csv` to the
 laptop (into `multimodal_seusmbol/eval_results/stage1/`, outside the repo).
 
-**G0. Refreshed targets + NASA MOANA matchups (2026-11-23, second review)** ▶️. On `service`, minutes
+**G0. Refreshed targets + NASA MOANA matchups (2026-11-23, second review)** ✅ (MOANA matchups used in G). On `service`, minutes
 plus a ~1 GB download; run it before G. New target columns, every existing column identical (checked):
 `phyto_*` in both eDNA files (CLR of phytoplankton groups: 18S diatoms, Dinophyceae, haptophytes,
 prasinophytes, other Chlorophyta; 16S Prochlorococcus, Synechococcus, plastids) and `hab_*` habitat
@@ -131,7 +131,7 @@ zcat data/processed/regional/eval/matched/fish_crcp.csv.gz | head -1 | tr ',' '\
 Paste back `tail -20 logs/oefm_targets_<id>.out` (the `moana:` lines give the files found and the
 samples with a matchup) and the two numbers.
 
-**G. Robustness and focused checks on A, B, C (2026-11-23)** ▶️ after G0. They reuse the stage 1
+**G. Robustness and focused checks on A, B, C (2026-11-23)** ✅ job 116439 (results: decision log "G results"). Two evaluation fixes since (phyto point deltas, CRCP groups) take effect in I. They reuse the stage 1
 embeddings (windows causal and retro), so no re-embedding is needed. Decision log: "Stage 1.5 and
 robustness checks". About 2–4 h on 1 A100, mostly CPU fits. Steps:
 - test-year rotation (`robust_rotate*.csv`);
@@ -150,9 +150,11 @@ sbatch --account=191001-366746 --export=ALL,EXTRA="--steps robust amplitude focu
 Paste back `tail -250 logs/oefm_eval_<id>.out`. Copy `data/runs/eval_stage1/robust_*.csv`,
 `focused_*.csv` and `amplitude_check.csv` to `multimodal_seusmbol/eval_results/stage1/`.
 
-**H. Stage 1.5: train arm D at two reconstruction weights** ⏳ submit after G's amplitude lines are
-reviewed (the review asks that a B/C amplitude failure be fixed in the hybrid before it is trained;
-effective rank is already fine: E1 A 116, B 103, C 127). Arm D is fork 2, hybrid JEPA + light
+**H. Stage 1.5: train arm D at two reconstruction weights** ▶️ G's amplitude test is read: B and C
+fail it (E1 moves 0.1–0.3 % under a 2× brightness change; threshold 5 %), so arm D now also has an
+amplitude-retention term, κ = 0.1 (`loss.kappa`; a linear head on the context tokens predicts each
+cell's two amplitude features). Both D runs use it, so the ν comparison stays clean. Effective rank
+is fine for every arm (E1 A 116, B 103, C 127). Arm D is fork 2, hybrid JEPA + light
 reconstruction: arm C's loss plus arm A's band decoder at weight ν (`loss.nu`): ν = 0.1 (`stage1_D`)
 and ν = 0.3 (`stage1_D3`). Config, data and 30,000 steps are the same as the other arms. Each run
 takes about 28–32 h; peak memory should be about 30 GB of 80. Each needs all 4 GPUs, so they run one
@@ -163,8 +165,8 @@ sbatch --account=191001-366746 --export=ALL,ARM=D,CHAIN=1 cluster/train.sbatch
 sbatch --account=191001-366746 --export=ALL,ARM=D,NAME=stage1_D3,OVERRIDES="loss.nu=0.3",CHAIN=1 cluster/train.sbatch
 ```
 After about 10 minutes of each, paste back the first lines of `logs/oefm_train_<id>.out` (it prints
-the run name and overrides) and `tail -3 data/runs/<run>/log.jsonl`. The log should show `recon` and
-the `recon_*` keys next to `pred`, `sigreg` and `pace_residual`; for D3, check
+the run name and overrides) and `tail -3 data/runs/<run>/log.jsonl`. The log should show `recon`,
+the `recon_*` keys and `amp` next to `pred`, `sigreg` and `pace_residual`; for D3, check
 `data/runs/stage1_D3/train_config.json` has `"nu": 0.3`.
 
 **I. Evaluate all five runs (after H)** ⏳. Use a new tag. `embed` writes every run into the same
@@ -437,9 +439,9 @@ Paste back: `tail -40 logs/oefm_targets_<id>.out` (includes the summary table).
 | 2.8c | Benchmarks: arms × sequence length 8/16/24 × per-GPU batch (`benchmark.sbatch`) | gpu-a100 | ✅ L16, batch 32 |
 | 2.9 | Train **A** masked reconstruction, **B** JEPA + SIGReg, **C** B + PACE spectral residual (`train.sbatch`, same steps for each) | gpu-a100 | ✅ all three at step 30,000 |
 | 2.10 | Compare: collapse checks and effective rank, PACE spectral retention (frozen encoder + identical decoder, error by wavelength), frozen-embedding probes on 2.7, training behaviour | gpu-a100 | ✅ 116376 (SFER probes rerun: F2 ✅) |
-| 2.10b | Robustness: test-year rotation, bootstrap intervals, PACE-era visible vs dropped, input retention, amplitude test on trained weights (`--steps robust amplitude`, `oefm/model/robust.py`) | gpu-a100 | ▶️ G |
-| 2.10c | Focused tests (`--steps focused`, `oefm/model/focused.py`): PACE-era phytoplankton groups vs NASA MOANA (`oefm/moana.py`), ±1/±3 d windows; fish added value over habitat (Poisson ridge, 90-day seasonal window) | gpu-a100 (+ `moana` on service) | ▶️ G0, G; all runs in I |
-| 2.9b | **Stage 1.5, arm D** (design document fork 2, hybrid JEPA + light reconstruction): arm C + arm A's band decoder at ν = 0.1 and 0.3 | gpu-a100 | ⏳ H after G's amplitude check, then evaluate all five (I) |
+| 2.10b | Robustness: test-year rotation, bootstrap intervals, PACE-era visible vs dropped, input retention, amplitude test on trained weights (`--steps robust amplitude`, `oefm/model/robust.py`) | gpu-a100 | ✅ G 116439: B/C fail amplitude |
+| 2.10c | Focused tests (`--steps focused`, `oefm/model/focused.py`): PACE-era phytoplankton groups vs NASA MOANA (`oefm/moana.py`), ±1/±3 d windows; fish added value over habitat (Poisson ridge, 90-day seasonal window) | gpu-a100 (+ `moana` on service) | ✅ G0, G (causal/retro); all windows in I |
+| 2.9b | **Stage 1.5, arm D** (design document fork 2, hybrid JEPA + light reconstruction): arm C + arm A's band decoder at ν = 0.1 and 0.3, + amplitude term κ = 0.1 | gpu-a100 | ▶️ H, then evaluate all five (I) |
 | 2.11 | **Pick the Stage 1 winner** (reconstruction is kept if it beats JEPA). You decide; recorded in the decision log | – | ⏳ after G–I (A leads so far) |
 
 ### Running Stage 1 on Ptolemy (2.8–2.9)
@@ -526,6 +528,98 @@ without re-downloading.
 ---
 
 ## Decision log
+
+### G results (job 116439, 2026-11-23): B/C lose amplitude; arm D gets an amplitude term
+**Amplitude test on trained weights** (design document: log-amplitude R² ≥ 0.95, relative distance > 0.05):
+
+| Level | Metric | A | B | C |
+|---|---|---|---|---|
+| E1 | log-amplitude R² | 0.926 FAIL | 0.985 | 0.984 |
+| E1 | log blue/green R² | −1.549 | 0.916 | 0.921 |
+| E1 | rel. distance ×0.5 | 0.388 | 0.002 FAIL | 0.001 FAIL |
+| E1 | rel. distance ×2 | 0.278 | 0.003 FAIL | 0.001 FAIL |
+| token | log-amplitude R² | 0.988 | 0.987 | 0.987 |
+| token | log blue/green R² | 0.909 | 0.908 | 0.909 |
+| token | rel. distance ×0.5 | 0.865 | 0.034 FAIL | 0.034 FAIL |
+| token | rel. distance ×2 | 0.860 | 0.052 | 0.052 |
+
+- B/C keep amplitude only in a direction of ~0.1–0.3 % of the E1 norm; already the tokenizer
+  output moves only 3–5 % (A 86 %). The JEPA target is encoded by the same tokenizer, so dropping
+  brightness makes targets easier to predict.
+- On real samples it is an information loss, not only a scale: retention (CV R², causal) of log
+  brightness A 0.981, B 0.296, C 0.316 (meta 0.379); band 443 A 0.971, B 0.124, C 0.178; log
+  blue/green A 0.990, B 0.700, C 0.716. A's synthetic E1 failures (0.926; blue/green −1.55) are
+  on uniform synthetic scenes; on real samples A retains both at ≥ 0.98.
+- **Fix in the hybrid (review: "if either failed, fix it in the hybrid too"):** arm D's
+  reconstruction term already needs amplitude; in addition D gets `amp_loss` at κ = 0.1 (linear
+  head D → 2 on the context tokens, target the tokenizer's own two amplitude features per cell).
+  `loss.kappa=0` turns it off. Caveat: D's brightness retention is then partly by construction;
+  the downstream probes and the distance part of the amplitude test are the independent checks.
+
+**Test-year rotation** (mean over test years of the family median R²; [years better than A/e1]):
+
+| Target | A/e1 | B/e1 | C/e1 | best other |
+|---|---|---|---|---|
+| 16S NMF k5 causal | 0.705 | 0.575 | 0.608 [1/5] | – |
+| 16S phyto CLR causal | 0.584 | 0.421 | 0.424 | seq 0.463 |
+| 18S NMF k5 causal | 0.553 | 0.491 [1/5] | 0.513 [2/5] | B/e2 0.531 [3/5], C/e2 0.539 [3/5] |
+| 18S phyto CLR causal | 0.365 | 0.241 | 0.249 | seq 0.245 |
+| SFER Chl causal | 0.702 | 0.458 | 0.462 | raw 0.661 |
+| SFER Si causal | 0.340 | 0.337 [4/8] | 0.339 [4/8] | C/e2 0.344 [4/8] |
+| SFER PO4 causal | −0.025 | −0.074 | −0.073 | B/e2 0.057, C/e2 0.055 [8/8] |
+| CRCP log1p causal | −0.287 | −0.067 | −0.088 | C/e2 −0.034 |
+| MaxN causal | 0.083 | 0.018 | 0.038 | A/e3 0.084 |
+
+- Sequencing covariates alone (`seq`) explain the phytoplankton CLR about as well as B/C
+  (16S 0.463, 18S 0.245): platform and depth shift group shares.
+- The stage 1 Si advantage of B/C is gone over years (≈ A). PO4 B/C E2 wins 8/8 but at R² ≈ 0.05.
+- Official split bootstrap (95 %): SFER Chl A 0.800 (0.77, 0.83), B 0.573 (0.52, 0.63), C 0.601
+  (0.54, 0.65), raw 0.740 (0.70, 0.78); 16S NMF k5 A 0.711 (0.64, 0.78), C 0.745 (0.67, 0.79).
+- CRCP intervals were degenerate (e.g. 0.016 (0.02, 0.02)): CRCP groups were primary sample units,
+  which are random per survey (3,018 samples, 2,406 units), so every group had one sample. Fixed:
+  0.1° blocks, 62 groups of median 30 (`group_of`). MaxN PACE-era R² differences (−59 … +9) come
+  from near-zero variance in small month groups; uninterpretable, superseded by focused fish.
+
+**PACE-era visible − dropped (probes trained on PACE-era samples):** every E1 interval includes 0
+except negative ones (16S phyto causal B/e3 −0.197 (−0.32, −0.06); 18S phyto causal A/e1 −0.179
+(−0.34, −0.02)). No arm shows a PACE gain.
+
+**Focused phyto** (PACE-era, leave-one-cruise-out, 3 cruises; MOANA ±3 d for causal, ±1 d for
+retro; n = 46 causal, 50 retro after requiring PACE and a MOANA matchup): median R² over groups
+
+| Features | 16S causal | 16S retro | 18S causal | 18S retro |
+|---|---|---|---|---|
+| MOANA | 0.333 (0.18, 0.46) | 0.562 (0.40, 0.70) | −0.077 | −0.224 |
+| raw visible | 0.065 | −0.008 | −0.306 | −0.475 |
+| A/e1 visible | 0.154 (−0.14, 0.34) | 0.113 | −0.655 | −0.363 |
+| B/e1 visible | 0.078 | 0.005 | −0.706 | −0.291 |
+| C/e1 visible | −0.071 | −0.056 | −0.519 | −0.155 |
+| meta | −0.471 | −0.324 | −0.068 | −0.079 |
+
+- MOANA (Pro, Syn, picoeukaryote cells) beats every embedding on 16S (E1 − MOANA: A −0.18
+  (−0.51, 0.10), B −0.26 (−0.62, −0.10), C −0.40 (−0.62, −0.25) causal; all three below in retro,
+  p_better ≤ 0.0005). Nothing predicts 18S groups across cruises (all ≤ 0; C/e1 retro vs MOANA
+  +0.069 (−0.04, 0.27)).
+- E1 visible − dropped: point values were NaN (ordering bug, fixed); intervals all include 0
+  except A/e1 18S retro (−0.54, −0.03).
+- ±1/±3 d embedding windows come in I (they need new embeddings).
+
+**Focused fish** (Poisson ridge, habitat covariates in every model; official split): median over species
+
+| Features | CRCP D² | CRCP D² level-free | CRCP Spearman | MaxN D² | MaxN Δ vs habitat (95 %) |
+|---|---|---|---|---|---|
+| habitat | 0.097 | 0.162 | 0.401 | 0.069 | 0 |
+| meta | 0.150 | 0.195 | 0.477 | 0.093 | +0.024 (−0.001, 0.063) |
+| raw | 0.121 | 0.154 | 0.428 | 0.069 | −0.000 (−0.03, 0.03) |
+| A/e1 | 0.102 | 0.168 | 0.470 | 0.075 | +0.006 (−0.02, 0.05) |
+| B/e1 | 0.123 | 0.194 | 0.416 | 0.100 | +0.030 (0.003, 0.054) |
+| C/e1 | 0.131 | 0.189 | 0.424 | 0.099 | +0.030 (0.006, 0.059) |
+
+- Year rotation: CRCP D² is negative for every set (habitat −0.024) but level-free 0.11–0.14 and
+  Spearman 0.33–0.38: the stage 1 negative R² is a year-level shift, as the review suspected.
+  MaxN rotation: meta 0.134, A 0.099, C 0.089, raw 0.085, B 0.071, habitat 0.054.
+- Embeddings add a little over habitat (MaxN B/C +0.03, interval above 0) but not more than
+  position and season (meta). CRCP intervals were degenerate (group bug above).
 
 ### Second review: what PACE can see, fish over habitat, two reconstruction weights (2026-11-23)
 Built after a second pasted review (steps G0, G, H, I). Code: `oefm/model/focused.py`

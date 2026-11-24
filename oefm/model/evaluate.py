@@ -317,13 +317,17 @@ def _combine_offsets(parts, offsets):
 
 
 # ----------------------------------------------------------------------------- probes
-def group_of(dataset: str, sample_id: str, time_utc: str) -> str:
-    """Cross-validation groups: cruise (eDNA, SFER), site (CRCP), month (MaxN and fallback)."""
+def group_of(dataset: str, sample_id: str, time_utc: str, lat: float = float("nan"), lon: float = float("nan")) -> str:
+    """Cross-validation and bootstrap groups: cruise (eDNA, SFER), 0.1 degree block (CRCP), month
+    (MaxN and fallback). CRCP primary sample units are drawn at random each survey (3,018 samples,
+    2,406 units), so a unit is not a site; 0.1 degree blocks (~11 km) give 62 groups of median 30."""
     if dataset.startswith(("edna", "sfer")):
         m = re.search(r"(WS\d{5}|[A-Z]{1,3}\d{4,5})", sample_id)
         if m:
             return m.group(1)
     if dataset == "fish_crcp":
+        if np.isfinite(lat) and np.isfinite(lon):
+            return f"{int(np.floor(lat / 0.1))}_{int(np.floor(lon / 0.1))}"
         return sample_id.split("_")[0]
     return str(time_utc)[:7]
 
@@ -494,7 +498,8 @@ def probe_inputs(cfg, out_dir: Path, window: str, paces, seq_covariates_mode: st
         tcols = target_columns(df)
         Y = np.column_stack([transform_target(c, df[c].to_numpy(float)) for c in tcols]) if tcols \
             else np.zeros((len(df), 0))
-        groups = np.array([group_of(ds, s, tt) for s, tt in zip(df["sample_id"], df["time_utc"])])
+        groups = np.array([group_of(ds, s, tt, la, lo) for s, tt, la, lo in
+                           zip(df["sample_id"], df["time_utc"], df["lat"].astype(float), df["lon"].astype(float))])
         n_pace = {pace: e["n_pace"][ix] for pace, e in emb.items()}
         yield {"ds": ds, "df": df, "fsets": fsets, "C": C, "settings": settings, "tcols": tcols, "Y": Y,
                "common": common, "groups": groups, "n_pace": n_pace}

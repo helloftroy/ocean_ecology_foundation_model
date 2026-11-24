@@ -53,6 +53,7 @@ loss:
   lambda: 0.05             # (1 - lambda) * prediction + lambda * SIGReg (arms B, C)
   mu: 0.1                  # PACE residual weight (arms C, D)
   nu: 0.1                  # band-reconstruction weight (arm D: hybrid JEPA + light reconstruction)
+  kappa: 0.1               # arm D: amplitude retention (linear head on context tokens -> 2 amplitude features)
   sigreg_slices: 1024
   sigreg_points: 17
   sigreg_t_max: 5.0        # 17 points on [-5, 5] (doubled trapezoid weights on [0, 5])

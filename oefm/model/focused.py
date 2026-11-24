@@ -132,9 +132,7 @@ def phyto(cfg, out_dir: Path, windows, n_boot: int = 1000, log=print) -> None:
                 for other, label in (((name, "drop"), "vs_drop"), (("moana", "-"), "vs_moana")):
                     if pace == "visible" and name.endswith("/e1") and other in boots and other != (name, pace):
                         d = med - np.nanmedian(boots[other], 1)
-                        rec[f"delta_{label}"] = rec["r2_median"] - float(np.nanmedian(
-                            [r["r2"] for r in rows if r["features"] == other[0] and r["pace"] == other[1]
-                             and r["dataset"] == ds and r["window"] == window]))
+                        rec[f"delta_{label}"] = np.nan   # point value filled below (the other set may come later)
                         rec[f"delta_{label}_lo"], rec[f"delta_{label}_hi"] = np.nanpercentile(d, [2.5, 97.5])
                         rec[f"p_better_{label}"] = float(np.nanmean(d > 0))
                 summ.append(rec)
@@ -144,6 +142,15 @@ def phyto(cfg, out_dir: Path, windows, n_boot: int = 1000, log=print) -> None:
         return
     pd.DataFrame(rows).to_csv(out_dir / "focused_phyto.csv", index=False)
     s = pd.DataFrame(summ)
+    med = s.set_index(["dataset", "window", "features", "pace"])["r2_median"]
+    for label, ref in (("vs_drop", None), ("vs_moana", ("moana", "-"))):
+        col = f"delta_{label}"
+        if col not in s:
+            continue
+        for i in s.index[s[col + "_lo"].notna()]:
+            r = s.loc[i]
+            other = (r["features"], "drop") if ref is None else ref
+            s.loc[i, col] = r["r2_median"] - med.get((r["dataset"], r["window"], *other), np.nan)
     s.to_csv(out_dir / "focused_phyto_summary.csv", index=False)
     s["cell"] = s["r2_median"].round(3).astype(str) + " [" + s["ci_lo"].round(2).astype(str) + ", " + s["ci_hi"].round(2).astype(str) + "]"
     log("PACE-era phytoplankton groups (leave-one-cruise-out): median R^2 over groups [95% bootstrap within cruises]")

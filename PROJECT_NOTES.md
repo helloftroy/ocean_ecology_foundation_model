@@ -78,6 +78,13 @@
    phyto LOCO vs MOANA; fish Poisson ridge over habitat, D2 / level-free D2 / Spearman). Stage 1.5
    at nu 0.1 (stage1_D) and 0.3 (stage1_D3; train.sbatch NAME + OVERRIDES). H waits for G's
    amplitude check on B/C. No 12S fish eDNA exists in the sources.
+   G (job 116439): B/C FAIL the amplitude test (E1 rel. distance 0.001-0.003 under 0.5x/2x; real
+   log-brightness retention B 0.30, C 0.32 vs A 0.98). Arm D now has amp_loss (kappa 0.1, linear
+   head on context tokens -> the tokenizer's 2 amplitude features). A leads every eDNA/SFER family
+   over test years; MOANA beats every E1 on PACE-era 16S groups; nothing predicts 18S groups across
+   cruises; no PACE visible-vs-dropped gain anywhere; fish embeddings add ~0.03 D2 over habitat on
+   MaxN (no more than meta); CRCP negative R2 is a year-level shift (level-free D2 > 0). Fixed after
+   G: CRCP groups = 0.1 deg blocks (units are random per survey), phyto point deltas (were NaN).
 1. Step 1.7: re-fetch the 8 MUR files (download.sbatch; if they fail again, re-inventory mur_sst).
 2. P.0 setup_env rerun, then prep.sbatch trial (LIMIT=40), then full; review examples and
    eval_coverage_summary.csv (usable PACE per evaluation sample).

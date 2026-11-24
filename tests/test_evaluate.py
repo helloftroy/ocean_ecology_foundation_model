@@ -317,6 +317,8 @@ class TestEvaluate(unittest.TestCase):
                 self.assertEqual(set(ph["window"]), {"retro", "retro3"})
                 self.assertEqual(ph.groupby("window")["n"].nunique().max(), 1)     # same samples per window
                 self.assertTrue({"delta_vs_drop", "delta_vs_moana"} <= set(ph.columns))
+                e1v = ph[ph["features"].str.endswith("/e1") & (ph["pace"] == "visible")]
+                self.assertTrue(e1v[["delta_vs_drop", "delta_vs_moana"]].notna().all().all())
                 self.assertGreater(ph.loc[ph["features"] == "moana", "r2_median"].min(), 0.2)
                 fo.fish(cfg, out, ["causal", "seasonal"], n_boot=50, period="quarter", min_period=10, log=logs.append)
                 fs = pd.read_csv(out / "focused_fish_summary.csv")

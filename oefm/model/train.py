@@ -137,6 +137,7 @@ def main(argv=None) -> None:
     amp = dict(device_type=device.type, dtype=torch.bfloat16, enabled=tcfg["run"]["precision"] == "bf16" and device.type == "cuda")
     lam, mu = tcfg["loss"]["lambda"], tcfg["loss"]["mu"]
     nu = float(tcfg["loss"].get("nu", 0.1))  # arm D: reconstruction weight
+    kappa = float(tcfg["loss"].get("kappa", 0.1))  # arm D: amplitude-retention weight
     sig_tokens = max(1, int(tcfg["loss"]["sigreg_tokens"]) // world)
     t_start = time.time()
     last_ck = time.time()
@@ -161,7 +162,7 @@ def main(argv=None) -> None:
             t1 = time.time()
             ctx = model.no_sync() if (ddp and micro < accum - 1) else contextlib.nullcontext()
             with ctx, torch.autocast(**amp):
-                out = model(batch, sigreg=sig, lam=lam, mu=mu, nu=nu, sigreg_tokens=sig_tokens,
+                out = model(batch, sigreg=sig, lam=lam, mu=mu, nu=nu, kappa=kappa, sigreg_tokens=sig_tokens,
                             balance=tcfg["loss"]["balance"], weights=tcfg["loss"]["modality_weights"])
                 loss = out["loss"] / accum
             loss.backward()
@@ -171,7 +172,7 @@ def main(argv=None) -> None:
             wait += t1 - t0
             comp += t2 - t1
             seqs += batch["B"]
-            for k in [k for k in out if k in ("loss", "pred", "sigreg", "recon", "pace_residual")
+            for k in [k for k in out if k in ("loss", "pred", "sigreg", "recon", "pace_residual", "amp")
                       or k.startswith(("pred_", "recon_", "sigreg_"))]:
                 if torch.is_tensor(out[k]) or isinstance(out[k], float):
                     agg[k] = agg.get(k, 0.0) + float(out[k]) / accum
