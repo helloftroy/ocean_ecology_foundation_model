@@ -1,4 +1,11 @@
-"""Read config/pilot.yaml: regions, time windows, products, and where data lives."""
+"""Read config/pilot.yaml: regions, time windows, products, and where data lives.
+
+A config may `extends: <other.yaml>` (relative to itself): the other file is loaded first and this
+one's top-level keys replace it, except `processing`, `training` and `satellite`, which are merged one
+level deep. Global configs (config/biogoship.yaml) also have `zones`: each a local LAEA projection
+centre {lat_0, lon_0}; every region then names its `zone` and may carry its own `windows`
+([{name, start, end}]), used instead of the global time windows for that region's searches.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +32,8 @@ class Region:
     east: float
     north: float
     notes: str = ""
+    zone: str | None = None
+    windows: tuple = ()
 
     @property
     def bbox(self) -> tuple[float, float, float, float]:
@@ -95,12 +104,20 @@ class Config:
             w, s, e, n = (float(v) for v in spec["bbox"])
             if not (w < e and s < n):
                 raise ValueError(f"region {key}: bbox must be [west, south, east, north]")
-            out[key] = Region(key, spec.get("name", key), w, s, e, n, spec.get("notes", "").strip())
+            wins = tuple(Window(self._date(x["start"]), self._date(x["end"]), (x.get("name", "window"),))
+                         for x in spec.get("windows", []) or [])
+            out[key] = Region(key, spec.get("name", key), w, s, e, n, (spec.get("notes") or "").strip(),
+                              spec.get("zone"), tuple(merge_windows(list(wins))))
         return out
 
-    def domain(self) -> Region:
-        """Union bounding box of all regions plus the configured margin (for physical subsets)."""
-        regions = list(self.regions.values())
+    @property
+    def zones(self) -> dict[str, dict]:
+        """Zone key -> {lat_0, lon_0, ...}; empty for single-projection (regional) configs."""
+        return dict(self.raw.get("zones") or {})
+
+    def domain(self, zone: str | None = None) -> Region:
+        """Union bounding box of all regions (of one zone) plus the configured margin."""
+        regions = [r for r in self.regions.values() if zone is None or r.zone == zone]
         m = float(self.raw.get("domain_margin_deg", 0.0))
         return Region(
             "domain",
@@ -119,9 +136,16 @@ class Config:
             return self.today
         return date.fromisoformat(str(value))
 
+    def region_windows(self, region: Region) -> list[Window]:
+        """The region's own windows if it has any, else the global satellite windows."""
+        return list(region.windows) if region.windows else self.satellite_windows()
+
     def satellite_windows(self) -> list[Window]:
-        """Continuous observation windows (core + historical + events), merged where they touch."""
-        t = self.raw["time"]
+        """Continuous observation windows (core + historical + events), merged where they touch.
+        Configs without time.core (global, per-region windows): the union of the region windows."""
+        t = self.raw.get("time") or {}
+        if "core" not in t:
+            return merge_windows([w for r in self.regions.values() for w in r.windows])
         windows = [Window(self._date(t["core"]["start"]), self._date(t["core"]["end"]), ("core",))]
         hist = t.get("historical", {})
         for year in hist.get("years", []):
@@ -140,7 +164,7 @@ class Config:
     def events(self) -> list[dict]:
         """time.events plus the events in every file listed under time.event_files (paths relative
         to the config file), e.g. the generated eDNA cruise windows."""
-        t = self.raw["time"]
+        t = self.raw.get("time") or {}
         out = list(t.get("events", []) or [])
         for name in t.get("event_files", []) or []:
             f = (self.path.parent / name) if not Path(name).is_absolute() else Path(name)
@@ -150,7 +174,7 @@ class Config:
 
     def physical_windows(self) -> list[Window]:
         """Satellite windows extended back by physical_lead_days, merged again."""
-        lead = timedelta(days=int(self.raw["time"].get("physical_lead_days", 0)))
+        lead = timedelta(days=int((self.raw.get("time") or {}).get("physical_lead_days", 0)))
         return merge_windows([Window(w.start - lead, w.end, w.names) for w in self.satellite_windows()])
 
     # ------------------------------------------------------------- products
@@ -202,11 +226,29 @@ def merge_windows(windows: list[Window]) -> list[Window]:
     return merged
 
 
+MERGED_KEYS = ("processing", "training", "satellite")
+
+
+def _read(path: Path) -> dict:
+    with open(path) as fh:
+        raw = yaml.safe_load(fh) or {}
+    base = raw.pop("extends", None)
+    if not base:
+        return raw
+    out = _read((path.parent / base) if not Path(base).is_absolute() else Path(base))
+    for k, v in raw.items():
+        if k in MERGED_KEYS and isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = {**out[k], **v}
+        else:
+            out[k] = v
+    return out
+
+
 def load_config(path: str | Path | None = None, today: date | None = None) -> Config:
     path = Path(path or os.getenv("OEFM_CONFIG") or DEFAULT_CONFIG)
-    with open(path) as fh:
-        raw = yaml.safe_load(fh)
-    return Config(raw=raw, path=path, today=today or datetime.now(timezone.utc).date())
+    if not path.is_absolute() and not path.exists():
+        path = REPO_ROOT / path
+    return Config(raw=_read(path), path=path, today=today or datetime.now(timezone.utc).date())
 
 
 def daterange(start: date, end: date):

@@ -46,7 +46,7 @@ from typing import Any
 import numpy as np
 
 from .config import Config
-from .grid import TileGrid
+from .grid import TileGrid, grids
 from .physics import physics_path
 from .qcpolicy import red_angle_weight
 from .tiling import tiles_root
@@ -70,26 +70,33 @@ def temporal_labels(cfg: Config, t_unix: np.ndarray) -> np.ndarray:
     return out
 
 
-def geographic_labels(cfg: Config, grid: TileGrid) -> dict[str, str]:
+def geographic_labels(cfg: Config, grid: "TileGrid | list[TileGrid]") -> dict[str, str]:
     """tile_id -> 'train' | 'geo_test' | 'buffer'. Blocks of block_tiles x block_tiles tiles; a
     seeded hash picks test_fraction of the blocks; tiles within buffer_tiles of a test tile (and
-    not in a test block) are 'buffer'."""
+    not in a test block) are 'buffer'. Several grids (zones): per zone, the zone in the hash."""
+    if isinstance(grid, list):
+        out: dict[str, str] = {}
+        for gr in grid:
+            out.update(geographic_labels(cfg, gr))
+        return out
     g = cfg.raw["training"]["partitions"]["geographic"]
     b, frac, buf, seed = int(g["block_tiles"]), float(g["test_fraction"]), int(g["buffer_tiles"]), int(g["seed"])
     blocks = sorted({(int(ix) // b, int(iy) // b) for ix, iy in zip(grid.ix, grid.iy)})
 
+    zp = f"{grid.zone}:" if getattr(grid, "zone", None) else ""
+
     def h(bk):
-        return int(hashlib.sha256(f"{seed}:{bk[0]}:{bk[1]}".encode()).hexdigest()[:12], 16)
+        return int(hashlib.sha256(f"{zp}{seed}:{bk[0]}:{bk[1]}".encode()).hexdigest()[:12], 16)
 
     ranked = sorted(blocks, key=h)
     test_blocks = set(ranked[: max(1, int(round(frac * len(blocks))))])
     lab = {}
-    test_xy = [(int(ix), int(iy)) for ix, iy in zip(grid.ix, grid.iy) if (int(ix) // b, int(iy) // b) in test_blocks]
+    test_xy = {(int(ix), int(iy)) for ix, iy in zip(grid.ix, grid.iy) if (int(ix) // b, int(iy) // b) in test_blocks}
     for tid, ix, iy in zip(grid.ids, grid.ix, grid.iy):
         ix, iy = int(ix), int(iy)
         if (ix // b, iy // b) in test_blocks:
             lab[tid] = "geo_test"
-        elif any(max(abs(ix - a), abs(iy - c)) <= buf for a, c in test_xy):
+        elif any((ix + a, iy + c) in test_xy for a in range(-buf, buf + 1) for c in range(-buf, buf + 1)):
             lab[tid] = "buffer"
         else:
             lab[tid] = "train"
@@ -159,7 +166,8 @@ class TileSequences:
             self.seq["causal_days" if mode == "causal" else "retro_half_days"] = float(window_days)
         self.mask_cfg = ({**tr["masking"], **masking} if isinstance(masking, dict) else tr["masking"]) if masking else None
         self.rng = np.random.default_rng(seed)
-        self.grid = TileGrid(cfg)
+        self.grids = grids(cfg)
+        self.grid = self.grids[0]
         self.root = tiles_root(cfg)
         self.stores = _Stores(cfg.data_root)
         df = index if index is not None else pd.read_parquet(self.root / "index" / "tile_observations.parquet")
@@ -173,7 +181,7 @@ class TileSequences:
         df["t"] = ((pd.to_datetime(df["time_utc"], utc=True, format="ISO8601") - pd.Timestamp(0, tz="UTC"))
                    / pd.Timedelta(seconds=1)).astype("f8")
         df["t_label"] = temporal_labels(cfg, df["t"].to_numpy())
-        geo = geographic_labels(cfg, self.grid)
+        geo = geographic_labels(cfg, self.grids)
         df["g_label"] = df["tile_id"].map(geo).fillna("none")
         self.geo = geo
         if split != "all":
@@ -332,12 +340,16 @@ class TileSequences:
         points."""
         t = time_utc if isinstance(time_utc, (int, float)) else datetime.fromisoformat(
             str(time_utc).replace("Z", "+00:00")).timestamp()
-        x, y = self.grid.proj.forward(np.array([lon]), np.array([lat]))
-        s = int(self.grid.slots(x, y)[0])
+        s, gr = -1, self.grid
+        for gr in self.grids:   # zones: the first whose tile set contains the point
+            x, y = gr.proj.forward(np.array([lon]), np.array([lat]))
+            s = int(gr.slots(x, y)[0])
+            if s >= 0:
+                break
         if s < 0:
             return None
-        n = self.grid.tc
-        tile = self.grid.ids[s // (n * n)]
+        n = gr.tc
+        tile = gr.ids[s // (n * n)]
         rows = self._by_tile.get(tile, np.zeros(0, int))
         if self.mode == "retro":
             lo, hi = t - float(self.seq["retro_half_days"]) * _DAY, t + float(self.seq["retro_half_days"]) * _DAY

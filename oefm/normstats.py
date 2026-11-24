@@ -33,6 +33,15 @@ HERITAGE = ["modisa_oc", "viirsn_oc", "viirsj1_oc", "viirsj2_oc", "olcia_efr_oc"
 
 
 def stats_dir(cfg: Config) -> Path:
+    """Normalisation statistics and the PACE ridge. `processing.stats_dir` (relative to the repo
+    root, or absolute) points a config at another config's statistics, e.g. the BioGO-SHIP data
+    embedded with the Florida-trained encoders."""
+    from .config import REPO_ROOT
+
+    other = (cfg.raw.get("processing") or {}).get("stats_dir")
+    if other:
+        p = Path(other)
+        return p if p.is_absolute() else REPO_ROOT / p
     return tiles_root(cfg) / "train_stats"
 
 

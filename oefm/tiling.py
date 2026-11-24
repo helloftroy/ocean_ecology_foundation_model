@@ -26,7 +26,9 @@ every pilot tile that has at least one valid 1.2 km cell:
 Chunks are one tile each, so the loader reads only the tiles it needs. Attributes carry the
 product, sensor, version, granule, source sha256, flag meanings and bit masks, mask policy, grid
 spec and code version. Arrays are stored south-up (row 0 = southern edge), as in oefm/grid.py.
-One zip per granule keeps the file count on GPFS at about one per granule.
+One zip per granule keeps the file count on GPFS at about one per granule. Global configs (zones):
+one zip per granule and zone, `<granule>__<zone>.zarr.zip`, for the zones of the regions the
+inventory matched the granule to.
 """
 
 from __future__ import annotations
@@ -55,12 +57,24 @@ def tiles_root(cfg: Config) -> Path:
     return regional_root(cfg) / "tiles" / processing_version(cfg)
 
 
-def out_path(cfg: Config, row: dict) -> Path:
+def out_path(cfg: Config, row: dict, zone: str | None = None) -> Path:
     stem = Path(row["filename"]).name
     for ext in (".nc", ".nc4"):
         if stem.endswith(ext):
             stem = stem[: -len(ext)]
+    if zone:
+        stem += f"__{zone}"
     return tiles_root(cfg) / row["product"] / (row.get("time_start") or "0000")[:4] / f"{stem}.zarr.zip"
+
+
+def granule_zones(cfg: Config, row: dict) -> list[str | None]:
+    """[None] for regional configs; else the zones of the regions listed for the granule (all zones
+    if the row lists none of this config's regions)."""
+    if not cfg.zones:
+        return [None]
+    regs = cfg.regions
+    z = sorted({regs[k].zone for k in (row.get("regions") or "").split(",") if k in regs and regs[k].zone})
+    return z or sorted(cfg.zones)
 
 
 # ----------------------------------------------------------------------------- footprint geometry
@@ -206,16 +220,17 @@ class _Acc:
             self.wb[k, us] += bc(ww).astype("f4")
 
 
-def tile_granule(args: tuple[str, dict, str, str, dict]) -> dict[str, Any]:
-    """Worker: regrid one granule onto the pilot tiles and write its zipped Zarr store."""
-    cfg_path, row, src, dest, code = args
-    res: dict[str, Any] = {"row": row, "dest": dest, "tile_rows": []}
+def tile_granule(args: tuple) -> dict[str, Any]:
+    """Worker: regrid one granule onto the pilot tiles (of one zone) and write its zipped Zarr store."""
+    cfg_path, row, src, dest, code = args[:5]
+    zone = args[5] if len(args) > 5 else None
+    res: dict[str, Any] = {"row": row, "dest": dest, "tile_rows": [], "zone": zone}
     try:
         cfg = load_config(cfg_path)
         prod = cfg.satellite_products[row["product"]]
         fam = prod["family"]
         pol = policy(cfg, row["product"])
-        grid = TileGrid(cfg)
+        grid = TileGrid(cfg, zone)
         sw = L2Swath(Path(src))
     except Exception as exc:  # noqa: BLE001
         res["status"], res["error"] = "failed", f"open: {type(exc).__name__}: {exc}"
@@ -432,10 +447,13 @@ def run(cfg: Config, products: list[str] | None = None, workers: int = 0, limit:
     from .grid import write_static
     from .manifest import Manifest
 
+    from .grid import grids as all_grids
+
     root = tiles_root(cfg)
-    grid = TileGrid(cfg)
+    gl = all_grids(cfg)
+    specs = {g.zone: g.spec() for g in gl}
     if not (root / "grid" / "tiles.parquet").exists():
-        write_static(cfg, grid, root / "grid", log)
+        write_static(cfg, gl, root / "grid", log)
     sat = [k for k in cfg.satellite_products if not products or k in products]
     man = Manifest(cfg.manifest_path)
     rows = [dict(r) for r in man.rows(f"status='verified' AND product IN ({','.join('?' * len(sat))})", tuple(sat))]
@@ -449,13 +467,15 @@ def run(cfg: Config, products: list[str] | None = None, workers: int = 0, limit:
     code = code_version(cfg)
     todo = []
     for r in sorted(rows, key=lambda r: (r["time_start"] or "", r["product"])):
-        dest = out_path(cfg, r)
-        if str(dest.relative_to(cfg.data_root)) in done:
-            continue
-        todo.append((str(cfg.path), r, str(cfg.data_root / r["local_path"]), str(dest), code))
+        for z in granule_zones(cfg, r):
+            dest = out_path(cfg, r, z)
+            if str(dest.relative_to(cfg.data_root)) in done:
+                continue
+            todo.append((str(cfg.path), r, str(cfg.data_root / r["local_path"]), str(dest), code, z))
     if limit:
         todo = todo[:limit]
-    log(f"tiles: {grid.n_tiles} pilot tiles; {len(rows):,} verified granules, {len(todo):,} to do -> {root}")
+    log(f"tiles: {sum(g.n_tiles for g in gl)} tiles in {len(gl)} zone(s); {len(rows):,} verified granules, "
+        f"{len(todo):,} granule x zone tasks to do -> {root}")
     stats: dict[str, int] = {}
     n = max(1, workers or (os.cpu_count() or 2) // 2)
     t_start = datetime.now(timezone.utc)
@@ -466,7 +486,7 @@ def run(cfg: Config, products: list[str] | None = None, workers: int = 0, limit:
             pol = policy(cfg, r["product"])
             pm.record(Path(res["dest"]), "tiles", r["product"],
                       res["status"], [{"granule_key": r["granule_key"], "filename": r["filename"], "sha256": r.get("sha256")}],
-                      code, {"grid": grid.spec(), "training_mask": pol.training_mask, "strict_mask": pol.strict_mask},
+                      code, {"grid": specs[res.get("zone")], "training_mask": pol.training_mask, "strict_mask": pol.strict_mask},
                       ["project to LAEA", "area-weighted footprint regridding to 1.2 km"
                        + (" and native 300 m" if r["product"].startswith("olci") else ""),
                        "training mask excludes pixels from the mean; flags OR-ed per cell"],

@@ -324,14 +324,15 @@ def inspect_grid(path: Path, product: dict, cfg: Config) -> dict[str, Any]:
 
 
 # ----------------------------------------------------------------------------- bathymetry helper
-def gebco_depth(cfg: Config):
-    """A function (lon, lat) -> depth in metres (positive down) from the local GEBCO file, or None."""
+def gebco_depth(cfg: Config, dom=None):
+    """A function (lon, lat) -> depth in metres (positive down) from the local GEBCO file, or None.
+    dom: the lon/lat box to read (default: the config domain)."""
     files = sorted((cfg.raw_dir / "gebco").glob("GEBCO_*.nc"))
     if not files:
         return None
     import netCDF4
 
-    dom = cfg.domain()
+    dom = dom or cfg.domain()
     with netCDF4.Dataset(files[-1]) as ds:
         lat, lon = ds["lat"][:], ds["lon"][:]
         i0, i1 = np.searchsorted(lat, [dom.south, dom.north])

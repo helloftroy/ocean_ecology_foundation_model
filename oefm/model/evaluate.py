@@ -81,8 +81,19 @@ NUTRIENTS = ("po4", "no3", "si", "chl")
 
 
 # ----------------------------------------------------------------------------- models
+def runs_root(cfg) -> Path:
+    """Training runs: <data_root>/runs, or config `runs_root` (relative to the repo root), so the
+    BioGO-SHIP data root can embed with the Florida-trained runs."""
+    from ..config import REPO_ROOT
+
+    r = cfg.raw.get("runs_root")
+    if not r:
+        return cfg.data_root / "runs"
+    return Path(r) if Path(r).is_absolute() else REPO_ROOT / r
+
+
 def load_run(cfg, run: str, weights: str, device) -> tuple[Model, dict]:
-    d = cfg.data_root / "runs" / run
+    d = runs_root(cfg) / run
     cands = {"final": d / "weights_final.pt", "checkpoint": d / "checkpoint.pt"}
     p = cands[weights] if weights in cands else Path(weights)
     if weights == "final" and not p.exists():
@@ -242,12 +253,13 @@ def load_points(cfg, limit: int = 0, datasets=None):
 
 
 def embed(cfg, models: list[tuple[Model, dict]], out_dir: Path, tcfg: dict, windows, paces, batch: int = 16,
-          workers: int = 8, limit: int = 0, log=print) -> None:
+          workers: int = 8, limit: int = 0, log=print, points=None) -> None:
+    """points: a frame with key, lat, lon, time_utc (default: the matched evaluation sets)."""
     device = next(models[0][0].parameters()).device
     amp = dict(device_type=device.type, dtype=torch.bfloat16, enabled=device.type == "cuda")
     for window in windows:
         spec = window_spec(window)
-        pts = load_points(cfg, limit, spec["datasets"])
+        pts = load_points(cfg, limit, spec["datasets"]) if points is None else (points.iloc[:limit] if limit else points)
         for pace in paces:
             t0 = time.time()
             n = len(pts)

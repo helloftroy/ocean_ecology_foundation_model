@@ -205,26 +205,30 @@ def inventory(product: dict, cfg: Config, log=print) -> list[dict]:
         windows = _after(windows, _collection_end(cfg.products[product["only_after"]]), log, product["key"])
     targets = list(cfg.regions.values()) if is_sat else [cfg.domain()]
     rows: dict[str, dict] = {}
-    for win in windows:
-        for region in targets:
-            granules = search(product, region.bbox, win.start, win.end)
-            for g in granules:
-                row = granule_row(g, product, cfg)
-                if row is None:
-                    continue
-                prev = rows.get(row["granule_key"])
-                regions = {region.key} if is_sat else set(cfg.regions)
-                if prev:
-                    regions |= set(prev["regions"].split(","))
-                    # CMR may list one file under two GranuleURs (e.g. MODIS Aqua 2021-2025)
-                    if row["concept_id"] not in prev["concept_id"].split(";"):
-                        prev["concept_id"] += ";" + row["concept_id"]
-                    prev["regions"] = ",".join(sorted(regions))
-                    continue
-                row["regions"] = ",".join(sorted(regions))
-                row["windows"] = win.label()
-                rows[row["granule_key"]] = row
-            log(f"  {product['key']:18s} {win.label()} {region.key:14s} {len(granules):6d} CMR records")
+    # (window, region) pairs: regions with their own windows (global configs) use only those
+    pairs = [(win, region) for region in targets for win in (cfg.region_windows(region) if is_sat else windows)]
+    if product.get("only_after") and is_sat:
+        pairs = [(w, r) for w in windows for r in targets]
+    pairs.sort(key=lambda p: (p[0].start, p[1].key))
+    for win, region in pairs:
+        granules = search(product, region.bbox, win.start, win.end)
+        for g in granules:
+            row = granule_row(g, product, cfg)
+            if row is None:
+                continue
+            prev = rows.get(row["granule_key"])
+            regions = {region.key} if is_sat else set(cfg.regions)
+            if prev:
+                regions |= set(prev["regions"].split(","))
+                # CMR may list one file under two GranuleURs (e.g. MODIS Aqua 2021-2025)
+                if row["concept_id"] not in prev["concept_id"].split(";"):
+                    prev["concept_id"] += ";" + row["concept_id"]
+                prev["regions"] = ",".join(sorted(regions))
+                continue
+            row["regions"] = ",".join(sorted(regions))
+            row["windows"] = win.label()
+            rows[row["granule_key"]] = row
+        log(f"  {product['key']:18s} {win.label()} {region.key:14s} {len(granules):6d} CMR records")
     return list(rows.values())
 
 

@@ -1,7 +1,7 @@
 # Cluster instructions: order of operations on Ptolemy
 
 This is the single place to check what to run next, what has already run, and what to paste
-back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (G0 and G done: B and C fail the amplitude test, so arm D gets an amplitude-retention term; next: arm D at ν = 0.1 and 0.3 = stage 1.5, fork 2 (**H**), then evaluate all five (**I**)).
+back for review. It is updated with every change to the steps. Last updated: **2026-11-23** (G0 and G done: B and C fail the amplitude test, so arm D gets an amplitude-retention term; next: arm D at ν = 0.1 and 0.3 = stage 1.5, fork 2 (**H**), then evaluate all five (**I**); in parallel the Bio-GO-SHIP global benchmark (**J**)).
 
 - Briefs: [docs/phase1_instructions.md](docs/phase1_instructions.md),
   [docs/phase2_instructions.md](docs/phase2_instructions.md)
@@ -184,6 +184,60 @@ The run takes about 6–10 h. Paste back `tail -400 logs/oefm_eval_<id>.out` and
 Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_prep_116124.out`,
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
 and copy back `data/processed/regional/tiles/v2/examples/`.
+
+**J. Bio-GO-SHIP global benchmark (2026-11-23; runs alongside H on `service`)** ▶️. A downstream
+test outside Florida: the Granite / Bio-GO-SHIP metagenome benchmark (same samples, targets and
+protocol; instructions in `multimodal_seusmbol/instructions_agent_biogoship.md`). Decision log:
+"Bio-GO-SHIP as a global downstream benchmark". Its own config (`config/biogoship.yaml`, generated
+by `scripts/make_biogoship_config.py`) and data root (`data_biogoship/`), so nothing in `data/`
+changes: 16 cruises (2011–2025), 1,977 samples → 50 zones (each its own LAEA projection, ≤ 1,500 km),
+377 corridor boxes, ~13,400 tiles. Windows per box: the cruise window (30 d before the first sample
+to 15 d after the last) plus two 45-day PACE-era windows in other seasons. All eight satellite
+products as in Florida; no physical products (stage 1 is optical).
+
+*J1. Copy the bundle and link GEBCO* (from the laptop, in `multimodal_seusmbol/`):
+```bash
+scp biogoship_granite_kegg/data/results/benchmark_export.zip hmp278@ptolemy-login-2.arc.msstate.edu:/scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/
+```
+Then on Ptolemy:
+```bash
+git pull
+mkdir -p data_biogoship/raw data_biogoship/processed/regional/eval
+ln -s "$PWD/data/raw/gebco" data_biogoship/raw/gebco
+unzip -q benchmark_export.zip -d data_biogoship/processed/regional/eval/
+ls data_biogoship/processed/regional/eval/benchmark_export   # benchmark_eval.py granite kegg samples.csv targets targets_sample tiles.csv within_tile_pairs.csv
+```
+(If the zip unpacks without the `benchmark_export/` folder, move its contents into one.)
+
+*J2. Dry-run inventory (downloads nothing; ~9,000 CMR searches, a few hours).* `credentials.sh` sourced:
+```bash
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship cluster/inventory.sbatch
+```
+Paste back `tail -60 logs/oefm_inventory_<id>.out` (the per-product file counts and GB). I check the
+size (estimate 8–10 TB raw) before anything downloads.
+
+*J3 (after review). Download, then tiles:*
+```bash
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,CHAIN=3 cluster/download.sbatch
+# when the download has finished:
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,STEPS="layout grid tiles sequences" cluster/prep.sbatch
+```
+
+*J4. Embed with the Florida-trained runs, then score* (embedding ~1 h on one A100; scoring ~10–20 h
+on `service`):
+```bash
+sbatch --account=191001-366746 --export=ALL,RUNS="stage1_A stage1_B stage1_C",TAG=stage1 cluster/biogoship_embed.sbatch
+# when it has finished:
+sbatch --account=191001-366746 --export=ALL,TAG=stage1 cluster/biogoship_bench.sbatch
+```
+Paste back `tail -40` of the embed log and `tail -200` of the bench log; copy
+`data_biogoship/runs/eval_stage1/biogoship_*.csv` to `multimodal_seusmbol/eval_results/biogoship_stage1/`.
+The bench log starts with the Granite reproduction check (must give all KOs 17.60, C 53.80, D 13.96,
+A 13.71, Dp 16.36, B 10.33, De 18.89). After H, rerun J4 with D and D3 added (`TAG=stage1_5`); after
+the global retrain (J5), with the retrained winner.
+
+*J5 (after 2.11).* Retrain the 2.11 winner on Florida + the Bio-GO-SHIP corridors, then rerun J4.
+Not built yet: a training set over two data roots, and normalisation statistics over both.
 
 ---
 
@@ -519,6 +573,9 @@ sbatch --account=191001-366746 --export=ALL,ARM=C,CHAIN=1 cluster/train.sbatch
 | 2.17 | **Fish (CRCP Keys, video MaxN shelf/Keys) and pigments:** optical-only vs physical-only vs combined. SFER fluorometric Chl is the main phytoplankton target; HPLC only if SeaBASS adds enough | 🛠 |
 | 2.18 | OLCI 300 m branch proof of concept vs upsampled 1.2 km | 🛠 |
 | 2.19 | Consolidated report on the six configurations: failure cases, negative results, recommendation, questions for Andre | 🛠 |
+| 3.1 | **Bio-GO-SHIP corridors:** `config/biogoship.yaml` (50 zones, 377 boxes, ~13,400 tiles), zoned grids and tiling (`oefm/grid.py`, `oefm/tiling.py`) | ✅ built; J1–J3 ▶️ |
+| 3.4 | **Bio-GO-SHIP metagenome benchmark** vs Granite (`oefm/model/biogoship.py`): reproduction check, paired benchmark on the 1,215 tiles with Granite rerun on the same tiles, PACE-era subset, extended set (1,977 samples, HiSeq as a third platform level), per-KO and per-cruise comparison | ✅ built; J4 after J3 |
+| 3.5 | Retrain the 2.11 winner on Florida + corridors, rerun 3.4 | 🛠 after 2.11 |
 
 Storage rule (Phase 2 storage revision): `data/raw/` is the immutable archive shared by every
 dataset. Regional and global processed data live in separate directories, and each records the raw
@@ -528,6 +585,36 @@ without re-downloading.
 ---
 
 ## Decision log
+
+### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
+**Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
+agent, `multimodal_seusmbol/instructions_agent_biogoship.md`) as a robust downstream test, with
+Granite as the baseline, the same protocol as the Granite work, and training tiles in the same
+general regions.
+**Your choices (2026-11-23).** Imagery: each cruise's own window plus two 45-day windows per
+corridor in other seasons (estimated 8–10 TB raw). Order: H trains on Florida as planned (2.11
+compares arms on the same data); the corridors download in parallel; the 2.11 winner is then
+retrained on Florida + corridors.
+**Built.**
+- Zones: `config.zones` (LAEA centre each), `Region.zone`, per-region `windows`, `extends`
+  (inherit pilot.yaml: products, processing, training). `TileGrid(cfg, zone)`, tile IDs
+  `<zone>:X+03Y-12`, longitudes wrapped across ±180 (P02-2022, HLY2202-2022 cross the
+  antimeridian; HLY2202 reaches the pole). Inventory searches each box only over its own windows.
+  Tiling writes one store per granule and zone. The loader looks a point up in every zone.
+  Florida is unchanged (same IDs, same geographic blocks; tests).
+- Zones are ≤ 1,500 km from their centre (LAEA scale error < 1 %); boxes ≤ 300 km and ≤ 7 days of
+  samples, margin 0.3°, never across the antimeridian. Boxes poleward of 85° span all longitudes.
+- Imagery at the sample dates enters pretraining (as for Florida: the hold-out is for labels, never
+  imagery). The benchmark's leave-one-cruise-out applies to the read-out.
+- Tile rule vs Granite (to report with results): Granite = one OLCI 42 × 42-pixel (12.6 km) scene,
+  closest clear overpass (median 0.59 d), clear window moved up to 20 km. Here = the 3 × 3 cells
+  (3.6 km) at the sample in a 38.4 km tile, up to 16 observations from all sensors within the
+  causal 30 d (or ±15 d) window; no relocation. One feature vector per benchmark tile = the mean
+  of its samples' embeddings.
+- Extended set: samples grouped by the model's input (same cruise, 1.2 km cell, UTC day,
+  platform); HiSeq 4000 is a third platform level (pre-2016 cruises and some 2016 samples).
+**Not available yet.** P04E-2026 (279 samples, PACE-only cruise): needs the KO pipeline first (ask).
+The module-predictability figure (`granite/ko_ceiling.csv`) is not recomputed yet.
 
 ### G results (job 116439, 2026-11-23): B/C lose amplitude; arm D gets an amplitude term
 **Amplitude test on trained weights** (design document: log-amplitude R² ≥ 0.95, relative distance > 0.05):

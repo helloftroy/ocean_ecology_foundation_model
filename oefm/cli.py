@@ -423,12 +423,12 @@ def cmd_crop(cfg, args) -> None:
 
 
 def cmd_grid(cfg, args) -> None:
-    from .grid import TileGrid, write_static
+    from .grid import grids, write_static
     from .provenance import make_layout
     from .tiling import tiles_root
 
     make_layout(cfg, log)
-    write_static(cfg, TileGrid(cfg), tiles_root(cfg) / "grid", log)
+    write_static(cfg, grids(cfg), tiles_root(cfg) / "grid", log)
 
 
 def cmd_tiles(cfg, args) -> None:
@@ -463,11 +463,11 @@ def cmd_sequences(cfg, args) -> None:
     """Anchors per split x mode, PACE anchors and years: what each partition actually contains."""
     import pandas as pd
 
-    from .grid import TileGrid
+    from .grid import grids
     from .loader import SPLITS, TileSequences, geographic_labels
     from .tiling import tiles_root
 
-    geo = geographic_labels(cfg, TileGrid(cfg))
+    geo = geographic_labels(cfg, grids(cfg))
     log("tiles by geographic label: " + ", ".join(f"{k} {v}" for k, v in sorted(pd.Series(geo).value_counts().items())))
     rows = []
     for split in SPLITS:
