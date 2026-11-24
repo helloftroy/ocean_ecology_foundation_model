@@ -276,6 +276,18 @@ du -sh data/processed/global/tiles/v3/*/ ; du -ch data/processed/global/tiles/v3
 ```
 I extrapolate the full Florida size and time from it before K2.
 
+*K1 result (job 116488, 2026-11-24):* 3 granules per product, all done, none failed. See the
+decision log "Tiling v3" for the numbers. Extrapolated to all Florida granules: ~3.0 TB of v3 tiles
+vs ~4.0 TB raw. PACE AOP tiles are 2.2x their raw size, so K2 waits for the size breakdown.
+
+*K1b. Where the bytes go (login node, read-only, a few minutes):*
+```bash
+git pull
+python scripts/v3_size_breakdown.py --per-product 3 2>&1 | tee reports_v3_size.txt
+grep "s per granule" logs/oefm_prep_116488.out
+```
+Paste back the output of both commands.
+
 *K2 (after review). Re-tile all Florida raw (raw kept until verified):*
 `sbatch --account=191001-366746 --export=ALL,STEPS=tiles3 cluster/prep.sbatch`, then `purge-raw`
 (report first, `--yes` after review) deletes the Florida raw satellite files.
@@ -682,6 +694,28 @@ windows, sampling) move to the loader.
   not compress away, so full-swath SFREFL tiles are about raw size unless quantised or cloud-masked.
   Tables: data/reports/flag_fill_check*.csv.
 - Blocked meanwhile: the /scratch data pool returns ENOSPC for large writes (2026-11-24; reads work).
+- **K1 trial (job 116488, 2026-11-24, 3 Florida granules per product, raw kept).** All 24 done,
+  0 failed; SFREFL clipped 1,142 cell-band values to the int16 range (rhos outside -0.055..1.255;
+  about 2e-6 of the stored values). Stored tiles / overpasses (tiles under 1 % valid not stored):
+
+  | product | stored tiles | overpasses | MB per granule (tiles) | MB per granule (raw) | tiles / raw | KB per tile | Florida extrapolated |
+  |---|---|---|---|---|---|---|---|
+  | modisa_oc | 3,410 | 10,428 | 34 | 34 | 1.00 | 30 | 140 GB (4,166 granules) |
+  | olcia_efr_oc | 1,932 | 3,573 | 207 | 243 | 0.85 | 321 | 460 GB (2,221) |
+  | olcib_efr_oc | 2,200 | 3,567 | 244 | 249 | 0.98 | 333 | 520 GB (2,129) |
+  | pace_oci_aop | 4,126 | 12,235 | 465 | 215 | 2.17 | 338 | 826 GB (1,776) |
+  | pace_oci_sfrefl | 4,671 | 12,235 | 167 | 760 | 0.22 | 107 | 296 GB (1,776) |
+  | viirsj1_oc | 8,103 | 15,827 | 66 | 88 | 0.75 | 24 | 326 GB (4,930) |
+  | viirsj2_oc | 7,943 | 15,841 | 63 | 76 | 0.83 | 24 | 155 GB (2,451) |
+  | viirsn_oc | 8,268 | 15,914 | 67 | 84 | 0.80 | 24 | 326 GB (4,886) |
+  | **total** | | | | | | | **~3.0 TB (raw ~4.0 TB)** |
+
+  Trial total 3.7 GB. Granule counts are the v2 tiling counts (done + empty); raw MB per granule
+  comes from the Florida inventory; 3 granules per product, so expect roughly ±30 %. The earlier
+  estimate (1.1–1.7 TB) was about 2x too low. Except for SFREFL, tiles take about the raw size,
+  so download-tile-delete saves ~25 % overall. The same ratios applied to Bio-GO-SHIP (~10.2 TB raw
+  without SFREFL, 7.6 TB SFREFL) give ~12–14 TB of tiles. Next: per-array breakdown
+  (`scripts/v3_size_breakdown.py`, step K1b) before K2.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
