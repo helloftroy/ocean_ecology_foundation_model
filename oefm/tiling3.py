@@ -20,20 +20,25 @@ Per cell, per stored tile (one zipped Zarr per granule and zone, `<granule>__<zo
   refl_clean    (tile, band, n, n) int16  mean over pixels passing the product's training mask, ONLY
                 in mixed cells (some contributing pixels hard-flagged, some not); fill elsewhere
   refl_unc      (tile, band, n, n) int16  PACE Rrs_unc (same rule as refl)
-  x_<name>      (tile, n, n)  every single-layer geophysical field the file has (chlor_a, Kd_490,
-                nflh, aot_*, angstrom, pic, poc, par, ipar, avw, PACE BGC fields ...): int16 with the
-                source scale/offset, or float32 for float sources
+  x_<name>      (tile, n, n)  the single-layer fields listed in `processing.v3_store.extras` (nflh,
+                chlor_a, Kd_490 baselines; PACE BGC chlor_a, carbon_phyto, poc), if the file has them:
+                int16 with the source scale/offset, or float32 for float sources. Every other field
+                the file had is named in attrs `fields_not_stored`
   w_all         (tile, n, n) float32  pixel-equivalents overlapping the cell (swath coverage)
   w_valid       (tile, n, n) float32  pixel-equivalents with a finite reflectance (after the SFREFL rule)
   w_clean       (tile, n, n) float32  ... of which pass the training mask
   n_pixels      (tile, n, n) uint16   distinct pixels overlapping the cell
   flags_or      (tile, n, n) uint32   OR of l2_flags over the overlapping pixels
-  flag_share    (tile, 32, n, n) uint8  share of the cell's pixel weight carrying each bit, x 255
+  flag_share    (tile, k, n, n) uint8  share of the cell's pixel weight carrying each bit, x 255, for
+                the k bits of `processing.v3_store.flag_share_bits` the file defines (attrs
+                `flag_share_bits`, in order; `flag_share_of(group, name)` reads one)
   dt            (tile, n, n) int16    seconds from tile_time (area-weighted scan time)
   senz, sena    (tile, n, n) int16    sensor zenith / azimuth, 0.01 deg (reconstructed from geolocation:
                 sub-satellite point = nadir column; azimuth = bearing from the cell to it)
-  solz, sola    (tile, n, n) int16    solar zenith / azimuth, 0.01 deg (computed from time and position)
   tile_time     (tile,) float64       UTC seconds
+Solar zenith / azimuth are not stored: the loader computes them from tile_time + dt and the cell
+centres (`cell_solar_angles`, the same NOAA equations). Storage: zstd level 9, per array the better
+of byte shuffle and bit shuffle, chunks of whole tiles up to ~1 MB uncompressed.
 Attributes: catalog spec, product, wavelengths, flag names/masks, training mask, every variable's
 scale/offset/fill, source sha256, code version.
 """
@@ -61,6 +66,18 @@ SFREFL_SCALE, SFREFL_OFFSET = 2e-5, 0.6
 SFREFL_EMPTY_FLAGS = ("CLDICE", "LAND")
 MIN_VALID = 0.01
 ANGLE_SCALE = 0.01
+CHUNK_RAW_BYTES = 1 << 20
+DEFAULT_EXTRAS = ("nflh", "chlor_a", "Kd_490")
+DEFAULT_SHARE_BITS = ("HISATZEN", "STRAYLIGHT", "HIGLINT", "MODGLINT", "HIPOL", "COASTZ", "ATMWARN", "MAXAERITER",
+                      "LOWLW", "ABSAER", "COCCOLITH", "TURBIDW", "OPSHAL", "CLDICE", "LAND")
+
+
+def store_rules(cfg: Config, product: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(extras kept, flag-share bit names) for a product, from `processing.v3_store`."""
+    st = (cfg.raw.get("processing") or {}).get("v3_store") or {}
+    ex = st.get("extras") or {}
+    extras = tuple(ex.get(product, ex.get("default", DEFAULT_EXTRAS)))
+    return extras, tuple(st.get("flag_share_bits", DEFAULT_SHARE_BITS))
 TILE_STEP = "tiles_v3"
 
 
@@ -163,11 +180,12 @@ def _attrs(var) -> dict:
             "fill": float(a["_FillValue"]) if "_FillValue" in a else None, "units": str(a.get("units", ""))}
 
 
-def variables(sw: L2Swath, product: str) -> dict[str, Any]:
-    """What to store from this file: reflectance family (+ PACE Rrs_unc) and single-layer fields."""
+def variables(sw: L2Swath, product: str, keep_extras: tuple[str, ...] | None = None) -> dict[str, Any]:
+    """What to store from this file: reflectance family (+ PACE Rrs_unc) and the single-layer fields in
+    keep_extras (None: all); the other single-layer fields are listed in out["not_stored"]."""
     geo = sw.geo
     refl_names = {name for _, name, _ in sw.bands}
-    out: dict[str, Any] = {"refl": None, "refl_unc": None, "extras": {}}
+    out: dict[str, Any] = {"refl": None, "refl_unc": None, "extras": {}, "not_stored": []}
     if sw.bands:
         first = sw.bands[0]
         out["refl"] = {"three_d": first[2] is not None, "names": [b[1] for b in sw.bands],
@@ -180,6 +198,9 @@ def variables(sw: L2Swath, product: str) -> dict[str, Any]:
         if name in refl_names or name in ("l2_flags", "Rrs_unc") or var.ndim != 2:
             continue
         if var.shape != sw.lat.shape:
+            continue
+        if keep_extras is not None and name not in keep_extras:
+            out["not_stored"].append(name)
             continue
         out["extras"][name] = _attrs(var)
     return out
@@ -233,7 +254,9 @@ def tile_granule(args: tuple) -> dict[str, Any]:
         lat_all, lon_all = dequantise(sw.lat), dequantise(sw.lon)
         zkeys = C.zones_near(lat_all[::8, ::8], lon_all[::8, ::8])
         nadir = nadir_column(sw, fam) if fam in ("MODIS", "VIIRS", "OLCI", "PACE") else lat_all.shape[1] // 2
-        info = variables(sw, row["product"])
+        keep_extras, share_bits = store_rules(cfg, row["product"])
+        info = variables(sw, row["product"], keep_extras)
+        info["share_bits"] = share_bits
         from .tiling import scan_times
 
         t_row_all, tsrc = scan_times(sw, slice(0, lat_all.shape[0]))
@@ -307,13 +330,16 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
     w_all = bc(w)
     n_pix = bc()
     flags_or = np.zeros(m, "u4")
-    share = np.zeros((32, m), "u1")
+    share_names = [k for k in info["share_bits"] if k in fmap and fmap[k]]
+    share_bit = {int(fmap[k]).bit_length() - 1: j for j, k in enumerate(share_names)}
+    share = np.zeros((len(share_names), m), "u1")
     for b in range(32):
         on = ((pb >> b) & 1).astype(bool)
         if on.any():
             wb = bc(np.where(on, w, 0.0))
             flags_or |= (wb > 0).astype("u4") << np.uint32(b)
-            share[b] = np.round(255 * wb / np.maximum(w_all, 1e-12)).astype("u1")
+            if b in share_bit:
+                share[share_bit[b]] = np.round(255 * wb / np.maximum(w_all, 1e-12)).astype("u1")
     t_row = t_row_all[rs]
     t_row = np.where(np.isfinite(t_row), t_row, t0)
     trel = np.broadcast_to((t_row - t0)[:, None], x.shape).ravel()[pix]
@@ -447,8 +473,8 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
     A["w_clean"] = dense(w_clean.astype("f4"), "f4", 0.0)
     A["n_pixels"] = dense(np.minimum(n_pix, 65535).astype("u2"), "u2", 0)
     A["flags_or"] = dense(flags_or, "u4", 0)
-    fs = np.zeros((T, 32, n, n), "u1")
-    for b in range(32):
+    fs = np.zeros((T, share.shape[0], n, n), "u1")
+    for b in range(share.shape[0]):
         if share[b].any():
             fs[tj, b, rr_, cc_] = share[b][keep]
     A["flag_share"] = fs
@@ -457,19 +483,6 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
     A["dt"] = dense(np.clip(np.round(np.nan_to_num(dtc)), -32767, 32767).astype("i2"), "i2", FILL)
     A["senz"] = dense(np.round(senz / ANGLE_SCALE).astype("i2"), "i2", FILL)
     A["sena"] = dense(np.round(sena / ANGLE_SCALE).astype("i2"), "i2", FILL)
-    # solar angles at cell centres and cell times
-    sz = np.full((T, n, n), FILL, "i2")
-    sa = np.full((T, n, n), FILL, "i2")
-    for j, (t, tid, tt) in enumerate(stored):
-        lo_c, la_c = C.tile_lonlat(zone, slots_obj.ix[t], slots_obj.iy[t], n)
-        m_t = tj == j
-        tcell = np.full((n, n), tt)
-        tcell[rr_[m_t], cc_[m_t]] = (t0 + t_cell[keep][m_t])
-        z_, a_ = solar_angles(tcell, la_c, lo_c)
-        cov = A["w_all"][j] > 0
-        sz[j][cov] = np.round(z_[cov] / ANGLE_SCALE).astype("i2")
-        sa[j][cov] = np.round(a_[cov] / ANGLE_SCALE).astype("i2")
-    A["solz"], A["sola"] = sz, sa
     A["tile_time"] = tile_time
     if "refl" in arrays:
         A["wavelength"] = np.asarray(info["refl"]["wavelength"], "f4")
@@ -479,7 +492,9 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
              "platform": prod.get("platform"), "archive_short_name": prod.get("short_name"),
              "archive_version": prod.get("version"), "variable": sw.kind, "granule_key": row["granule_key"],
              "source_file": row["filename"], "source_sha256": row.get("sha256"), "time_source": tsrc,
-             "flag_meanings": list(fmap), "flag_masks": list(fmap.values()),
+             "flag_meanings": list(fmap), "flag_masks": list(fmap.values()), "flag_share_bits": share_names,
+             "fields_not_stored": info.get("not_stored", []),
+             "solar_angles": "not stored: tiling3.cell_solar_angles(tile_id, tile_time, dt)",
              "training_mask": pol.training_mask, "training_flags": pol.training_flags,
              "sfrefl_empty_flags": list(SFREFL_EMPTY_FLAGS) if info["refl"] and info["refl"].get("requantised") else [],
              "variables": {"refl": info["refl"], "refl_unc": info["refl_unc"], "extras": info["extras"]},
@@ -502,11 +517,43 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
     return out
 
 
+def store_chunks(a: np.ndarray) -> tuple[int, ...]:
+    """Whole tiles per chunk, up to CHUNK_RAW_BYTES uncompressed (at least one tile)."""
+    if a.ndim <= 1:
+        return a.shape
+    k = max(1, min(a.shape[0], CHUNK_RAW_BYTES // max(a[0].nbytes, 1)))
+    return (k,) + a.shape[1:]
+
+
+def store_codec(a: np.ndarray, chunks: tuple[int, ...]):
+    """zstd level 9 with the better of byte shuffle and bit shuffle on the first chunk (lossless)."""
+    from numcodecs import Blosc
+
+    sample = np.ascontiguousarray(a[:chunks[0]] if a.ndim > 1 else a)
+    opts = [Blosc(cname="zstd", clevel=9, shuffle=sh) for sh in (Blosc.SHUFFLE, Blosc.BITSHUFFLE)]
+    return min(opts, key=lambda c: len(c.encode(sample)))
+
+
+def flag_share_of(group, name: str) -> np.ndarray | None:
+    """(tile, n, n) uint8 share (x 255) of one flag bit, None if the store has no share for it."""
+    names = list(group.attrs.get("flag_share_bits", []))
+    return group["flag_share"][:, names.index(name)] if name in names else None
+
+
+def cell_solar_angles(tile_id: str, tile_time: float, dt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Solar zenith / azimuth (deg) at the cell centres of one stored tile, at tile_time + dt (cells
+    with dt fill use tile_time). What tiling v2 / early v3 stored as solz, sola."""
+    z, ix, iy = C.parse_tile_id(tile_id)
+    n = dt.shape[-1]
+    lon, lat = C.tile_lonlat(C.zone_map()[z], ix, iy, n)
+    t = tile_time + np.where(dt == FILL, 0, dt).astype("f8")
+    return solar_angles(t, lat, lon)
+
+
 def _write_store(dest: Path, arrays: dict[str, np.ndarray], attrs: dict) -> None:
     import zarr
     from numcodecs import Blosc
 
-    comp = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = str(dest) + ".tmp"
     if os.path.exists(tmp):
@@ -514,8 +561,8 @@ def _write_store(dest: Path, arrays: dict[str, np.ndarray], attrs: dict) -> None
     store = zarr.ZipStore(tmp, mode="w")
     root = zarr.group(store=store)
     for name, a in arrays.items():
-        chunks = (1,) + a.shape[1:] if a.ndim > 1 else a.shape
-        root.create_dataset(name, data=a, chunks=chunks, compressor=comp)
+        chunks = store_chunks(a)
+        root.create_dataset(name, data=a, chunks=chunks, compressor=store_codec(a, chunks))
     root.attrs.update(json.loads(json.dumps(attrs, default=lambda o: o.item() if hasattr(o, "item") else str(o))))
     store.close()
     os.replace(tmp, dest)
@@ -576,8 +623,9 @@ def done_keys(db) -> set[str]:
 
 
 def run(cfg: Config, rows: list[dict] | None = None, products: list[str] | None = None, workers: int = 0,
-        limit: int = 0, log=print) -> dict:
-    """Tile verified granules not yet tiled (v3). rows: a given batch (stream), else all verified."""
+        limit: int = 0, log=print, force: bool = False) -> dict:
+    """Tile verified granules not yet tiled (v3). rows: a given batch (stream), else all verified.
+    force: re-tile granules already done (stores and records are replaced)."""
     from multiprocessing import get_context
 
     from .manifest import Manifest
@@ -587,7 +635,7 @@ def run(cfg: Config, rows: list[dict] | None = None, products: list[str] | None 
     root.mkdir(parents=True, exist_ok=True)
     (root / "catalog.json").write_text(json.dumps(C.spec(), indent=1))
     db = v3_db(cfg)
-    done = done_keys(db)
+    done = set() if force else done_keys(db)
     if rows is None:
         sat = [k for k in cfg.satellite_products if not products or k in products]
         man = Manifest(cfg.manifest_path)

@@ -186,14 +186,14 @@ class TestTiling3(unittest.TestCase):
         fs = g["flag_share"][:]
         # where the mixing comes from HISATZEN pixels (Rrs + 0.002) the clean mean is lower; STRAYLIGHT
         # (also hard) pixels carry the field itself, so there the two means agree
-        hzc = (fs[:, FLAGS.index("HISATZEN")] > 0) & (fs[:, FLAGS.index("STRAYLIGHT")] == 0)
+        hzc = (tiling3.flag_share_of(g, "HISATZEN") > 0) & (tiling3.flag_share_of(g, "STRAYLIGHT") == 0)
         d = (val - (cl * 2e-6 + 0.05))[:, 0]
         self.assertTrue(((d > 0.0002) | ~okc[:, 0] | ~hzc).all())
         self.assertTrue((okc[:, 0] & hzc).any())
-        st_only = (fs[:, FLAGS.index("STRAYLIGHT")] > 0) & (fs[:, FLAGS.index("HISATZEN")] == 0)
+        st_only = (tiling3.flag_share_of(g, "STRAYLIGHT") > 0) & (tiling3.flag_share_of(g, "HISATZEN") == 0)
         self.assertTrue((np.abs(d)[okc[:, 0] & st_only] < 1e-5).all())
-        self.assertGreater(int(fs[:, FLAGS.index("STRAYLIGHT")].max()), 0)
-        stray = fs[:, FLAGS.index("STRAYLIGHT")] > 0
+        self.assertGreater(int(tiling3.flag_share_of(g, "STRAYLIGHT").max()), 0)
+        stray = tiling3.flag_share_of(g, "STRAYLIGHT") > 0
         self.assertTrue(ok[:, 0][stray].any())
         self.assertGreater(int(g["flags_or"][:].max()), 1 << 30)               # bit 31 kept
         # extras
@@ -201,10 +201,22 @@ class TestTiling3(unittest.TestCase):
         self.assertEqual(g["x_Kd_490"].dtype, np.int16)
         ch = g["x_chlor_a"][:]
         self.assertTrue(np.allclose(ch[np.isfinite(ch)], 0.2, atol=1e-5))
-        # angles and time
-        sz = g["solz"][:]
+        # only the listed extras; the rest named in attrs
+        self.assertEqual(sorted(k for k in g.array_keys() if k.startswith("x_")), ["x_Kd_490", "x_chlor_a"])
+        # flag shares only for the policy bits the file defines (no ATMFAIL, NAVFAIL ...); flags_or all 32
+        self.assertEqual(g["flag_share"].shape[1], len(a["flag_share_bits"]))
+        self.assertIn("STRAYLIGHT", a["flag_share_bits"])
+        self.assertNotIn("ATMFAIL", a["flag_share_bits"])
+        self.assertIsNone(tiling3.flag_share_of(g, "ATMFAIL"))
+        # sun angles are not stored; computed from tile_time + dt
+        self.assertNotIn("solz", g)
+        self.assertNotIn("sola", g)
         cov = g["w_all"][:] > 0
-        self.assertTrue(((sz[cov] * 0.01 > 5) & (sz[cov] * 0.01 < 30)).all())   # 17 UTC in June at 30 N, 87 W
+        tt, dt = g["tile_time"][:], g["dt"][:]
+        for j, tid in enumerate(a["tile_ids"]):
+            z_, a_ = tiling3.cell_solar_angles(tid, float(tt[j]), dt[j])
+            self.assertTrue(((z_[cov[j]] > 5) & (z_[cov[j]] < 30)).all())   # 17 UTC in June at 30 N, 87 W
+            self.assertTrue(((a_[cov[j]] > 60) & (a_[cov[j]] < 300)).all())
         self.assertTrue((g["senz"][:][cov] != -32767).all())
         self.assertEqual(len(a["tile_ids"]), g["refl"].shape[0])
         st.close()
@@ -224,7 +236,8 @@ class TestTiling3(unittest.TestCase):
         u = g["refl_unc"][:]
         self.assertTrue(np.allclose(u[u != -32767] * 5e-8 + 0.0015, 1e-4, atol=5e-8))
         self.assertEqual(g["refl"].shape[1], 8)
-        self.assertEqual(g["x_avw"].dtype, np.float32)
+        self.assertNotIn("x_avw", g)                       # not in the kept extras
+        self.assertIn("avw", g.attrs["fields_not_stored"])
         st.close()
 
     def test_sfrefl_quantised_and_cloud_land_empty(self):
@@ -237,7 +250,7 @@ class TestTiling3(unittest.TestCase):
         rh = v[ok] * 2e-5 + 0.6
         self.assertTrue((rh > 0.033).all() and (rh < 0.071).all())
         # cells with only cloud pixels are empty although rhos was finite there
-        cl = g["flag_share"][:, FLAGS.index("CLDICE")]
+        cl = tiling3.flag_share_of(g, "CLDICE")
         full_cloud = cl == 255
         self.assertTrue(full_cloud.any())
         self.assertFalse(ok[:, 0][full_cloud].any())

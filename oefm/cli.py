@@ -109,6 +109,7 @@ def main(argv: list[str] | None = None) -> None:
     t3.add_argument("--workers", type=int, default=0)
     t3.add_argument("--limit", type=int, default=0, help="only the first N granules (trial)")
     t3.add_argument("--per-product", type=int, default=0, help="trial: N granules per product, spread over time")
+    t3.add_argument("--force", action="store_true", help="re-tile granules already tiled (replaces their stores)")
     sub.add_parser("index3", help="export the v3 tile and overpass indexes")
     st = sub.add_parser("stream", help="download, tile (v3), delete raw: batch after batch")
     st.add_argument("--products", nargs="*")
@@ -476,7 +477,8 @@ def cmd_tiles3(cfg, args) -> None:
             if c:
                 rows += [c[int(i)] for i in np.unique(np.linspace(0, len(c) - 1, args.per_product).astype(int))]
         man.close()
-    stats = tiling3.run(cfg, rows=rows, products=args.products, workers=args.workers, limit=args.limit, log=log)
+    stats = tiling3.run(cfg, rows=rows, products=args.products, workers=args.workers, limit=args.limit, log=log,
+                          force=args.force)
     log(f"tiles3: {stats}")
     tiling3.export_index(cfg, log)
 

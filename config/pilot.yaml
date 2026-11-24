@@ -301,6 +301,13 @@ excluded:
 processing:
   version: v2            # bump when a change alters processed values; outputs go to a new folder
   v3_root: data/processed/global/tiles/v3   # tiling v3 (catalog_v1) store, shared with config/biogoship.yaml
+  v3_store:              # what tiling v3 keeps besides reflectance (decision log "Tiling v3", size cuts 2026-11-24)
+    extras:              # single-layer fields kept (if the file has them); the rest are listed in attrs only
+      default: [nflh, chlor_a, Kd_490]        # baselines
+      pace_oci_bgc: [chlor_a, carbon_phyto, poc]   # PACE BGC fields evaluated against (check against the K3 file)
+    flag_share_bits:     # per-bit pixel shares only for bits a flag policy can use; flags_or keeps all 32 bits
+      [HISATZEN, STRAYLIGHT, HIGLINT, MODGLINT, HIPOL, COASTZ, ATMWARN, MAXAERITER, LOWLW, ABSAER,
+       COCCOLITH, TURBIDW, OPSHAL, CLDICE, LAND]
                          # v2 (2026-11-12): design-document v1 flag policy (soft flags kept as quality channels)
 
   grid:

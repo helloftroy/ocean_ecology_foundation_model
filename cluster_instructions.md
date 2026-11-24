@@ -280,13 +280,24 @@ I extrapolate the full Florida size and time from it before K2.
 decision log "Tiling v3" for the numbers. Extrapolated to all Florida granules: ~3.0 TB of v3 tiles
 vs ~4.0 TB raw. PACE AOP tiles are 2.2x their raw size, so K2 waits for the size breakdown.
 
-*K1b. Where the bytes go (login node, read-only, a few minutes):*
-```bash
-git pull
-python scripts/v3_size_breakdown.py --per-product 3 2>&1 | tee reports_v3_size.txt
-grep "s per granule" logs/oefm_prep_116488.out
-```
-Paste back the output of both commands.
+*K1b. Size cuts 1-4 on the same granules (2026-11-24, your decision; decision log "Tiling v3").*
+1. **Per-field breakdown of the K1 stores** (login node, read-only, a few minutes). It also predicts
+   the size under the new rules from these same stores:
+   ```bash
+   git pull
+   python scripts/v3_size_breakdown.py 2>&1 | tee reports_v3_size_k1.txt
+   grep "s per granule" logs/oefm_prep_116488.out
+   ```
+2. **Re-tile the same 3 granules per product with the new rules** (FORCE replaces their stores):
+   ```bash
+   sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PER_PRODUCT=3,FORCE=1 cluster/prep.sbatch
+   ```
+3. **When it's done, measure again:**
+   ```bash
+   python scripts/v3_size_breakdown.py 2>&1 | tee reports_v3_size_k1_new.txt
+   du -sh data/processed/global/tiles/v3/*/ ; grep "s per granule" logs/oefm_prep_<id>.out
+   ```
+Paste back both reports, both `grep` lines and the `du`.
 
 *K2 (after review). Re-tile all Florida raw (raw kept until verified):*
 `sbatch --account=191001-366746 --export=ALL,STEPS=tiles3 cluster/prep.sbatch`, then `purge-raw`
@@ -716,6 +727,22 @@ windows, sampling) move to the loader.
   so download-tile-delete saves ~25 % overall. The same ratios applied to Bio-GO-SHIP (~10.2 TB raw
   without SFREFL, 7.6 TB SFREFL) give ~12–14 TB of tiles. Next: per-array breakdown
   (`scripts/v3_size_breakdown.py`, step K1b) before K2.
+- **Size cuts (2026-11-24, your decision: they lose nothing the model or the evaluations use).**
+  1. Single-layer fields: only `processing.v3_store.extras`, i.e. nflh, chlor_a and Kd_490 (baselines;
+     PACE AOP has only nflh), and for PACE BGC chlor_a, carbon_phyto and poc. Check this list against
+     the BGC file at K3. Every other field the file had is named in the store attrs
+     (`fields_not_stored`).
+  2. flag_share (already uint8 x 255) only for the 15 bits a policy can use
+     (`processing.v3_store.flag_share_bits`: HISATZEN, STRAYLIGHT, HIGLINT, MODGLINT, HIPOL, COASTZ,
+     ATMWARN, MAXAERITER, LOWLW, ABSAER, COCCOLITH, TURBIDW, OPSHAL, CLDICE, LAND); bits that always
+     come with fill Rrs (ATMFAIL, HILT, NAVFAIL, BOWTIEDEL, SEAICE, HISOLZEN) and unused ones are dropped.
+     flags_or keeps the full 32-bit word (uint32). Read with `tiling3.flag_share_of(group, name)`.
+  3. Storage: zstd level 9, per array the better of byte shuffle and bit shuffle, chunks of whole
+     tiles up to ~1 MB uncompressed. Lossless.
+  4. Sun zenith/azimuth not stored; the loader computes them from tile_time + dt and the cell centres
+     (`tiling3.cell_solar_angles`). Sensor angles stay int16 in 0.01°.
+  Synthetic tiles: the prediction from old stores (45 % of the old size) matched the new stores.
+  Real numbers: step K1b.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
