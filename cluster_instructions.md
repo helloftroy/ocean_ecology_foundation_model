@@ -345,9 +345,21 @@ tiles3 job runs, because its worker processes re-read the code):*
    ```
 Paste back all of it.
 
-*K2 (after review). Re-tile all Florida raw (raw kept until verified):*
-`sbatch --account=191001-366746 --export=ALL,STEPS=tiles3 cluster/prep.sbatch`, then `purge-raw`
-(report first, `--yes` after review) deletes the Florida raw satellite files.
+*K1e result (job 116522, 2026-11-24):* 24/24 done with the final settings, 9.4 s per granule wall
+(28 workers on gpu-a100-mig7; 24 granules < 28 workers, so this is the slowest granule / 24, not
+full-load throughput). Florida ~1.7 TB. Numbers in the decision log "Tiling v3".
+
+*K2. Re-tile all Florida raw (raw kept until verified). Can start now; the K1c checks only gate
+deleting raw:*
+```bash
+dd if=/dev/zero of=data/processed/ddtest bs=1M count=2048 && rm data/processed/ddtest && echo BYTES_OK
+sbatch --account=191001-366746 --export=ALL,STEPS=tiles3 cluster/prep.sbatch
+```
+Resumable: if it reaches 48 h, submit the same line again (done granules are skipped). The 24 trial
+granules are already done with these settings. Paste back `grep -E "s per granule|FAILED|tiles3:" logs/oefm_prep_<id>.out | tail -20`
+and `du -sh data/processed/global/tiles/v3/*/` when it finishes.
+Then, after K1c: `python -m oefm purge-raw` (report), and `--yes` after review, deletes the Florida
+raw satellite files.
 
 *K3. PACE BGC for Florida (download → tile → delete, ~16 GB transient):*
 ```bash
@@ -861,6 +873,24 @@ windows, sampling) move to the loader.
 - **2026-11-24, your decisions:** no swath-edge cut (`max_senz_deg: null`); chlor_a stored as
   int16 round(log10(v) / 1e-4) (0.023 % relative, range 5.3e-4..1,890 mg m-3; `tiling3.read_extra`
   decodes every extra); ~100 GB less for Florida → ~1.6 TB. Offline jobs (tiling) off `service`.
+- **K1e, final settings (job 116522, 2026-11-24, same 3 granules per product):** tile rule
+  (cloud > 0.75, or cloud ≥ 0.05 and clear < 0.25), compact Rrs_unc, chlor_a log10 int16, zstd 7, no
+  edge cut. 9.4 s per granule wall (28 workers).
+
+  | product | stored tiles (K1b → K1e) | MB per granule (K1 → K1b → K1e) | tiles / raw | Florida |
+  |---|---|---|---|---|
+  | modisa_oc | 3,410 → 2,454 | 34 → 17.0 → 14.8 | 0.44 | 62 GB |
+  | olcia_efr_oc | 1,932 → 1,457 | 207 → 134.4 → 122.3 | 0.50 | 272 GB |
+  | olcib_efr_oc | 2,200 → 1,803 | 244 → 163.0 → 151.7 | 0.61 | 323 GB |
+  | pace_oci_aop | 4,126 → 3,126 | 465 → 369.8 → 225.2 | 1.05 | 400 GB |
+  | pace_oci_sfrefl | 9,292 → 5,371 | 167 → 309.2 → 160.9 | 0.21 | 286 GB |
+  | viirsj1_oc | 8,103 → 6,869 | 66 → 30.0 → 27.1 | 0.31 | 134 GB |
+  | viirsj2_oc | 7,943 → 7,778 | 63 → 29.4 → 27.8 | 0.37 | 68 GB |
+  | viirsn_oc | 8,268 → 7,023 | 67 → 30.1 → 27.2 | 0.32 | 133 GB |
+  | **total** | | | **0.42** | **~1.7 TB (K1 3.0 TB; raw 4.0 TB)** |
+
+  Largest fields now: Rrs 42–67 % (PACE 76 %, SFREFL 96 %); PACE Rrs_unc 12.7 % (was 47 %);
+  refl_clean 5–11 %; chlor_a 6–10 % (was 12–19 %). Bio-GO-SHIP at these ratios: ~7.3 TB.
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
