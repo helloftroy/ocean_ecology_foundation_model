@@ -627,6 +627,19 @@ windows, sampling) move to the loader.
   2.11 are done; delete Florida raw only after v3 is verified; Bio-GO-SHIP and later regions via
   download-tile-delete (tiles only). Before stage 2, retrain the stage-1.5 winner on v3 as the
   stage-2 baseline (no mixing of v2 and v3 tiles).
+- **Flag/fill check (2026-11-24, 2 Florida granules per product, every 4th scan line).** Rrs is
+  fill in every band for 100 % of pixels with ATMFAIL, CLDICE, LAND, HILT, NAVFAIL (OLCI),
+  BOWTIEDEL (VIIRS), SEAICE, and 99.7 % with HISOLZEN (VIIRS-J1): these are baked in by NASA's
+  processing, and all are hard-mask flags already. Pixels with HISATZEN (4–12 % valid), STRAYLIGHT
+  (15–81 % valid), HIGLINT/MODGLINT (9–50 % valid), COASTZ, HIPOL, ATMWARN, LOWLW, MAXAERITER, CHLFAIL
+  and COCCOLITH (≥ 99.8 % valid) keep Rrs values, so those parts of the policy can be deferred (the
+  co-occurrence with fill reflects coincident clouds/land, not filling: none reaches 100 %). Pixels with
+  no bit set are never fill. Data types: every Rrs (incl. PACE) is int16, scale 2e-6, offset 0.05;
+  Kd_490, nflh, aot, angstrom, pic, poc, par int16; chlor_a and PACE avw float32; PACE Rrs_unc int16.
+  PACE AOP has nflh, aot, angstrom, avw, Rrs_unc but no chlor_a / Kd_490 (BGC product). PACE SFREFL
+  rhos is float32 and kept nearly everywhere (fill only with HILT 70 %; CLDICE 3 %): cloudy cells do
+  not compress away, so full-swath SFREFL tiles are about raw size unless quantised or cloud-masked.
+  Tables: data/reports/flag_fill_check*.csv.
 - Blocked meanwhile: the /scratch data pool returns ENOSPC for large writes (2026-11-24; reads work).
 
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
