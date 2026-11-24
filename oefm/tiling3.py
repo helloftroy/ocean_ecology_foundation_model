@@ -40,7 +40,7 @@ Per cell, per stored tile (one zipped Zarr per granule and zone, `<granule>__<zo
                 sub-satellite point = nadir column; azimuth = bearing from the cell to it)
   tile_time     (tile,) float64       UTC seconds
 Solar zenith / azimuth are not stored: the loader computes them from tile_time + dt and the cell
-centres (`cell_solar_angles`, the same NOAA equations). Storage: zstd level 9, per array the better
+centres (`cell_solar_angles`, the same NOAA equations). Storage: zstd (level `processing.v3_store.zstd_level`), per array the better
 of byte shuffle and bit shuffle, chunks of whole tiles up to ~1 MB uncompressed.
 Attributes: catalog spec, product, wavelengths, flag names/masks, training mask, every variable's
 scale/offset/fill, source sha256, code version.
@@ -242,6 +242,9 @@ def tile_granule(args: tuple) -> dict[str, Any]:
     res: dict[str, Any] = {"row": row, "zones": [], "error": None}
     try:
         cfg = load_config(cfg_path)
+        from numcodecs import blosc
+
+        blosc.use_threads = False          # one compression thread per worker process (no oversubscription)
         prod = cfg.satellite_products[row["product"]]
         from .qcpolicy import policy
 
@@ -505,7 +508,7 @@ def _tile_zone(cfg, sw, row, prod, pol, info, zone, lat_all, lon_all, n, nadir, 
              "code_version": code, "created": datetime.now(timezone.utc).isoformat(),
              "regridding": "area-weighted pixel footprints (sub-sampled); mean of pixels with a finite value, no flag mask",
              "orientation": "row 0 = southern edge (south-up)"}
-    _write_store(Path(out["dest"]), A, attrs)
+    _write_store(Path(out["dest"]), A, attrs, zstd_level(cfg))
     out.update(status="done", clipped=clipped)
     for j, (t, tid, tt) in enumerate(stored):
         wv = A["w_valid"][j]
@@ -528,12 +531,17 @@ def store_chunks(a: np.ndarray) -> tuple[int, ...]:
     return (k,) + a.shape[1:]
 
 
-def store_codec(a: np.ndarray, chunks: tuple[int, ...]):
-    """zstd level 9 with the better of byte shuffle and bit shuffle on the first chunk (lossless)."""
+def zstd_level(cfg: Config) -> int:
+    """`processing.v3_store.zstd_level` (lossless at every level; higher = smaller and slower)."""
+    return int(((cfg.raw.get("processing") or {}).get("v3_store") or {}).get("zstd_level", 9))
+
+
+def store_codec(a: np.ndarray, chunks: tuple[int, ...], level: int = 9):
+    """zstd at `level` with the better of byte shuffle and bit shuffle on the first chunk (lossless)."""
     from numcodecs import Blosc
 
     sample = np.ascontiguousarray(a[:chunks[0]] if a.ndim > 1 else a)
-    opts = [Blosc(cname="zstd", clevel=9, shuffle=sh) for sh in (Blosc.SHUFFLE, Blosc.BITSHUFFLE)]
+    opts = [Blosc(cname="zstd", clevel=level, shuffle=sh) for sh in (Blosc.SHUFFLE, Blosc.BITSHUFFLE)]
     return min(opts, key=lambda c: len(c.encode(sample)))
 
 
@@ -553,9 +561,8 @@ def cell_solar_angles(tile_id: str, tile_time: float, dt: np.ndarray) -> tuple[n
     return solar_angles(t, lat, lon)
 
 
-def _write_store(dest: Path, arrays: dict[str, np.ndarray], attrs: dict) -> None:
+def _write_store(dest: Path, arrays: dict[str, np.ndarray], attrs: dict, level: int = 9) -> None:
     import zarr
-    from numcodecs import Blosc
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = str(dest) + ".tmp"
@@ -565,7 +572,7 @@ def _write_store(dest: Path, arrays: dict[str, np.ndarray], attrs: dict) -> None
     root = zarr.group(store=store)
     for name, a in arrays.items():
         chunks = store_chunks(a)
-        root.create_dataset(name, data=a, chunks=chunks, compressor=store_codec(a, chunks))
+        root.create_dataset(name, data=a, chunks=chunks, compressor=store_codec(a, chunks, level))
     root.attrs.update(json.loads(json.dumps(attrs, default=lambda o: o.item() if hasattr(o, "item") else str(o))))
     store.close()
     os.replace(tmp, dest)
