@@ -599,6 +599,36 @@ without re-downloading.
 
 ## Decision log
 
+### Tiling v3: download, tile, delete; fixed global catalog (2026-11-24, agreed, being built)
+**Your decision.** Raw granules are deleted once their tiles are verified, so tiles keep everything
+that would otherwise need a redownload; design choices (flag policy, transform, normalisation,
+windows, sampling) move to the loader.
+- **Coverage:** every tile a downloaded granule touches (full swath), full resolution. Tiles under
+  1 % valid cells store no arrays; every overpass is still recorded (an overpass index separate from
+  the stored-tile index, so the loader never reads the large one). If storage runs short, delete
+  whole tiles, never resolution.
+- **catalog_v1 (fixed, versioned, definition stored with the tiles):** 15° latitude bands split
+  into ~1,700 km zones, each its own LAEA (< 0.5 % distortion), ~180 zones plus polar caps; tile ID
+  `<zone>:X…Y…` is permanent. Border tiles belong to both zones; a point (and every label matchup)
+  uses the tile of its own zone, chosen from its lat/lon. The Gulf crosses 30° N, so the pilot
+  exercises borders.
+- **Per cell:** Rrs (all bands) = mean over pixels with valid Rrs, no flag mask, re-quantised to the
+  granule's own int16 scale/offset (≤ half a source step; float sources stay float); l2_flags OR plus
+  the share of pixels with each of the 32 bits; a clean mean (each product's current training mask)
+  only in mixed cells; sun zenith/azimuth (computed), sensor zenith/azimuth (reconstructed); time;
+  pixel count; FLH, chlor_a, Kd_490 where present; PACE SFREFL rhos; PACE_OCI_L2_BGC chlorophyll and
+  carbon/pigment fields (product to add). OLCI at 300 m only (1.2 km built in the loader).
+- **Gridded products:** MUR (and other gridded fields) tiled into catalog_v1, global daily files
+  then deleted.
+- **First check:** `scripts/flag_fill_check.py`: which flag bits co-occur with fill Rrs in standard
+  L2 files (if HISATZEN / STRAYLIGHT / COCCOLITH pixels are filled, those policy choices cannot be
+  applied from these files).
+- **Order:** build + test; re-tile Florida raw into v3; keep the v2 tiles until stage 1, 1.5 and
+  2.11 are done; delete Florida raw only after v3 is verified; Bio-GO-SHIP and later regions via
+  download-tile-delete (tiles only). Before stage 2, retrain the stage-1.5 winner on v3 as the
+  stage-2 baseline (no mixing of v2 and v3 tiles).
+- Blocked meanwhile: the /scratch data pool returns ENOSPC for large writes (2026-11-24; reads work).
+
 ### Bio-GO-SHIP as a global downstream benchmark (2026-11-23)
 **Your request.** Use the Bio-GO-SHIP metagenome data (instructions from the Granite project
 agent, `multimodal_seusmbol/instructions_agent_biogoship.md`) as a robust downstream test, with
