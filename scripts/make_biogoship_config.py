@@ -167,9 +167,9 @@ def main(argv=None) -> None:
         "domain_margin_deg": 0.5,
         "time": {"physical_lead_days": 0},
         "physical": {},
-        "exclude_products": ["pace_oci_sfrefl"],   # not an encoder input (training.sensors.include)
         "targets": {},
-        "processing": {"stats_dir": "data/processed/regional/tiles/v2/train_stats"},
+        "processing": {"stats_dir": "data/processed/regional/tiles/v2/train_stats",
+                       "v3_root": "data/processed/global/tiles/v3"},   # one catalog_v1 store for every config
         "runs_root": "data/runs",
         "zones": zones,
         "regions": regions,

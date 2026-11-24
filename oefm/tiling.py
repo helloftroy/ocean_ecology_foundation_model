@@ -454,7 +454,8 @@ def run(cfg: Config, products: list[str] | None = None, workers: int = 0, limit:
     specs = {g.zone: g.spec() for g in gl}
     if not (root / "grid" / "tiles.parquet").exists():
         write_static(cfg, gl, root / "grid", log)
-    sat = [k for k in cfg.satellite_products if not products or k in products]
+    sat = [k for k, p in cfg.satellite_products.items() if (not products or k in products)
+           and p.get("reflectance") not in ("none", None)]   # v2 tiles reflectance only (not PACE BGC)
     man = Manifest(cfg.manifest_path)
     rows = [dict(r) for r in man.rows(f"status='verified' AND product IN ({','.join('?' * len(sat))})", tuple(sat))]
     man.close()

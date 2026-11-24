@@ -229,7 +229,7 @@ source cluster/env.sh && OEFM_CONFIG=config/biogoship.yaml OEFM_DATA_ROOT=$PWD/d
 PACE-era seasonal windows; 2.5 TB historical). MODIS 487 GB (from 2011-08-30), OLCI-A 2,306, OLCI-B
 2,171, PACE AOP 1,762, VIIRS-J1 1,289, VIIRS-J2 899, VIIRS-SNPP 1,299 GB. Approved for download (J3).
 
-*J3 (after review). Download, then tiles:*
+*J3 — superseded by K4 (download-tile-delete, tiles only). Kept for reference:*
 ```bash
 sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,CHAIN=3 cluster/download.sbatch
 # when the download has finished:
@@ -251,6 +251,47 @@ the global retrain (J5), with the retrained winner.
 
 *J5 (after 2.11).* Retrain the 2.11 winner on Florida + the Bio-GO-SHIP corridors, then rerun J4.
 Not built yet: a training set over two data roots, and normalisation statistics over both.
+
+**K. Tiling v3: catalog_v1, download-tile-delete (2026-11-24)** ▶️ (decision log "Tiling v3").
+Built: `oefm/catalog.py` (catalog_v1: 196 zones, scale error ≤ 0.21 % in band zones, ≤ 0.86 % at the
+cap rims), `oefm/tiling3.py` (full swath, int16 at source scale, flag shares, clean mean in mixed
+cells, angles, all single-layer fields, PACE Rrs_unc, SFREFL int16 with cloud/land cells empty,
+OLCI at 300 m only), `oefm/stream.py` (download → tile → delete), `python -m oefm tiles3 | index3 |
+stream | purge-raw`, PACE BGC (`pace_oci_bgc`, v3.2) in the products. Tiles go to the shared store
+`data/processed/global/tiles/v3/` (catalog.json, `<product>/<year>/<granule>__<zone>.zarr.zip`,
+`index/tile_observations_<phase>.parquet` and `index/overpasses_<phase>.parquet`). The v2 tiles and
+everything reading them (H, I, J4 with Florida-trained runs on v2) are unchanged. Not built yet: the
+v3 loader (needed before J4 on BioGO-SHIP and the stage-2 baseline) and MUR tiling into catalog_v1.
+Check the 2 GB write test before each step (storage pool).
+
+*K1. Trial on Florida (3 granules per product, raw kept):*
+```bash
+git pull
+sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PER_PRODUCT=3 cluster/prep.sbatch
+```
+Paste back `tail -40 logs/oefm_prep_<id>.out` (seconds per granule, tiles and overpasses per
+product, clipped values) and:
+```bash
+du -sh data/processed/global/tiles/v3/*/ ; du -ch data/processed/global/tiles/v3/*/*/*.zarr.zip | tail -1
+```
+I extrapolate the full Florida size and time from it before K2.
+
+*K2 (after review). Re-tile all Florida raw (raw kept until verified):*
+`sbatch --account=191001-366746 --export=ALL,STEPS=tiles3 cluster/prep.sbatch`, then `purge-raw`
+(report first, `--yes` after review) deletes the Florida raw satellite files.
+
+*K3. PACE BGC for Florida (download → tile → delete, ~16 GB transient):*
+```bash
+sbatch --account=191001-366746 --export=ALL,PRODUCTS=pace_oci_bgc cluster/inventory.sbatch
+sbatch --account=191001-366746 --export=ALL,PRODUCTS=pace_oci_bgc cluster/stream.sbatch
+```
+
+*K4. Bio-GO-SHIP via download-tile-delete (replaces J3).* The manifest already lists every product
+(incl. SFREFL); add BGC, then stream. The 101 GB already downloaded is tiled and deleted first.
+```bash
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,PRODUCTS=pace_oci_bgc cluster/inventory.sbatch
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,CHAIN=5 cluster/stream.sbatch
+```
 
 ---
 

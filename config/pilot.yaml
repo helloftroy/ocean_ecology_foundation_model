@@ -167,6 +167,18 @@ satellite:
     nominal_bands: 122
     separate_product: true
     notes: "Surface reflectance (rhos) incl. red/NIR/SWIR for floating Sargassum. Version 3.1, unlike AOP 3.2; tracked separately. ~730 MB per granule."
+  pace_oci_bgc:
+    family: PACE
+    platform: PACE
+    short_name: PACE_OCI_L2_BGC
+    version: "3.2"
+    provider: OB_CLOUD
+    origin: observed
+    reflectance: none
+    nominal_resolution_m: 1200
+    nominal_bands: 0
+    separate_product: true
+    notes: "PACE biogeochemistry (chlor_a, phytoplankton carbon / pigment fields): single-layer fields, tiled v3 only (no reflectance; never an encoder input). ~8-10 MB per granule (CMR 2026-11-24), from 2024-03-05."
 
 physical:
   mur_sst:
@@ -288,6 +300,7 @@ excluded:
 # ---------------------------------------------------------------------------
 processing:
   version: v2            # bump when a change alters processed values; outputs go to a new folder
+  v3_root: data/processed/global/tiles/v3   # tiling v3 (catalog_v1) store, shared with config/biogoship.yaml
                          # v2 (2026-11-12): design-document v1 flag policy (soft flags kept as quality channels)
 
   grid:

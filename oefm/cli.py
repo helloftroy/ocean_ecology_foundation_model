@@ -104,6 +104,24 @@ def main(argv: list[str] | None = None) -> None:
     tl.add_argument("--limit", type=int, default=0, help="only the first N granules (testing)")
     tl.add_argument("--start", help="only granules starting on/after this date (YYYY-MM-DD)")
     tl.add_argument("--end", help="only granules starting on/before this date")
+    t3 = sub.add_parser("tiles3", help="tiling v3 (catalog_v1, full swath, deferred flag policy); raw kept")
+    t3.add_argument("--products", nargs="*")
+    t3.add_argument("--workers", type=int, default=0)
+    t3.add_argument("--limit", type=int, default=0, help="only the first N granules (trial)")
+    t3.add_argument("--per-product", type=int, default=0, help="trial: N granules per product, spread over time")
+    sub.add_parser("index3", help="export the v3 tile and overpass indexes")
+    st = sub.add_parser("stream", help="download, tile (v3), delete raw: batch after batch")
+    st.add_argument("--products", nargs="*")
+    st.add_argument("--batch", type=int, default=200)
+    st.add_argument("--connections", type=int, default=8)
+    st.add_argument("--workers", type=int, default=0)
+    st.add_argument("--start")
+    st.add_argument("--end")
+    st.add_argument("--max-batches", type=int, default=0)
+    st.add_argument("--keep-raw", action="store_true")
+    pr = sub.add_parser("purge-raw", help="delete raw satellite files whose v3 tiling is done (status -> tiled)")
+    pr.add_argument("--products", nargs="*")
+    pr.add_argument("--yes", action="store_true", help="really delete (default: only report)")
     ex = sub.add_parser("examples")
     ex.add_argument("--n", type=int, default=4, help="number of tile-days to draw")
     ex.add_argument("--max-dt-hours", type=float, default=4.0)
@@ -125,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
     {"regions": cmd_regions, "windows": cmd_windows, "catalog": cmd_catalog, "inventory": cmd_inventory,
      "download": cmd_download, "verify": cmd_verify, "inspect": cmd_inspect, "index": cmd_index,
      "overlap": cmd_overlap, "zenith": cmd_zenith, "status": cmd_status, "report": cmd_report,
-     "layout": cmd_layout, "crop": cmd_crop, "grid": cmd_grid, "tiles": cmd_tiles, "examples": cmd_examples, "evalcover": cmd_evalcover, "physics": cmd_physics, "sequences": cmd_sequences,
+     "layout": cmd_layout, "crop": cmd_crop, "grid": cmd_grid, "tiles": cmd_tiles, "tiles3": cmd_tiles3, "index3": cmd_index3, "stream": cmd_stream, "purge-raw": cmd_purge_raw, "examples": cmd_examples, "evalcover": cmd_evalcover, "physics": cmd_physics, "sequences": cmd_sequences,
      "targets": cmd_targets, "evalsets": cmd_evalsets, "normstats": cmd_normstats,
      "processed": cmd_processed}[args.cmd](cfg, args)
 
@@ -440,6 +458,61 @@ def cmd_tiles(cfg, args) -> None:
     make_layout(cfg, log)
     stats = tiling.run(cfg, args.products, args.workers, args.limit, args.start, args.end, log)
     log(f"tiles: {stats}")
+
+
+def cmd_tiles3(cfg, args) -> None:
+    from . import tiling3
+    from .manifest import Manifest
+
+    rows = None
+    if args.per_product:
+        import numpy as np
+
+        sat = [k for k in cfg.satellite_products if not args.products or k in args.products]
+        man = Manifest(cfg.manifest_path)
+        rows = []
+        for k in sat:
+            c = [dict(r) for r in man.rows("status='verified' AND product=?", (k,))]
+            if c:
+                rows += [c[int(i)] for i in np.unique(np.linspace(0, len(c) - 1, args.per_product).astype(int))]
+        man.close()
+    stats = tiling3.run(cfg, rows=rows, products=args.products, workers=args.workers, limit=args.limit, log=log)
+    log(f"tiles3: {stats}")
+    tiling3.export_index(cfg, log)
+
+
+def cmd_index3(cfg, args) -> None:
+    from . import tiling3
+
+    tiling3.export_index(cfg, log)
+
+
+def cmd_stream(cfg, args) -> None:
+    from . import stream
+
+    stream.run(cfg, args.products, args.batch, args.connections, args.workers, args.keep_raw, args.start, args.end,
+               args.max_batches, log)
+
+
+def cmd_purge_raw(cfg, args) -> None:
+    from .manifest import Manifest
+    from .stream import delete_tiled
+    from .tiling3 import done_keys, v3_db
+
+    sat = [k for k in cfg.satellite_products if not args.products or k in args.products]
+    man = Manifest(cfg.manifest_path)
+    rows = [dict(r) for r in man.rows(f"status='verified' AND product IN ({','.join('?' * len(sat))})", tuple(sat))]
+    man.close()
+    db = v3_db(cfg)
+    done = done_keys(db)
+    db.close()
+    ready = [r for r in rows if r["granule_key"] in done]
+    gb = sum((r["bytes_on_disk"] or r["size_bytes"] or 0) for r in ready) / 1e9
+    log(f"purge-raw: {len(ready):,} of {len(rows):,} verified raw files have v3 tiles ({gb:,.1f} GB)")
+    if args.yes:
+        delete_tiled(cfg, ready, log)
+    else:
+        log("  report only; rerun with --yes to delete")
 
 
 def cmd_examples(cfg, args) -> None:

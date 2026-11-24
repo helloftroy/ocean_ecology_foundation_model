@@ -74,8 +74,12 @@ class TestZones(unittest.TestCase):
         self.assertIn("grid", cfg.raw["processing"])                 # merged from pilot.yaml
         self.assertIn("stats_dir", cfg.raw["processing"])
         self.assertEqual(cfg.physical_products, {})
-        self.assertNotIn("pace_oci_sfrefl", cfg.satellite_products)          # not an encoder input
-        self.assertEqual(set(cfg.satellite_products) | {"pace_oci_sfrefl"}, set(load_config().satellite_products))
+        # every product incl. SFREFL and PACE BGC (tiled v3, raw deleted); exclude_products still works
+        self.assertEqual(set(cfg.satellite_products), set(load_config().satellite_products))
+        raw = dict(cfg.raw, exclude_products=["pace_oci_sfrefl"])
+        from oefm.config import Config
+
+        self.assertNotIn("pace_oci_sfrefl", Config(raw, cfg.path, cfg.today).satellite_products)
         self.assertEqual(cfg.core_start(), date(2024, 1, 1))
         self.assertEqual(load_config().core_start(), date(2024, 1, 1))
         for r in cfg.regions.values():

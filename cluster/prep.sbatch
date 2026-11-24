@@ -17,6 +17,8 @@
 #   sbatch --account=191001-366746 --export=ALL,LIMIT=40 cluster/prep.sbatch
 #
 # STEPS (default "layout grid crop tiles examples evalcover physics sequences normstats"), WORKERS (default 12), LIMIT (default 0 = all).
+# Tiling v3 (catalog_v1, raw kept): STEPS=tiles3 (PER_PRODUCT=N for a trial on N granules per product,
+# PRODUCTS="..." to restrict); STEPS=index3 re-exports the v3 indexes.
 
 set -euo pipefail
 source "${SLURM_SUBMIT_DIR:-$(pwd)}/cluster/env.sh"
@@ -36,6 +38,8 @@ for step in ${STEPS}; do
     physics)  python -m oefm physics --workers "${WORKERS}" ;;
     sequences) python -m oefm sequences ;;
     normstats) python -m oefm normstats ;;
+    tiles3)   python -m oefm tiles3 --workers "${WORKERS}" --limit "${LIMIT}" ${PER_PRODUCT:+--per-product ${PER_PRODUCT}} ${PRODUCTS:+--products ${PRODUCTS}} ;;
+    index3)   python -m oefm index3 ;;
     *) echo "unknown step ${step}" >&2; exit 1 ;;
   esac
 done

@@ -137,7 +137,7 @@ def select(man: Manifest, products: list[str], args) -> list[dict]:
     where = [f"product IN ({','.join('?' * len(products))})"]
     params: list[Any] = list(products)
     if not args.recheck and not args.per_product:
-        where.append("status != 'verified'")
+        where.append("status NOT IN ('verified', 'tiled')")   # 'tiled': tiled (v3) and raw deleted
     if args.start:
         where.append("(time_end IS NULL OR substr(time_end,1,10) >= ?)")
         params.append(args.start)

@@ -97,7 +97,7 @@ def build(cfg: Config, workers: int = 0, log=print) -> dict[str, Path]:
     import pandas as pd
 
     man = Manifest(cfg.manifest_path)
-    sat = list(cfg.satellite_products)
+    sat = [k for k, p in cfg.satellite_products.items() if p.get("reflectance") not in ("none", None)]
     rows = [dict(r) for r in man.rows(f"status='verified' AND product IN ({','.join('?' * len(sat))})", tuple(sat))]
     phys = [dict(r) for r in man.rows("status='verified' AND kind='physical'")]
     man.close()
