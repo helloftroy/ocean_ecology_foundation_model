@@ -33,7 +33,8 @@ def check(path: Path, product: str, stride: int) -> tuple[list[dict], list[dict]
         nr, nc = sw.lat.shape
         rs, cs = slice(0, nr, stride), slice(0, nc)
         bits, fmap = sw.flags(slice(0, nr), cs)
-        bits = bits[::stride].astype("u8")
+        bits = bits[::stride].astype("i8") & 0xFFFFFFFF          # flag_masks hold bit 31 as a negative int32
+        fmap = {k: int(v) & 0xFFFFFFFF for k, v in fmap.items()}
         first = sw.bands[0]
         if first[2] is not None:   # one 3-D variable (PACE): bands on the last axis
             v = np.ma.filled(np.ma.asarray(sw.geo[first[1]][rs, cs, :], dtype="f4"), np.nan)
@@ -96,6 +97,8 @@ def main(argv=None) -> None:
             var_rows += b
     man.close()
     df = pd.DataFrame(rows)
+    if df.empty:
+        raise SystemExit("no granule could be read")
     out = Path(args.out) if args.out else cfg.reports_dir / "flag_fill_check.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
