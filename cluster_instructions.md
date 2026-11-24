@@ -225,6 +225,9 @@ without it, on the login node (reads the manifest only):
 git pull
 source cluster/env.sh && OEFM_CONFIG=config/biogoship.yaml OEFM_DATA_ROOT=$PWD/data_biogoship python -m oefm status
 ```
+✅ Status (2026-11-24), without SFREFL: 107,100 files, **10.2 TB** (7.7 TB in 2024+, mostly the two
+PACE-era seasonal windows; 2.5 TB historical). MODIS 487 GB (from 2011-08-30), OLCI-A 2,306, OLCI-B
+2,171, PACE AOP 1,762, VIIRS-J1 1,289, VIIRS-J2 899, VIIRS-SNPP 1,299 GB. Approved for download (J3).
 
 *J3 (after review). Download, then tiles:*
 ```bash
