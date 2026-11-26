@@ -352,6 +352,12 @@ Login-node commands use the project venv, not a conda env:
    bands and which flags (login node, read-only, a few minutes):
    ```bash
    python scripts/sfrefl_range_check.py --granules 6 --files PACE_OCI.20240408T181326.L2.SFREFL.V3_1.nc PACE_OCI.20251108T134129.L2.SFREFL.V3_1.nc 2>&1 | tail -150
+   python scripts/sfrefl_range_check.py --product pace_oci_aop --granules 4 2>&1 | tail -80   # same question for Rrs
+   ```
+   Result 2026-11-26: K1c.2 and K1c.3 pass. The first range check read with netCDF4 masking (hides values outside
+   valid_min/valid_max) and found nothing; rerun the rewritten one (reads like tiling):
+   ```bash
+   python scripts/sfrefl_range_check.py --granules 6 --files PACE_OCI.20240408T181326.L2.SFREFL.V3_1.nc 2>&1 | tail -150
    ```
    SFREFL raw stays until this is understood (re-tiling SFREFL with a different range needs it).
 Paste back all of it.
@@ -381,8 +387,12 @@ sbatch --account=191001-366746 --export=ALL,PRODUCTS=pace_oci_bgc cluster/stream
 *K4. Bio-GO-SHIP via download-tile-delete (replaces J3).* The manifest already lists every product
 (incl. SFREFL); add BGC, then stream. The 101 GB already downloaded is tiled and deleted first.
 ```bash
+# 2026-11-26: start with the seven products whose tiling is confirmed (SFREFL waits for K1c.4, BGC for K3).
+# Only one manifest-writing job at a time: squeue -u $USER first.
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,CHAIN=5,PRODUCTS="modisa_oc viirsn_oc viirsj1_oc viirsj2_oc olcia_efr_oc olcib_efr_oc pace_oci_aop" cluster/stream.sbatch
+# later, after K1c.4 / K3 and once the first chain has finished:
 sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,PRODUCTS=pace_oci_bgc cluster/inventory.sbatch
-sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,CHAIN=5 cluster/stream.sbatch
+sbatch --account=191001-366746 --export=ALL,OEFM_CONFIG=config/biogoship.yaml,OEFM_DATA_ROOT=$PWD/data_biogoship,CHAIN=5,PRODUCTS="pace_oci_sfrefl pace_oci_bgc" cluster/stream.sbatch
 ```
 
 ---
@@ -1759,6 +1769,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-26 | login | K1c.2 fill check, 8 Florida granules per product: same pattern as the 2-granule check. Rrs all-band fill 100 % with ATMFAIL, CLDICE, HILT, LAND, BOWTIEDEL (VIIRS), NAVFAIL (OLCI), SEAICE (PACE 1.000, VIIRS 0.994-1.000), HISOLZEN (0.94-1.00); none of the deferred-policy bits reaches 100 %: HISATZEN 0.83-0.89 all-band fill, HIGLINT 0.51-0.85, MODGLINT 0.56-0.80, COASTZ 0.45-0.75, STRAYLIGHT 0.25-0.70, HIPOL 0.25-0.65, ATMWARN/LOWLW/MAXAERITER up to 0.45/0.51/0.56 (OLCI-A), COCCOLITH, TURBIDW, OPSHAL <= 0.007; no bit set: never fill. SFREFL rhos: all-band fill 0 for every flag; any-band fill up to 0.09 (HIPOL, HISATZEN). K1c.3 test_ddp in envs/oefm_gpu: 2/2 OK (379 s). sfrefl_range_check (fixed) found 0 values outside -0.1106..2.5107 in 8 raw granules incl. the eclipse one, but it read with netCDF4 default masking, which hides values outside valid_min/valid_max; tiling reads raw (only _FillValue removed). Check rewritten to read like tiling. Non-SFREFL tiling is confirmed: purge Florida non-SFREFL raw, start Bio-GO-SHIP stream without SFREFL and BGC |
 | 2026-11-26 | login | K2 du of tiles/v3: MODIS 65G, OLCI-A 320G, OLCI-B 312G, PACE AOP 397G, SFREFL 292G, VIIRS-J1 107G, J2 56G, N 102G, index 2.3G; total ~1.65 TB (K1e predicted ~1.68 TB). SFREFL clipped per granule: 487 of 1,776 granules 0; percentiles 10/25/50/75/90/99/max 0/0/82,094/274,726/455,309/696,223/10,140,481; top PACE_OCI.20240408T181326 (10.1 M; 2024-04-08 18:13 UTC = North American total solar eclipse), next 1.1 M and below. sfrefl_range_check part 2 failed (wavelengths is a property; fixed). test_ddp skipped 2/2 (no torch.distributed in envs/oefm; run in envs/oefm_gpu). flag_fill_check_8 tables cut off by tail; CSV at data/reports/flag_fill_check_8.csv |
 | 2026-11-26 | 116523 | K2 tiles3, all Florida ✅ 24,311/24,311 done, 0 failed, 5.7 s per granule wall (28 workers, gpu-a100-mig7; ~38.5 h), ended 07:34 CST Nov 26. Index v3: 36,560,497 tile rows, 100,292,038 overpass rows. Stored tiles / overpasses: MODIS 3,744,545 / 14,510,417; OLCI-A 1,329,994 / 2,664,684; OLCI-B 1,301,128 / 2,552,894; PACE AOP 2,265,295 / 7,769,103; SFREFL 3,301,817 / 7,773,498; VIIRS-J1 9,820,128 / 26,014,454; VIIRS-J2 5,395,184 / 12,861,110; VIIRS-N 9,392,881 / 26,145,878. Granules MODIS 4,166, OLCI-A 2,221, OLCI-B 2,129, PACE 1,776 each, J1 4,930, J2 2,451, N 4,886. SFREFL clipped 291,515,357 cell-band values (~164,000 per granule; K1 had 1,142 in 3 granules with clouds emptied); values below -0.1106 become FILL, so SFREFL raw is not purged until K1c.4 explains them. processing.sqlite is 38 GB. du of tiles/v3 not yet pasted |
 | 2026-11-26 | 116469 | train stage1_D3 (ν 0.3 by its total loss: ~0.11 + 0.3 × recon ~0.45) ✅ 30,000 steps in 28.3 h, ended 06:49 CST Nov 26; follow-on 116558 cancelled itself. 37.7 seq/s, 34.5 GB peak, loader wait 0.08%. Last steps: pred 0.004-0.008 (per sensor 0.003-0.017), SIGReg 2.08-2.20 per group, PACE residual 0.015-0.057, recon 0.37-0.59 (OLCI 0.59-0.91, PACE 0.06-0.75, MODIS 0.19-0.37, VIIRS 0.25-0.68; about the same as D at ν 0.1), amp 0.003-0.004, total 0.23-0.30; effective rank of E1 269 (D 295, C 212; no collapse). H done; next I |
