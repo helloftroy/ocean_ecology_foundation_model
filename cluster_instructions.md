@@ -333,6 +333,9 @@ tiles3 job runs, because its worker processes re-read the code):*
    sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PER_PRODUCT=3,FORCE=1,PRODUCTS=pace_oci_sfrefl cluster/prep.sbatch
    ```
    Then rerun the breakdown and `du` as in K1b step 3.
+Login-node commands use the project venv, not a conda env:
+`conda deactivate; source /scratch/ptolemy/users/$USER/envs/oefm/bin/activate; export OEFM_DATA_ROOT=$PWD/data` (from the repo root).
+
 2. **Fill-value check on more granules** (login node, read-only): Florida with 8 granules per
    product, plus the Bio-GO-SHIP files already downloaded (other latitudes):
    ```bash
