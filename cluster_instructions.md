@@ -344,13 +344,14 @@ Login-node commands use the project venv, not a conda env:
    ```
 3. **test_ddp on Ptolemy** (two CPU processes over gloo, under a minute; it crashes locally from an OpenMP clash):
    ```bash
+   source /scratch/ptolemy/users/$USER/envs/oefm_gpu/bin/activate   # torch.distributed; envs/oefm skips it
    python -m unittest discover -s tests -p test_ddp.py -v 2>&1 | tail -15
    ```
 4. **SFREFL clipped values (added after K2):** K2 reported 291,515,357 clipped SFREFL cell-band values.
    A cell mean below -0.1106 is stored as FILL (missing), above 2.5107 as 2.5107. Find which side, which
    bands and which flags (login node, read-only, a few minutes):
    ```bash
-   python scripts/sfrefl_range_check.py --granules 6 2>&1 | tail -120
+   python scripts/sfrefl_range_check.py --granules 6 --files PACE_OCI.20240408T181326.L2.SFREFL.V3_1.nc PACE_OCI.20251108T134129.L2.SFREFL.V3_1.nc 2>&1 | tail -150
    ```
    SFREFL raw stays until this is understood (re-tiling SFREFL with a different range needs it).
 Paste back all of it.
@@ -1758,6 +1759,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-26 | login | K2 du of tiles/v3: MODIS 65G, OLCI-A 320G, OLCI-B 312G, PACE AOP 397G, SFREFL 292G, VIIRS-J1 107G, J2 56G, N 102G, index 2.3G; total ~1.65 TB (K1e predicted ~1.68 TB). SFREFL clipped per granule: 487 of 1,776 granules 0; percentiles 10/25/50/75/90/99/max 0/0/82,094/274,726/455,309/696,223/10,140,481; top PACE_OCI.20240408T181326 (10.1 M; 2024-04-08 18:13 UTC = North American total solar eclipse), next 1.1 M and below. sfrefl_range_check part 2 failed (wavelengths is a property; fixed). test_ddp skipped 2/2 (no torch.distributed in envs/oefm; run in envs/oefm_gpu). flag_fill_check_8 tables cut off by tail; CSV at data/reports/flag_fill_check_8.csv |
 | 2026-11-26 | 116523 | K2 tiles3, all Florida ✅ 24,311/24,311 done, 0 failed, 5.7 s per granule wall (28 workers, gpu-a100-mig7; ~38.5 h), ended 07:34 CST Nov 26. Index v3: 36,560,497 tile rows, 100,292,038 overpass rows. Stored tiles / overpasses: MODIS 3,744,545 / 14,510,417; OLCI-A 1,329,994 / 2,664,684; OLCI-B 1,301,128 / 2,552,894; PACE AOP 2,265,295 / 7,769,103; SFREFL 3,301,817 / 7,773,498; VIIRS-J1 9,820,128 / 26,014,454; VIIRS-J2 5,395,184 / 12,861,110; VIIRS-N 9,392,881 / 26,145,878. Granules MODIS 4,166, OLCI-A 2,221, OLCI-B 2,129, PACE 1,776 each, J1 4,930, J2 2,451, N 4,886. SFREFL clipped 291,515,357 cell-band values (~164,000 per granule; K1 had 1,142 in 3 granules with clouds emptied); values below -0.1106 become FILL, so SFREFL raw is not purged until K1c.4 explains them. processing.sqlite is 38 GB. du of tiles/v3 not yet pasted |
 | 2026-11-26 | 116469 | train stage1_D3 (ν 0.3 by its total loss: ~0.11 + 0.3 × recon ~0.45) ✅ 30,000 steps in 28.3 h, ended 06:49 CST Nov 26; follow-on 116558 cancelled itself. 37.7 seq/s, 34.5 GB peak, loader wait 0.08%. Last steps: pred 0.004-0.008 (per sensor 0.003-0.017), SIGReg 2.08-2.20 per group, PACE residual 0.015-0.057, recon 0.37-0.59 (OLCI 0.59-0.91, PACE 0.06-0.75, MODIS 0.19-0.37, VIIRS 0.25-0.68; about the same as D at ν 0.1), amp 0.003-0.004, total 0.23-0.30; effective rank of E1 269 (D 295, C 212; no collapse). H done; next I |
 | 2026-11-25 | 116468 | train arm D (ν 0.1 by its total loss: C's ~0.11 + 0.1 × recon ~0.45) ✅ 30,000 steps, ended 02:28 CST Nov 25 after 16.1 h in this job (second job of the run; resumed from checkpoint); follow-on 116470 cancelled itself. 38.1 seq/s, 34.7 GB peak, loader wait 0.1%. Last steps: pred 0.004-0.011 (per sensor 0.001-0.026), SIGReg 2.0-2.2 per group (same as C), PACE residual 0.013-0.028, recon 0.37-0.55 (OLCI highest 0.72-1.04, PACE 0.07-0.54, MODIS 0.16-0.43, VIIRS 0.21-0.57), amp 0.002-0.0035, total 0.15-0.18; effective rank of E1 295 (C 212; no collapse). stderr: only the DDP find_unused_parameters notice and harmless 'Mean of empty slice' from cells with no valid pixels. Jobs for D and D3 run one after the other (QOSMaxGRESPerUser = per-user GPU cap); the last D-family job is now running. Next: check weights_final.pt for stage1_D, then I after D3 |

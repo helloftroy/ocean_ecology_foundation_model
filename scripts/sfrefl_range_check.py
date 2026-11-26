@@ -13,7 +13,9 @@ out-of-range pixels, the share carrying each l2_flags bit (CLDICE, HILT, LAND, H
 solar zenith there. Tiling averages pixels into cells, so pixel counts here are an upper bound on
 cell counts.
 
-    python scripts/sfrefl_range_check.py [--granules 6] [--stride 4] 2>&1 | tail -120
+    python scripts/sfrefl_range_check.py [--granules 6] [--stride 4] [--files NAME ...] 2>&1 | tail -120
+
+--files adds named granules (e.g. the top clipped ones from part 1) to the evenly spaced sample.
 """
 
 from __future__ import annotations
@@ -58,7 +60,7 @@ def check(path: Path, stride: int, lo: float, hi: float) -> None:
         fmap = {k: int(v) & 0xFFFFFFFF for k, v in fmap.items()}
         first = sw.bands[0]
         v = np.ma.filled(np.ma.asarray(sw.geo[first[1]][::stride, :, :], dtype="f4"), np.nan)
-        wl = np.array(sw.wavelengths())
+        wl = np.array(sw.wavelengths)
         try:
             solz = np.ma.filled(np.ma.asarray(sw.ds["geolocation_data"]["solar_zenith"][::stride, :], dtype="f4"), np.nan)
         except Exception:  # noqa: BLE001
@@ -103,6 +105,7 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--granules", type=int, default=6)
     ap.add_argument("--stride", type=int, default=4)
+    ap.add_argument("--files", nargs="*", default=[], help="granule file names to add")
     args = ap.parse_args(argv)
     cfg = load_config()
     lo, hi = SFREFL_OFFSET - 32766 * SFREFL_SCALE, SFREFL_OFFSET + 32767 * SFREFL_SCALE
@@ -112,7 +115,13 @@ def main(argv=None) -> None:
     man.close()
     if not cand:
         raise SystemExit("no SFREFL granule in the manifest")
-    pick = [cand[int(i)] for i in np.linspace(0, len(cand) - 1, args.granules + 2)[1:-1]]
+    pick = [cand[int(i)] for i in np.linspace(0, len(cand) - 1, args.granules + 2)[1:-1]] if args.granules else []
+    by_name = {Path(r["local_path"]).name: r for r in cand}
+    for f in args.files:
+        if f in by_name:
+            pick.append(by_name[f])
+        else:
+            print(f"{f}: not in the manifest as verified/tiled")
     print(f"\nPart 2: {len(pick)} raw granules, range kept {lo:.4f} .. {hi:.4f}")
     for r in pick:
         p = cfg.data_root / r["local_path"]
