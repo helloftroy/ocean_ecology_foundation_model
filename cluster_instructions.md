@@ -150,7 +150,7 @@ sbatch --account=191001-366746 --export=ALL,EXTRA="--steps robust amplitude focu
 Paste back `tail -250 logs/oefm_eval_<id>.out`. Copy `data/runs/eval_stage1/robust_*.csv`,
 `focused_*.csv` and `amplitude_check.csv` to `multimodal_seusmbol/eval_results/stage1/`.
 
-**H. Stage 1.5: train arm D at two reconstruction weights** ▶️ G's amplitude test is read: B and C
+**H. Stage 1.5: train arm D at two reconstruction weights** ✅ (jobs 116468 `stage1_D`, 116469 `stage1_D3`; job history) G's amplitude test is read: B and C
 fail it (E1 moves 0.1–0.3 % under a 2× brightness change; threshold 5 %), so arm D now also has an
 amplitude-retention term, κ = 0.1 (`loss.kappa`; a linear head on the context tokens predicts each
 cell's two amplitude features). Both D runs use it, so the ν comparison stays clean. Effective rank
@@ -169,7 +169,7 @@ the run name and overrides) and `tail -3 data/runs/<run>/log.jsonl`. The log sho
 the `recon_*` keys and `amp` next to `pred`, `sigreg` and `pace_residual`; for D3, check
 `data/runs/stage1_D3/train_config.json` has `"nu": 0.3`.
 
-**I. Evaluate all five runs (after H)** ⏳. Use a new tag. `embed` writes every run into the same
+**I. Evaluate all five runs (after H)** ▶️ ready. Use a new tag. `embed` writes every run into the same
 `embeddings_*.npz`, so evaluating only D under the tag `stage1` would overwrite A, B and C. Windows:
 causal and retro as before, plus ±1 d and ±3 d matchups (eDNA and SFER) and the 90-day seasonal
 window (fish). Each embedding file now records the span actually covered (`span_days`; at most 16
@@ -1748,6 +1748,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-26 | 116469 | train stage1_D3 (ν 0.3 by its total loss: ~0.11 + 0.3 × recon ~0.45) ✅ 30,000 steps in 28.3 h, ended 06:49 CST Nov 26; follow-on 116558 cancelled itself. 37.7 seq/s, 34.5 GB peak, loader wait 0.08%. Last steps: pred 0.004-0.008 (per sensor 0.003-0.017), SIGReg 2.08-2.20 per group, PACE residual 0.015-0.057, recon 0.37-0.59 (OLCI 0.59-0.91, PACE 0.06-0.75, MODIS 0.19-0.37, VIIRS 0.25-0.68; about the same as D at ν 0.1), amp 0.003-0.004, total 0.23-0.30; effective rank of E1 269 (D 295, C 212; no collapse). H done; next I |
 | 2026-11-25 | 116468 | train arm D (ν 0.1 by its total loss: C's ~0.11 + 0.1 × recon ~0.45) ✅ 30,000 steps, ended 02:28 CST Nov 25 after 16.1 h in this job (second job of the run; resumed from checkpoint); follow-on 116470 cancelled itself. 38.1 seq/s, 34.7 GB peak, loader wait 0.1%. Last steps: pred 0.004-0.011 (per sensor 0.001-0.026), SIGReg 2.0-2.2 per group (same as C), PACE residual 0.013-0.028, recon 0.37-0.55 (OLCI highest 0.72-1.04, PACE 0.07-0.54, MODIS 0.16-0.43, VIIRS 0.21-0.57), amp 0.002-0.0035, total 0.15-0.18; effective rank of E1 295 (C 212; no collapse). stderr: only the DDP find_unused_parameters notice and harmless 'Mean of empty slice' from cells with no valid pixels. Jobs for D and D3 run one after the other (QOSMaxGRESPerUser = per-user GPU cap); the last D-family job is now running. Next: check weights_final.pt for stage1_D, then I after D3 |
 | 2026-11-18 | 116167 | targets rerun after the xarray pin: 109/109 PISCES files; 3,295 of 3,301 days (3,218 reanalysis, 77 forecast), median tile coverage 1.00; evaluation sets re-matched (same counts as 116161). Stage 1 training A, B, C submitted (user) |
 | 2026-11-22 | 116376 | evaluate (all three arms, final weights) ✅ 1 h 30 min: embeddings 4 × ~815 s, probes, PACE retention. A leads (decision log, Stage 1 results). Bugs: SFER 0 targets (missing Chl dropped every target), family means dominated by 3 near-constant test targets; fixed, rerun probes (F2) |
