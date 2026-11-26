@@ -92,7 +92,8 @@ def store_settings(cfg: Config) -> dict[str, Any]:
     return {"max_cloud": rule.get("max_cloud"), "min_clear": rule.get("min_clear"),
             "min_cloud_for_clear": float(rule.get("min_cloud_for_clear", 0.05)),
             "refl_unc": st.get("refl_unc", "int16"), "max_senz_deg": st.get("max_senz_deg"),
-            "log_extras": tuple(st.get("log_int16_extras", ()))}
+            "log_extras": tuple(st.get("log_int16_extras", ())),
+            "valid_range_products": tuple(st.get("mask_valid_range", ()))}
 
 
 LOG_STEP = 1e-4    # log10 step of log-int16 extras: 0.023 % relative; range 10**+-3.2766 (5.3e-4 .. 1,890)
@@ -239,7 +240,13 @@ def _attrs(var) -> dict:
     a = {k: var.getncattr(k) for k in var.ncattrs()}
     return {"dtype": str(var.dtype), "scale": float(a["scale_factor"]) if "scale_factor" in a else None,
             "offset": float(a["add_offset"]) if "add_offset" in a else 0.0,
-            "fill": float(a["_FillValue"]) if "_FillValue" in a else None, "units": str(a.get("units", ""))}
+            "fill": float(a["_FillValue"]) if "_FillValue" in a else None, "units": str(a.get("units", "")),
+            "valid_min_raw": _first(a.get("valid_range"), 0) if "valid_range" in a else _first(a.get("valid_min")),
+            "valid_max_raw": _first(a.get("valid_range"), -1) if "valid_range" in a else _first(a.get("valid_max"))}
+
+
+def _first(x, i: int = 0) -> float | None:
+    return None if x is None else float(np.asarray(x, dtype="f8").ravel()[i])
 
 
 def variables(sw: L2Swath, product: str, keep_extras: tuple[str, ...] | None = None) -> dict[str, Any]:
@@ -272,6 +279,11 @@ def _decode(raw: np.ndarray, info: dict) -> np.ndarray:
     a = raw.astype("f8")
     if info.get("fill") is not None:
         a[raw == info["fill"]] = np.nan
+    if info.get("mask_valid_range"):          # NASA's valid_min / valid_max, compared in raw (file) units
+        if info.get("valid_min_raw") is not None:
+            a[raw < info["valid_min_raw"]] = np.nan
+        if info.get("valid_max_raw") is not None:
+            a[raw > info["valid_max_raw"]] = np.nan
     if not info["dtype"].startswith("float") and info.get("scale"):
         a = a * info["scale"] + info["offset"]
     return a
@@ -322,6 +334,8 @@ def tile_granule(args: tuple) -> dict[str, Any]:
         keep_extras, share_bits = store_rules(cfg, row["product"])
         info = variables(sw, row["product"], keep_extras)
         info["share_bits"] = share_bits
+        if info["refl"] is not None and row["product"] in store_settings(cfg)["valid_range_products"]:
+            info["refl"]["mask_valid_range"] = True
         from .tiling import scan_times
 
         t_row_all, tsrc = scan_times(sw, slice(0, lat_all.shape[0]))

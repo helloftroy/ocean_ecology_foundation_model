@@ -301,7 +301,12 @@ excluded:
 processing:
   version: v2            # bump when a change alters processed values; outputs go to a new folder
   v3_root: data/processed/global/tiles/v3   # tiling v3 (catalog_v1) store, shared with config/biogoship.yaml
+  exclude_windows:       # (2026-11-26) observations the v3 loader skips (all sensors), UTC
+    - {start: "2024-04-08T16:30:00Z", end: "2024-04-08T20:30:00Z", lon: [-120, -50], lat: [0, 60], reason: "total solar eclipse (Mexico-Texas-US; partial over the Gulf/Florida); PACE SFREFL 3 % of values below valid_min"}
   v3_store:              # what tiling v3 keeps besides reflectance (decision log "Tiling v3", size cuts 2026-11-24)
+    mask_valid_range: [pace_oci_sfrefl]   # (2026-11-26) reflectance outside the file's valid_min/valid_max is fill
+                         # before averaging (SFREFL rhos -0.05..1.5: cloud-pixel artefacts up to ~50 in 719-835 nm, eclipse
+                         # UV). Rrs products not listed: out-of-range Rrs is <= 1e-4 of values, on flagged pixels
     extras:              # single-layer fields kept (if the file has them); the rest are listed in attrs only
       default: [nflh, chlor_a, Kd_490]        # baselines
       pace_oci_bgc: [chlor_a, carbon_phyto, poc]   # PACE BGC fields evaluated against (check against the K3 file)

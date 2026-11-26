@@ -267,6 +267,45 @@ class TestTiling3(unittest.TestCase):
         self.assertEqual(g.attrs["sfrefl_empty_flags"], ["LAND"])
         st.close()
 
+    def test_sfrefl_valid_range_masked(self):
+        """rhos outside valid_min/valid_max (cloud artefacts up to ~50) is fill before averaging, when the
+        product is in processing.v3_store.mask_valid_range (pilot: pace_oci_sfrefl); otherwise it enters the mean."""
+        out = {}
+        for name, lst in (("on", "[pace_oci_sfrefl]"), ("off", "[]")):
+            cfgp = self.d / f"vr_{name}.yaml"
+            cfgp.write_text(f"extends: {self.cfg.path}\nprocessing:\n  v3_store:\n    mask_valid_range: {lst}\n")
+            src = self.d / f"sfrefl_vr_{name}.nc"
+            make_l2(src, "sfrefl")
+            with netCDF4.Dataset(src, "a") as ds:
+                v = ds["geophysical_data"]["rhos"]
+                v.valid_min, v.valid_max = np.float32(-0.05), np.float32(1.5)
+                v.set_auto_maskandscale(False)
+                a = np.asarray(v[:])
+                blk = a[30:90, 30:90, 0]
+                a[30:90, 30:90, 0] = np.where(blk != -32767.0, 40.0, blk)
+                v[:] = a
+            row = {"granule_key": f"k_vr_{name}", "product": "pace_oci_sfrefl", "filename": src.name,
+                   "time_start": "2024-06-10T17:00:00Z", "sha256": "x"}
+            res = tiling3.tile_granule((str(cfgp), row, str(src), str(self.d / f"v3_vr_{name}"), {"git": "test"}))
+            self.assertIsNone(res["error"])
+            mx, clipped = [], 0
+            for z in res["zones"]:
+                clipped += z.get("clipped", 0)
+                if z["status"] != "done":
+                    continue
+                g, st = self.open(z)
+                b0 = g["refl"][:, 0]
+                if (b0 != -32767).any():
+                    mx.append(float((b0[b0 != -32767] * 4e-5 + 1.2).max()))
+                vr = g.attrs["variables"]["refl"].get("mask_valid_range", False)
+                st.close()
+            out[name] = (max(mx), clipped, vr)
+        self.assertLess(out["on"][0], 0.1)
+        self.assertEqual(out["on"][1], 0)
+        self.assertTrue(out["on"][2])
+        self.assertGreater(out["off"][0], 2.0)
+        self.assertGreater(out["off"][1], 0)
+
     def check_rule(self, ov, max_cloud, min_clear, min_cloud):
         for o in ov:
             if o["valid_fraction"] < 0.01:

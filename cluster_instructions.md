@@ -360,6 +360,20 @@ Login-node commands use the project venv, not a conda env:
    python scripts/sfrefl_range_check.py --granules 6 --files PACE_OCI.20240408T181326.L2.SFREFL.V3_1.nc 2>&1 | tail -150
    ```
    SFREFL raw stays until this is understood (re-tiling SFREFL with a different range needs it).
+5. **Result and decision (2026-11-26):** the clipped SFREFL values are pixels NASA marks invalid
+   (outside rhos valid_min/valid_max -0.05..1.5), all cloud-flagged; tiling now treats them as fill before
+   averaging (`processing.v3_store.mask_valid_range: [pace_oci_sfrefl]`; store attr
+   `variables.refl.mask_valid_range`). Rrs products are unchanged (out-of-range Rrs <= 1e-4 of values,
+   on flagged pixels; Florida and Bio-GO-SHIP stay consistent). The eclipse granule is excluded by the
+   loader (`processing.exclude_windows`). Re-tile Florida SFREFL (raw still there), then purge:
+   ```bash
+   git pull     # safe while the Bio-GO-SHIP stream runs: the change only affects SFREFL
+   sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PRODUCTS=pace_oci_sfrefl,FORCE=1 cluster/prep.sbatch
+   python -m oefm purge-raw --products modisa_oc olcia_efr_oc olcib_efr_oc pace_oci_aop viirsj1_oc viirsj2_oc viirsn_oc --yes
+   ```
+   When the SFREFL job ends, paste back `grep -E "s per granule|FAILED|tiles3:" logs/oefm_prep_<id>.out | tail -12`
+   (clipped should be ~0) and `du -sh data/processed/global/tiles/v3/pace_oci_sfrefl/`; then
+   `python -m oefm purge-raw --products pace_oci_sfrefl` (report, then `--yes`).
 Paste back all of it.
 
 *K1e result (job 116522, 2026-11-24):* 24/24 done with the final settings, 9.4 s per granule wall
@@ -1769,6 +1783,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-26 | login, 116712 | Bio-GO-SHIP stream (7 products, no SFREFL/BGC, CHAIN=5) submitted. Range check read like tiling: SFREFL rhos valid range -0.05..1.5 (file attrs); above valid_max 1e-4..9e-4 of values (479-56,914 per sampled granule), all on CLDICE pixels (100 %), mostly HISATZEN, in 719-835 nm (values to 52.8) and 346-375 nm (to 2.4); below valid_min <= 375 per granule. Eclipse granule 20240408T181326: 3.25 % of values below valid_min (UV to -0.97), 210,648 of 544,416 pixels, 1.1 % with no flag set. PACE AOP Rrs (valid -0.01..0.10): below valid_min 0-1,583 values per granule (<= 1.1e-4; floor -0.01553 = int16 minimum) in 346-~400 nm, above 0-119; all on flagged pixels (PRODWARN, STRAYLIGHT, CHLFAIL, MAXAERITER, ATMWARN); 0 clipped in K2. purge-raw report: 22,559 of 22,559 non-SFREFL Florida raw files tiled (2,641.9 GB) |
 | 2026-11-26 | login | K1c.2 fill check, 8 Florida granules per product: same pattern as the 2-granule check. Rrs all-band fill 100 % with ATMFAIL, CLDICE, HILT, LAND, BOWTIEDEL (VIIRS), NAVFAIL (OLCI), SEAICE (PACE 1.000, VIIRS 0.994-1.000), HISOLZEN (0.94-1.00); none of the deferred-policy bits reaches 100 %: HISATZEN 0.83-0.89 all-band fill, HIGLINT 0.51-0.85, MODGLINT 0.56-0.80, COASTZ 0.45-0.75, STRAYLIGHT 0.25-0.70, HIPOL 0.25-0.65, ATMWARN/LOWLW/MAXAERITER up to 0.45/0.51/0.56 (OLCI-A), COCCOLITH, TURBIDW, OPSHAL <= 0.007; no bit set: never fill. SFREFL rhos: all-band fill 0 for every flag; any-band fill up to 0.09 (HIPOL, HISATZEN). K1c.3 test_ddp in envs/oefm_gpu: 2/2 OK (379 s). sfrefl_range_check (fixed) found 0 values outside -0.1106..2.5107 in 8 raw granules incl. the eclipse one, but it read with netCDF4 default masking, which hides values outside valid_min/valid_max; tiling reads raw (only _FillValue removed). Check rewritten to read like tiling. Non-SFREFL tiling is confirmed: purge Florida non-SFREFL raw, start Bio-GO-SHIP stream without SFREFL and BGC |
 | 2026-11-26 | login | K2 du of tiles/v3: MODIS 65G, OLCI-A 320G, OLCI-B 312G, PACE AOP 397G, SFREFL 292G, VIIRS-J1 107G, J2 56G, N 102G, index 2.3G; total ~1.65 TB (K1e predicted ~1.68 TB). SFREFL clipped per granule: 487 of 1,776 granules 0; percentiles 10/25/50/75/90/99/max 0/0/82,094/274,726/455,309/696,223/10,140,481; top PACE_OCI.20240408T181326 (10.1 M; 2024-04-08 18:13 UTC = North American total solar eclipse), next 1.1 M and below. sfrefl_range_check part 2 failed (wavelengths is a property; fixed). test_ddp skipped 2/2 (no torch.distributed in envs/oefm; run in envs/oefm_gpu). flag_fill_check_8 tables cut off by tail; CSV at data/reports/flag_fill_check_8.csv |
 | 2026-11-26 | 116523 | K2 tiles3, all Florida ✅ 24,311/24,311 done, 0 failed, 5.7 s per granule wall (28 workers, gpu-a100-mig7; ~38.5 h), ended 07:34 CST Nov 26. Index v3: 36,560,497 tile rows, 100,292,038 overpass rows. Stored tiles / overpasses: MODIS 3,744,545 / 14,510,417; OLCI-A 1,329,994 / 2,664,684; OLCI-B 1,301,128 / 2,552,894; PACE AOP 2,265,295 / 7,769,103; SFREFL 3,301,817 / 7,773,498; VIIRS-J1 9,820,128 / 26,014,454; VIIRS-J2 5,395,184 / 12,861,110; VIIRS-N 9,392,881 / 26,145,878. Granules MODIS 4,166, OLCI-A 2,221, OLCI-B 2,129, PACE 1,776 each, J1 4,930, J2 2,451, N 4,886. SFREFL clipped 291,515,357 cell-band values (~164,000 per granule; K1 had 1,142 in 3 granules with clouds emptied); values below -0.1106 become FILL, so SFREFL raw is not purged until K1c.4 explains them. processing.sqlite is 38 GB. du of tiles/v3 not yet pasted |
