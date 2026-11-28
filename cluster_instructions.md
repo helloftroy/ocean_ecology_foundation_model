@@ -169,7 +169,7 @@ the run name and overrides) and `tail -3 data/runs/<run>/log.jsonl`. The log sho
 the `recon_*` keys and `amp` next to `pred`, `sigreg` and `pace_residual`; for D3, check
 `data/runs/stage1_D3/train_config.json` has `"nu": 0.3`.
 
-**I. Evaluate all five runs (after H)** ✅ job 116711 (full output still to paste). Use a new tag. `embed` writes every run into the same
+**I. Evaluate all five runs (after H)** ✅ job 116711 (results: decision log "Stage 1.5 results"). Use a new tag. `embed` writes every run into the same
 `embeddings_*.npz`, so evaluating only D under the tag `stage1` would overwrite A, B and C. Windows:
 causal and retro as before, plus ±1 d and ±3 d matchups (eDNA and SFER) and the 90-day seasonal
 window (fish). Each embedding file now records the span actually covered (`span_days`; at most 16
@@ -957,6 +957,78 @@ retrained on Florida + corridors.
   platform); HiSeq 4000 is a third platform level (pre-2016 cruises and some 2016 samples).
 **Not available yet.** P04E-2026 (279 samples, PACE-only cruise): needs the KO pipeline first (ask).
 The module-predictability figure (`granite/ko_ceiling.csv`) is not recomputed yet.
+
+### Stage 1.5 results (job 116711, 2026-11-26): D3 meets the 2.11 reopening test; A still leads on eDNA overall
+Five runs (A, B, C, D ν 0.1, D3 ν 0.3), final weights, tag `stage1_5`, windows causal, retro, retro1, retro3,
+seasonal. Log: `oefm_eval_116711.out` (repo root, 767 lines). Effective rank of E1 at the evaluation
+samples (causal/visible): A 115.9, B 103.2, C 127.1, D 196.3, D3 172.1 (E3: A 280.0, D 320.9, D3 289.8).
+
+**Mean of family medians, official test split, E1 (E2 for D/D3 in the last two columns), PACE visible:**
+
+| dataset | window | meta | raw | A | B | C | D | D3 | D/e2 | D3/e2 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| eDNA 16S | causal | 0.141 | 0.217 | **0.439** | 0.250 | 0.251 | 0.395 | 0.413 | 0.350 | 0.376 |
+| eDNA 16S | retro | 0.141 | 0.237 | **0.453** | 0.243 | 0.258 | 0.409 | 0.430 | 0.355 | 0.377 |
+| eDNA 18S | causal | 0.110 | 0.131 | **0.328** | 0.179 | 0.195 | 0.283 | 0.298 | 0.257 | 0.281 |
+| eDNA 18S | retro | 0.110 | 0.125 | **0.336** | 0.177 | 0.201 | 0.312 | 0.326 | 0.258 | 0.282 |
+| SFER | causal | -0.072 | 0.237 | 0.301 | 0.236 | 0.247 | 0.312 | 0.311 | 0.311 | **0.322** |
+| SFER | retro | -0.066 | 0.254 | 0.318 | 0.287 | 0.294 | **0.343** | 0.335 | 0.331 | 0.337 |
+| CRCP log1p | causal | -0.003 | 0.033 | -0.008 | -0.005 | 0.015 | **0.091** | 0.078 | 0.017 | 0.016 |
+| MaxN | causal | 0.050 | 0.009 | **0.069** | 0.068 | 0.055 | 0.063 | 0.064 | 0.036 | 0.042 |
+
+**The 2.11 reopening test** (decision log "Stage 1.5 and robustness checks"): D matches A on Chl and
+PACE retention, keeps B/C's NMF k5 and Si, and is not behind A on the focused tests.
+
+| criterion | A | C (best of B/C) | D | D3 | met by |
+|---|---|---|---|---|---|
+| SFER Chl, causal / retro | 0.800 / 0.838 | 0.601 / 0.647 | 0.792 / 0.824 | 0.800 / 0.829 | D, D3 |
+| PACE retention R² visible, test_geo / test_temporal (ridge on raw 0.967 / 0.968) | 0.738 / 0.637 | -0.033 / 0.204 | 0.713 / 0.618 | 0.728 / 0.636 | D3 (D -0.02) |
+| 16S NMF k5 causal (C/e1 0.745) | 0.711 | 0.745 | 0.681 e1, 0.798 e2 | 0.750 e1, 0.816 e2 | D, D3 |
+| 18S NMF k5 causal (C/e2 0.578) | 0.489 | 0.578 | 0.417 e1, 0.567 e2 | 0.451 e1, 0.615 e2 | D3 |
+| SFER Si causal | 0.378 | 0.404 | 0.404 | 0.449 | D, D3 |
+| PACE-era phyto, E1 visible, 16S causal / retro (n 46 / 50, 3 cruises) | 0.154 / 0.113 | -0.071 / -0.056 | 0.008 / 0.113 | -0.049 / 0.168 | mixed |
+| PACE-era phyto, E1 visible, 18S causal / retro | -0.655 / -0.363 | -0.519 / -0.155 | -0.375 / 0.140 | -0.722 / 0.090 | D, D3 on retro |
+| vs MOANA, 18S retro (delta, p better) | -0.139 (0.033) | +0.069 (0.819) | +0.364 (0.958) | +0.314 (0.989) | D, D3 |
+| vs MOANA, 16S retro | -0.449 | -0.618 | -0.448 | -0.393 | none (MOANA 0.562) |
+| fish CRCP over habitat, rotation, seasonal D² | -0.110 | -0.016 | -0.027 | -0.015 | C, D3 |
+| fish MaxN, rotation causal D² (meta 0.134) | 0.099 | 0.089 | 0.086 | 0.091 | A |
+
+Test-year rotation (mean over years of family medians; [years better than A/e1]): A leads most eDNA
+families but D/D3 beat it in 1-4 of 5 years, e.g. 16S NMF k5 causal A 0.705, D3 0.718 [3/5], D 0.695
+[1/5]; 18S NMF k5 retro1 A 0.495, D3 0.556 [5/5], D 0.546 [4/5]; 16S NMF k10 causal A 0.41, D 0.394
+[2/5], D3 0.367 [1/5]. SFER Chl causal A 0.702, D3 0.692 [3/8], D 0.673 [2/8]; Si causal A 0.34,
+D 0.371 [6/8], D3 0.351 [4/8].
+
+**Amplitude check on trained weights** (pass: log-amplitude R² >= 0.95 and relative distance > 0.05):
+
+| level | metric | A | B | C | D | D3 |
+|---|---|---|---|---|---|---|
+| E1 | log-amplitude R² | 0.926 FAIL | 0.985 | 0.984 | 0.897 FAIL | 0.944 FAIL |
+| E1 | log blue/green R² | -1.549 | 0.916 | 0.921 | -1.223 | -0.719 |
+| E1 | relative distance x0.5 / x2.0 | 0.388 / 0.278 | 0.002 / 0.003 FAIL | 0.001 / 0.001 FAIL | 0.684 / 0.567 | 0.599 / 0.469 |
+| token | log-amplitude R² | 0.988 | 0.987 | 0.987 | 0.987 | 0.988 |
+| token | relative distance x0.5 / x2.0 | 0.865 / 0.86 | 0.034 FAIL / 0.052 | 0.034 FAIL / 0.052 | 0.128 / 0.136 | 0.179 / 0.176 |
+
+No run passes both at E1: A, D, D3 respond to brightness but do not encode it linearly enough; B/C
+encode it but are blind to a 2x brightness change. D3 is closest (0.944).
+
+**PACE visible minus dropped** (PACE-era probes, leave-one-cruise-out, 3 cruises): no run shows a
+reliable gain; most intervals include 0. D3 16S causal is worse with PACE (-0.125, interval -0.161..-0.014).
+
+**Fish (focused, rotation):** CRCP D² <= 0 for every feature set (shallow reefs); best D3 seasonal
+-0.015 (+0.012 vs habitat). MaxN: metadata alone 0.134 causal beats every embedding (A 0.099, D3 0.091).
+
+**Conclusions:**
+1. D3 (ν 0.3) meets the reopening test: it matches A on Chl (0.800 vs 0.800) and PACE retention (0.728
+   vs 0.738 test_geo; 0.636 vs 0.637 test_temporal), exceeds B/C on NMF k5 (E2) and Si (0.449), and is
+   not behind A on the focused tests (ahead on 18S retro and CRCP; behind on 16S causal and MaxN).
+2. A still has the highest eDNA means on the official split (16S 0.439 vs D3 0.413; 18S 0.328 vs 0.298),
+   but the margin is within year-to-year variation (D3 beats A in 1-5 of 5 rotated years per family).
+3. ν 0.3 is better than ν 0.1 on PACE retention, eDNA means and amplitude; D (ν 0.1) is better on CRCP
+   and SFER retro.
+4. Neither arm passes the E1 amplitude test; D3 nearly does.
+5. PACE adds no measurable skill in any run yet (138 PACE-era eDNA samples, 3 cruises).
+6. 2.11 (A vs D3 for stage 2) is your decision.
 
 ### G results (job 116439, 2026-11-23): B/C lose amplitude; arm D gets an amplitude term
 **Amplitude test on trained weights** (design document: log-amplitude R² ≥ 0.95, relative distance > 0.05):

@@ -1,0 +1,766 @@
+Host: ptolemy-gpu-01 | repo: /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model | data: /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data | python: /scratch/ptolemy/users/hmp278/envs/oefm_gpu/bin/python (Python 3.12.16)
+Job started: Thu Nov 26 07:16:14 AM CST 2026 | runs: stage1_A stage1_B stage1_C stage1_D stage1_D3 | weights: final | tag: stage1_5
+loaded stage1_A: arm A, step 30,000, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/stage1_A/weights_final.pt
+loaded stage1_B: arm B, step 30,000, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/stage1_B/weights_final.pt
+loaded stage1_C: arm C, step 30,000, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/stage1_C/weights_final.pt
+loaded stage1_D: arm D, step 30,000, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/stage1_D/weights_final.pt
+loaded stage1_D3: arm D, step 30,000, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/stage1_D3/weights_final.pt
+embed causal/visible: 10,725 samples, 10,021 with a valid observation in the 3x3 cells (2,006 with PACE), 1473 s; span of the observations used (days from the window end): median 5.9, 90th percentile 14.2
+  stage1_A__e1: dim 512, effective rank 115.9
+  stage1_A__e3: dim 1024, effective rank 280.0
+  stage1_B__e1: dim 512, effective rank 103.2
+  stage1_B__e3: dim 1024, effective rank 119.4
+  stage1_B__e2: dim 512, effective rank 243.1
+  stage1_C__e1: dim 512, effective rank 127.1
+  stage1_C__e3: dim 1024, effective rank 151.4
+  stage1_C__e2: dim 512, effective rank 244.2
+  stage1_D__e1: dim 512, effective rank 196.3
+  stage1_D__e3: dim 1024, effective rank 320.9
+  stage1_D__e2: dim 512, effective rank 242.2
+  stage1_D3__e1: dim 512, effective rank 172.1
+  stage1_D3__e3: dim 1024, effective rank 289.8
+  stage1_D3__e2: dim 512, effective rank 241.2
+embed causal/drop: 10,725 samples, 10,021 with a valid observation in the 3x3 cells (0 with PACE), 1470 s; span of the observations used (days from the window end): median 6.2, 90th percentile 14.2
+  stage1_A__e1: dim 512, effective rank 115.0
+  stage1_A__e3: dim 1024, effective rank 277.6
+  stage1_B__e1: dim 512, effective rank 103.1
+  stage1_B__e3: dim 1024, effective rank 118.8
+  stage1_B__e2: dim 512, effective rank 243.2
+  stage1_C__e1: dim 512, effective rank 126.9
+  stage1_C__e3: dim 1024, effective rank 150.7
+  stage1_C__e2: dim 512, effective rank 244.2
+  stage1_D__e1: dim 512, effective rank 195.8
+  stage1_D__e3: dim 1024, effective rank 319.5
+  stage1_D__e2: dim 512, effective rank 242.2
+  stage1_D3__e1: dim 512, effective rank 171.8
+  stage1_D3__e3: dim 1024, effective rank 289.1
+  stage1_D3__e2: dim 512, effective rank 241.2
+embed retro/visible: 10,725 samples, 9,996 with a valid observation in the 3x3 cells (2,098 with PACE), 1480 s; span of the observations used (days from the window end): median 3.2, 90th percentile 6.7
+  stage1_A__e1: dim 512, effective rank 116.2
+  stage1_A__e3: dim 1024, effective rank 282.8
+  stage1_B__e1: dim 512, effective rank 101.5
+  stage1_B__e3: dim 1024, effective rank 116.7
+  stage1_B__e2: dim 512, effective rank 243.7
+  stage1_C__e1: dim 512, effective rank 125.0
+  stage1_C__e3: dim 1024, effective rank 148.8
+  stage1_C__e2: dim 512, effective rank 244.7
+  stage1_D__e1: dim 512, effective rank 195.5
+  stage1_D__e3: dim 1024, effective rank 318.9
+  stage1_D__e2: dim 512, effective rank 242.4
+  stage1_D3__e1: dim 512, effective rank 169.8
+  stage1_D3__e3: dim 1024, effective rank 285.7
+  stage1_D3__e2: dim 512, effective rank 241.3
+embed retro/drop: 10,725 samples, 9,996 with a valid observation in the 3x3 cells (0 with PACE), 1473 s; span of the observations used (days from the window end): median 3.2, 90th percentile 6.7
+  stage1_A__e1: dim 512, effective rank 115.2
+  stage1_A__e3: dim 1024, effective rank 280.0
+  stage1_B__e1: dim 512, effective rank 101.3
+  stage1_B__e3: dim 1024, effective rank 115.9
+  stage1_B__e2: dim 512, effective rank 243.7
+  stage1_C__e1: dim 512, effective rank 124.8
+  stage1_C__e3: dim 1024, effective rank 148.0
+  stage1_C__e2: dim 512, effective rank 244.7
+  stage1_D__e1: dim 512, effective rank 194.8
+  stage1_D__e3: dim 1024, effective rank 316.5
+  stage1_D__e2: dim 512, effective rank 242.4
+  stage1_D3__e1: dim 512, effective rank 169.5
+  stage1_D3__e3: dim 1024, effective rank 284.5
+  stage1_D3__e2: dim 512, effective rank 241.3
+embed retro1/visible: 3,967 samples, 3,105 with a valid observation in the 3x3 cells (523 with PACE), 245 s; span of the observations used (days from the window end): median 0.9, 90th percentile 1.0
+  stage1_A__e1: dim 512, effective rank 126.3
+  stage1_A__e3: dim 1024, effective rank 267.6
+  stage1_B__e1: dim 512, effective rank 81.8
+  stage1_B__e3: dim 1024, effective rank 91.3
+  stage1_B__e2: dim 512, effective rank 163.5
+  stage1_C__e1: dim 512, effective rank 99.5
+  stage1_C__e3: dim 1024, effective rank 115.8
+  stage1_C__e2: dim 512, effective rank 164.3
+  stage1_D__e1: dim 512, effective rank 161.9
+  stage1_D__e3: dim 1024, effective rank 263.4
+  stage1_D__e2: dim 512, effective rank 163.0
+  stage1_D3__e1: dim 512, effective rank 139.7
+  stage1_D3__e3: dim 1024, effective rank 235.0
+  stage1_D3__e2: dim 512, effective rank 163.4
+embed retro1/drop: 3,967 samples, 3,102 with a valid observation in the 3x3 cells (0 with PACE), 232 s; span of the observations used (days from the window end): median 0.9, 90th percentile 1.0
+  stage1_A__e1: dim 512, effective rank 125.8
+  stage1_A__e3: dim 1024, effective rank 266.0
+  stage1_B__e1: dim 512, effective rank 81.8
+  stage1_B__e3: dim 1024, effective rank 91.3
+  stage1_B__e2: dim 512, effective rank 163.5
+  stage1_C__e1: dim 512, effective rank 99.5
+  stage1_C__e3: dim 1024, effective rank 115.8
+  stage1_C__e2: dim 512, effective rank 164.3
+  stage1_D__e1: dim 512, effective rank 161.7
+  stage1_D__e3: dim 1024, effective rank 262.9
+  stage1_D__e2: dim 512, effective rank 163.0
+  stage1_D3__e1: dim 512, effective rank 139.8
+  stage1_D3__e3: dim 1024, effective rank 235.2
+  stage1_D3__e2: dim 512, effective rank 163.4
+embed retro3/visible: 3,967 samples, 3,559 with a valid observation in the 3x3 cells (763 with PACE), 470 s; span of the observations used (days from the window end): median 2.2, 90th percentile 2.9
+  stage1_A__e1: dim 512, effective rank 116.6
+  stage1_A__e3: dim 1024, effective rank 270.6
+  stage1_B__e1: dim 512, effective rank 74.6
+  stage1_B__e3: dim 1024, effective rank 84.9
+  stage1_B__e2: dim 512, effective rank 161.0
+  stage1_C__e1: dim 512, effective rank 90.4
+  stage1_C__e3: dim 1024, effective rank 107.4
+  stage1_C__e2: dim 512, effective rank 161.5
+  stage1_D__e1: dim 512, effective rank 152.8
+  stage1_D__e3: dim 1024, effective rank 261.6
+  stage1_D__e2: dim 512, effective rank 160.6
+  stage1_D3__e1: dim 512, effective rank 132.7
+  stage1_D3__e3: dim 1024, effective rank 235.0
+  stage1_D3__e2: dim 512, effective rank 160.5
+embed retro3/drop: 3,967 samples, 3,559 with a valid observation in the 3x3 cells (0 with PACE), 464 s; span of the observations used (days from the window end): median 2.2, 90th percentile 2.9
+  stage1_A__e1: dim 512, effective rank 115.9
+  stage1_A__e3: dim 1024, effective rank 268.6
+  stage1_B__e1: dim 512, effective rank 74.5
+  stage1_B__e3: dim 1024, effective rank 84.7
+  stage1_B__e2: dim 512, effective rank 161.0
+  stage1_C__e1: dim 512, effective rank 90.3
+  stage1_C__e3: dim 1024, effective rank 107.2
+  stage1_C__e2: dim 512, effective rank 161.4
+  stage1_D__e1: dim 512, effective rank 152.3
+  stage1_D__e3: dim 1024, effective rank 260.3
+  stage1_D__e2: dim 512, effective rank 160.6
+  stage1_D3__e1: dim 512, effective rank 132.6
+  stage1_D3__e3: dim 1024, effective rank 234.6
+  stage1_D3__e2: dim 512, effective rank 160.5
+embed seasonal/visible: 6,758 samples, 6,758 with a valid observation in the 3x3 cells (1,616 with PACE), 2605 s; span of the observations used (days from the window end): median 65.2, 90th percentile 74.3
+  stage1_A__e1: dim 512, effective rank 93.7
+  stage1_A__e3: dim 1024, effective rank 205.4
+  stage1_B__e1: dim 512, effective rank 104.8
+  stage1_B__e2: dim 512, effective rank 250.6
+  stage1_B__e3: dim 1024, effective rank 114.8
+  stage1_C__e1: dim 512, effective rank 128.3
+  stage1_C__e2: dim 512, effective rank 251.9
+  stage1_C__e3: dim 1024, effective rank 143.7
+  stage1_D3__e1: dim 512, effective rank 162.1
+  stage1_D3__e2: dim 512, effective rank 249.8
+  stage1_D3__e3: dim 1024, effective rank 233.6
+  stage1_D__e1: dim 512, effective rank 186.8
+  stage1_D__e2: dim 512, effective rank 250.6
+  stage1_D__e3: dim 1024, effective rank 263.3
+embed seasonal/drop: 6,758 samples, 6,758 with a valid observation in the 3x3 cells (0 with PACE), 2589 s; span of the observations used (days from the window end): median 65.2, 90th percentile 74.4
+  stage1_A__e1: dim 512, effective rank 93.0
+  stage1_A__e3: dim 1024, effective rank 203.9
+  stage1_B__e1: dim 512, effective rank 104.7
+  stage1_B__e2: dim 512, effective rank 250.6
+  stage1_B__e3: dim 1024, effective rank 114.2
+  stage1_C__e1: dim 512, effective rank 128.2
+  stage1_C__e2: dim 512, effective rank 251.9
+  stage1_C__e3: dim 1024, effective rank 143.1
+  stage1_D3__e1: dim 512, effective rank 161.9
+  stage1_D3__e2: dim 512, effective rank 249.8
+  stage1_D3__e3: dim 1024, effective rank 233.0
+  stage1_D__e1: dim 512, effective rank 186.4
+  stage1_D__e2: dim 512, effective rank 250.6
+  stage1_D__e3: dim 1024, effective rank 262.2
+probes edna_16S/causal: 83 targets, 34 feature sets, train 730, test 183 (100 with PACE)
+probes edna_18S/causal: 85 targets, 34 feature sets, train 730, test 183 (100 with PACE)
+probes fish_crcp/causal: 40 targets, 32 feature sets, train 1942, test 1057 (1027 with PACE)
+probes fish_maxn/causal: 10 targets, 32 feature sets, train 2764, test 616 (616 with PACE)
+probes sfer/causal: 4 targets, 32 feature sets, train 2433, test 464 (459 with PACE)
+probes edna_16S/retro: 83 targets, 34 feature sets, train 730, test 183 (100 with PACE)
+probes edna_18S/retro: 85 targets, 34 feature sets, train 730, test 183 (100 with PACE)
+probes fish_crcp/retro: 40 targets, 32 feature sets, train 1926, test 1057 (1027 with PACE)
+probes fish_maxn/retro: 10 targets, 32 feature sets, train 2821, test 616 (616 with PACE)
+probes sfer/retro: 4 targets, 32 feature sets, train 2358, test 464 (459 with PACE)
+probes edna_16S/retro1: 83 targets, 34 feature sets, train 612, test 155 (95 with PACE)
+probes edna_18S/retro1: 85 targets, 34 feature sets, train 612, test 155 (95 with PACE)
+probes sfer/retro1: 4 targets, 32 feature sets, train 1986, test 426 (423 with PACE)
+probes edna_16S/retro3: 83 targets, 34 feature sets, train 720, test 175 (100 with PACE)
+probes edna_18S/retro3: 85 targets, 34 feature sets, train 720, test 175 (100 with PACE)
+probes sfer/retro3: 4 targets, 32 feature sets, train 2295, test 461 (457 with PACE)
+probes fish_crcp/seasonal: 40 targets, 32 feature sets, train 1961, test 1057 (1027 with PACE)
+probes fish_maxn/seasonal: 10 targets, 32 feature sets, train 3189, test 616 (616 with PACE)
+Left out of the summary (test spread < 0.25 x training spread): edna_18S/nmf_k15_10 (0.10), edna_18S/nmf_k20_10 (0.07), edna_18S/taxon_g__Chloropicon (0.13)
+Median test R^2 per target family (PACE visible; eDNA with sequencing covariates). All settings: probes_summary.csv
+features                     meta    raw    seq  stage1_A/e1  stage1_A/e3  stage1_B/e1  stage1_B/e2  stage1_B/e3  stage1_C/e1  stage1_C/e2  stage1_C/e3  stage1_D/e1  stage1_D/e2  stage1_D/e3  stage1_D3/e1  stage1_D3/e2  stage1_D3/e3
+dataset   family  window                                                                                                                                                                                                                
+edna_16S  nmf_k10 causal    0.188  0.171 -0.007        0.423        0.411        0.186        0.176        0.161        0.196        0.171        0.181        0.406        0.362        0.343         0.419         0.394         0.343
+                  retro     0.188  0.197 -0.007        0.476        0.472        0.182        0.176        0.150        0.196        0.171        0.197        0.421        0.380        0.402         0.456         0.395         0.388
+                  retro1    0.195  0.142 -0.015        0.470        0.419        0.238        0.243        0.176        0.256        0.239        0.198        0.389        0.310        0.361         0.376         0.322         0.364
+                  retro3    0.153  0.186 -0.012        0.459        0.471        0.245        0.231        0.180        0.261        0.230        0.174        0.404        0.343        0.395         0.391         0.345         0.403
+          nmf_k15 causal    0.151  0.125 -0.042        0.389        0.354        0.137        0.144        0.087        0.056        0.141        0.092        0.330        0.159        0.257         0.323         0.190         0.302
+                  retro     0.151  0.132 -0.042        0.297        0.481        0.141        0.144        0.061        0.131        0.141        0.104        0.318        0.144        0.273         0.328         0.204         0.350
+                  retro1    0.129  0.105 -0.028        0.455        0.446        0.146        0.193        0.111        0.158        0.188        0.110        0.305        0.272        0.285         0.351         0.294         0.295
+                  retro3    0.137  0.140 -0.039        0.332        0.271        0.080        0.095       -0.004        0.139        0.093        0.030        0.275        0.169        0.215         0.319         0.239         0.321
+          nmf_k20 causal    0.073  0.075 -0.067        0.297        0.288        0.062        0.070        0.049        0.094        0.066        0.069        0.240        0.135        0.166         0.235         0.208         0.229
+                  retro     0.073  0.101 -0.067        0.312        0.295        0.060        0.069       -0.001        0.093        0.066        0.054        0.199        0.138        0.199         0.274         0.213         0.180
+                  retro1    0.080  0.083 -0.035        0.309        0.293        0.139        0.132        0.021        0.137        0.134        0.051        0.225        0.203        0.198         0.235         0.198         0.183
+                  retro3    0.085  0.030 -0.058        0.248        0.241        0.085        0.092        0.022        0.082        0.092        0.085        0.157        0.181        0.181         0.205         0.157         0.157
+          nmf_k5  causal    0.269  0.376 -0.008        0.711        0.679        0.645        0.680        0.616        0.745        0.678        0.638        0.681        0.798        0.615         0.750         0.816         0.678
+                  retro     0.269  0.495 -0.008        0.771        0.739        0.675        0.680        0.591        0.744        0.678        0.663        0.782        0.797        0.727         0.799         0.819         0.726
+                  retro1    0.266  0.234 -0.007        0.715        0.689        0.561        0.705        0.528        0.724        0.647        0.690        0.761        0.778        0.733         0.777         0.809         0.683
+                  retro3    0.272  0.449 -0.014        0.776        0.747        0.673        0.674        0.623        0.737        0.672        0.689        0.763        0.788        0.738         0.789         0.784         0.728
+          pc      causal    0.104  0.141 -0.031        0.377        0.305        0.076        0.074        0.037        0.053        0.070        0.040        0.362        0.261        0.222         0.350         0.264         0.251
+                  retro     0.104  0.091 -0.031        0.439        0.454        0.077        0.074        0.063        0.050        0.069        0.079        0.325        0.284        0.270         0.356         0.235         0.322
+                  retro1    0.123  0.028 -0.043        0.444        0.429        0.100        0.145        0.023        0.113        0.138        0.037        0.296        0.276        0.250         0.322         0.319         0.252
+                  retro3    0.105  0.021 -0.046        0.437        0.433        0.058        0.097        0.071        0.115        0.088        0.080        0.316        0.284        0.247         0.322         0.301         0.265
+          phyto   causal    0.120  0.492 -0.059        0.570        0.560        0.479        0.483        0.370        0.472        0.483        0.414        0.501        0.574        0.468         0.554         0.590         0.475
+                  retro     0.120  0.503 -0.059        0.602        0.599        0.440        0.483        0.375        0.472        0.483        0.457        0.571        0.563        0.502         0.546         0.585         0.478
+                  retro1    0.091  0.482 -0.028        0.691        0.687        0.355        0.561        0.392        0.517        0.543        0.444        0.654        0.579        0.577         0.625         0.587         0.534
+                  retro3    0.125  0.526 -0.041        0.654        0.655        0.491        0.513        0.370        0.500        0.512        0.450        0.584        0.577        0.565         0.531         0.589         0.530
+          taxon   causal    0.084  0.141 -0.012        0.304        0.274        0.167        0.147        0.117        0.144        0.141        0.141        0.242        0.161        0.239         0.260         0.168         0.221
+                  retro     0.084  0.141 -0.012        0.274        0.260        0.126        0.147        0.089        0.122        0.141        0.130        0.248        0.176        0.202         0.252         0.189         0.228
+                  retro1    0.077  0.130 -0.029        0.242        0.250        0.129        0.167        0.103        0.141        0.168        0.126        0.259        0.140        0.233         0.279         0.157         0.231
+                  retro3    0.066  0.118 -0.011        0.286        0.263        0.124        0.182        0.121        0.133        0.182        0.159        0.228        0.191        0.226         0.235         0.207         0.229
+edna_18S  nmf_k10 causal    0.151  0.071 -0.025        0.417        0.418        0.165        0.203        0.167        0.183        0.203        0.188        0.249        0.263        0.263         0.272         0.370         0.286
+                  retro     0.151  0.064 -0.025        0.458        0.455        0.135        0.203        0.139        0.178        0.203        0.194        0.364        0.273        0.365         0.422         0.370         0.396
+                  retro1    0.109  0.195 -0.015        0.422        0.430        0.239        0.295        0.192        0.278        0.294        0.210        0.449        0.357        0.405         0.449         0.380         0.396
+                  retro3    0.109  0.086 -0.020        0.484        0.419        0.254        0.288        0.139        0.283        0.284        0.203        0.371        0.373        0.368         0.384         0.378         0.361
+          nmf_k15 causal    0.132  0.176 -0.027        0.345        0.359        0.121        0.124        0.121        0.110        0.126        0.110        0.322        0.203        0.298         0.370         0.214         0.349
+                  retro     0.132  0.141 -0.027        0.336        0.362        0.093        0.124        0.110        0.115        0.126        0.137        0.309        0.184        0.247         0.301         0.207         0.295
+                  retro1    0.087  0.122 -0.020        0.322        0.365        0.141        0.154        0.101        0.155        0.151        0.109        0.301        0.208        0.288         0.353         0.216         0.310
+                  retro3    0.095  0.071 -0.027        0.372        0.399        0.135        0.137        0.120        0.140        0.135        0.140        0.283        0.227        0.288         0.307         0.233         0.319
+          nmf_k20 causal    0.093  0.140 -0.038        0.284        0.285        0.069        0.106        0.081        0.107        0.109        0.109        0.224        0.145        0.182         0.265         0.142         0.233
+                  retro     0.093  0.119 -0.038        0.290        0.287        0.063        0.106        0.060        0.101        0.109        0.101        0.250        0.171        0.191         0.282         0.176         0.215
+                  retro1    0.087  0.089 -0.032        0.268        0.323        0.146        0.154        0.043        0.162        0.153        0.105        0.240        0.169        0.215         0.263         0.250         0.236
+                  retro3    0.063  0.067 -0.036        0.268        0.266        0.109        0.138        0.070        0.118        0.151        0.102        0.247        0.195        0.244         0.296         0.191         0.283
+          nmf_k5  causal    0.181  0.181 -0.013        0.489        0.419        0.400        0.573        0.310        0.460        0.578        0.359        0.417        0.567        0.359         0.451         0.615         0.423
+                  retro     0.181  0.185 -0.013        0.515        0.467        0.467        0.573        0.337        0.519        0.584        0.459        0.569        0.569        0.554         0.581         0.599         0.537
+                  retro1    0.166  0.152 -0.023        0.499        0.505        0.509        0.565        0.417        0.572        0.563        0.477        0.567        0.570        0.571         0.530         0.576         0.479
+                  retro3    0.157  0.132 -0.006        0.554        0.462        0.578        0.586        0.443        0.584        0.581        0.492        0.507        0.584        0.520         0.504         0.624         0.460
+          pc      causal    0.057  0.070 -0.031        0.220        0.215        0.103        0.123        0.054        0.115        0.122        0.055        0.264        0.160        0.202         0.245         0.171         0.214
+                  retro     0.057  0.005 -0.031        0.269        0.231        0.081        0.123        0.051        0.095        0.122        0.079        0.186        0.132        0.177         0.216         0.144         0.214
+                  retro1    0.055 -0.000 -0.041        0.214        0.209        0.036        0.106        0.018        0.046        0.111        0.004        0.213        0.114        0.225         0.218         0.121         0.186
+                  retro3    0.038 -0.005 -0.032        0.282        0.270        0.049        0.120        0.063        0.091        0.119        0.074        0.217        0.154        0.176         0.236         0.154         0.185
+          phyto   causal    0.185  0.256 -0.009        0.447        0.375        0.387        0.350        0.325        0.360        0.357        0.338        0.403        0.452        0.412         0.387         0.440         0.394
+                  retro     0.185  0.362 -0.009        0.379        0.380        0.388        0.350        0.261        0.371        0.339        0.302        0.452        0.466        0.441         0.422         0.459         0.405
+                  retro1    0.083  0.250 -0.003        0.367        0.323        0.336        0.302        0.279        0.341        0.310        0.310        0.460        0.413        0.417         0.438         0.357         0.376
+                  retro3    0.192  0.259 -0.018        0.431        0.292        0.343        0.329        0.282        0.309        0.334        0.281        0.470        0.427        0.418         0.423         0.415         0.364
+          taxon   causal   -0.030  0.020 -0.034        0.096        0.062        0.007        0.023        0.015        0.027        0.034        0.017        0.105        0.008        0.060         0.095         0.016         0.086
+                  retro    -0.030 -0.001 -0.034        0.107        0.076        0.010        0.023        0.005        0.028        0.034        0.031        0.053        0.009        0.068         0.058         0.017         0.062
+                  retro1   -0.016 -0.016 -0.034        0.079        0.082        0.044        0.066        0.034        0.062        0.064        0.039        0.072        0.020        0.070         0.062         0.029         0.065
+                  retro3   -0.010 -0.009 -0.041        0.063        0.076       -0.012        0.069       -0.003        0.060        0.072        0.039        0.097        0.018        0.079         0.066         0.026         0.070
+fish_crcp log1p   causal   -0.003  0.033    NaN       -0.008        0.068       -0.005        0.005       -0.010        0.015        0.017        0.014        0.091        0.017        0.066         0.078         0.016         0.074
+                  retro    -0.010  0.016    NaN        0.001        0.093       -0.006        0.004        0.014        0.017        0.024        0.022        0.070        0.025        0.064         0.065         0.026         0.061
+                  seasonal  0.010  0.054    NaN       -0.124       -0.037       -0.000        0.009       -0.004        0.013        0.011        0.008        0.074        0.016        0.056         0.094         0.014         0.074
+fish_maxn maxn    causal    0.050  0.009    NaN        0.069        0.076        0.068        0.027        0.024        0.055        0.034       -0.009        0.063        0.036        0.048         0.064         0.042         0.061
+                  retro     0.051  0.019    NaN        0.059        0.053        0.057        0.028        0.033        0.052        0.033        0.023        0.077        0.038        0.059         0.050         0.041         0.039
+                  seasonal  0.051  0.039    NaN        0.075        0.070        0.059        0.022        0.029        0.065        0.030        0.023        0.079        0.033        0.067         0.074         0.035         0.073
+sfer      chl     causal   -0.080  0.740    NaN        0.800        0.787        0.573        0.556        0.425        0.601        0.543        0.516        0.792        0.738        0.764         0.800         0.756         0.761
+                  retro    -0.080  0.771    NaN        0.838        0.808        0.610        0.555        0.426        0.647        0.539        0.530        0.824        0.793        0.782         0.829         0.794         0.780
+                  retro1   -0.059  0.741    NaN        0.810        0.798        0.496        0.508        0.365        0.555        0.498        0.474        0.803        0.751        0.774         0.810         0.766         0.787
+                  retro3   -0.081  0.763    NaN        0.835        0.805        0.603        0.545        0.438        0.636        0.528        0.542        0.819        0.780        0.778         0.825         0.788         0.788
+          no3     causal   -0.016 -0.079    NaN        0.013        0.016       -0.044        0.022       -0.048       -0.044        0.026       -0.046        0.011        0.022        0.029        -0.004         0.024         0.003
+                  retro     0.003 -0.049    NaN        0.022        0.022        0.023        0.040        0.008        0.039        0.044        0.039        0.064        0.042        0.027         0.010         0.046         0.017
+                  retro1   -0.000 -0.044    NaN        0.011        0.021        0.036        0.048        0.035        0.051        0.052        0.038        0.100        0.051        0.087         0.090         0.050         0.070
+                  retro3    0.001 -0.051    NaN        0.021        0.019        0.020        0.036       -0.002        0.038        0.040        0.000        0.067        0.037        0.075         0.046         0.040         0.057
+          po4     causal   -0.178 -0.049    NaN        0.012       -0.029        0.008        0.073       -0.029        0.029        0.066        0.028        0.040        0.064       -0.009        -0.000         0.077         0.014
+                  retro    -0.176 -0.064    NaN        0.026       -0.042        0.107        0.082        0.016        0.083        0.076        0.043        0.063        0.069       -0.011         0.066         0.081         0.003
+                  retro1   -0.240 -0.117    NaN       -0.017       -0.012       -0.018       -0.006       -0.064       -0.049       -0.010       -0.042       -0.020       -0.005       -0.032         0.001         0.008        -0.011
+                  retro3   -0.197 -0.065    NaN        0.002       -0.040        0.065        0.047       -0.016        0.024        0.045       -0.002        0.045        0.053        0.015         0.071         0.066         0.053
+          si      causal   -0.012  0.338    NaN        0.378        0.404        0.406        0.411        0.231        0.404        0.400        0.319        0.404        0.421        0.381         0.449         0.430         0.411
+                  retro    -0.011  0.360    NaN        0.387        0.387        0.408        0.405        0.248        0.407        0.395        0.334        0.420        0.420        0.386         0.436         0.426         0.385
+                  retro1   -0.004  0.283    NaN        0.377        0.380        0.337        0.391        0.219        0.352        0.379        0.293        0.397        0.395        0.358         0.405         0.403         0.361
+                  retro3   -0.018  0.334    NaN        0.367        0.362        0.417        0.401        0.255        0.409        0.406        0.339        0.424        0.413        0.387         0.421         0.420         0.393
+Mean test AUC (presence targets, PACE visible):
+features                     meta    raw  stage1_A/e1  stage1_A/e3  stage1_B/e1  stage1_B/e2  stage1_B/e3  stage1_C/e1  stage1_C/e2  stage1_C/e3  stage1_D/e1  stage1_D/e2  stage1_D/e3  stage1_D3/e1  stage1_D3/e2  stage1_D3/e3
+dataset   family  window                                                                                                                                                                                                         
+fish_crcp present causal    0.536  0.585        0.644        0.629        0.569        0.597        0.575        0.583        0.597        0.588        0.621        0.596        0.627         0.636         0.603         0.626
+                  retro     0.536  0.589        0.642        0.632        0.567        0.596        0.605        0.581        0.596        0.593        0.631        0.595        0.634         0.638         0.605         0.626
+                  seasonal  0.538  0.605        0.634        0.626        0.568        0.598        0.576        0.578        0.598        0.583        0.619        0.596        0.625         0.637         0.605         0.625
+probes -> /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/probes.csv, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/probes_summary.csv
+pace train: 1959 anchors, 61,845 cells, 1246 s
+pace test_temporal: 777 anchors, 24,354 cells, 386 s
+pace test_geo: 777 anchors, 24,512 cells, 495 s
+PACE spectral retention (mean over wavelengths; RMSE in normalised units, lower is better):
+                             r2                   rmse              
+split                  test_geo test_temporal test_geo test_temporal
+model          setting                                              
+heritage_ridge -          0.967         0.968    0.101         0.126
+stage1_A       hidden     0.687         0.572    0.428         0.650
+               visible    0.738         0.637    0.393         0.598
+stage1_B       hidden    -0.119         0.190    0.856         0.893
+               visible   -0.126         0.188    0.859         0.895
+stage1_C       hidden    -0.030         0.204    0.821         0.883
+               visible   -0.033         0.204    0.822         0.885
+stage1_D       hidden     0.668         0.552    0.440         0.665
+               visible    0.713         0.618    0.410         0.613
+stage1_D3      hidden     0.679         0.572    0.435         0.649
+               visible    0.728         0.636    0.401         0.598
+train_mean     -         -0.074        -0.092    0.862         1.046
+pace -> /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/pace_retention.csv, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/pace_retention_summary.csv
+robust edna_16S/causal: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_16S/causal: grouped_cv, 82 scored samples with PACE in 3 groups, 83 targets
+robust edna_18S/causal: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_18S/causal: grouped_cv, 82 scored samples with PACE in 3 groups, 85 targets
+robust fish_crcp/causal: test periods ['2018', '2021', '2022', '2024'] (official ['2024'])
+robust pace_era fish_crcp/causal: grouped_cv, 721 scored samples with PACE in 52 groups, 40 targets
+robust fish_maxn/causal: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era fish_maxn/causal: grouped_cv, 541 scored samples with PACE in 5 groups, 10 targets
+robust sfer/causal: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'] (official ['2025'])
+robust pace_era sfer/causal: split, 401 scored samples with PACE in 6 groups, 4 targets
+robust edna_16S/retro: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_16S/retro: grouped_cv, 95 scored samples with PACE in 3 groups, 83 targets
+robust edna_18S/retro: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_18S/retro: grouped_cv, 95 scored samples with PACE in 3 groups, 85 targets
+robust fish_crcp/retro: test periods ['2018', '2021', '2022', '2024'] (official ['2024'])
+robust pace_era fish_crcp/retro: grouped_cv, 795 scored samples with PACE in 53 groups, 40 targets
+robust fish_maxn/retro: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era fish_maxn/retro: grouped_cv, 535 scored samples with PACE in 5 groups, 10 targets
+robust sfer/retro: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'] (official ['2025'])
+robust pace_era sfer/retro: split, 397 scored samples with PACE in 6 groups, 4 targets
+robust edna_16S/retro1: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_16S/retro1: grouped_cv, 57 scored samples with PACE in 3 groups, 83 targets
+robust edna_18S/retro1: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_18S/retro1: grouped_cv, 57 scored samples with PACE in 3 groups, 85 targets
+robust sfer/retro1: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'] (official ['2025'])
+robust pace_era sfer/retro1: split, 260 scored samples with PACE in 6 groups, 4 targets
+robust edna_16S/retro3: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_16S/retro3: grouped_cv, 86 scored samples with PACE in 3 groups, 83 targets
+robust edna_18S/retro3: test periods ['2018', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era edna_18S/retro3: grouped_cv, 86 scored samples with PACE in 3 groups, 85 targets
+robust sfer/retro3: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'] (official ['2025'])
+robust pace_era sfer/retro3: split, 390 scored samples with PACE in 6 groups, 4 targets
+robust fish_crcp/seasonal: test periods ['2018', '2021', '2022', '2024'] (official ['2024'])
+robust pace_era fish_crcp/seasonal: grouped_cv, 1028 scored samples with PACE in 58 groups, 40 targets
+robust fish_maxn/seasonal: test periods ['2018', '2019', '2020', '2021', '2022', '2023', '2024'] (official ['2024'])
+robust pace_era fish_maxn/seasonal: grouped_cv, 616 scored samples with PACE in 5 groups, 10 targets
+Test-year rotation: mean over test years of the family median R^2 (mean AUC for presence); [years better than stage1_A/e1 / years]. Per year: robust_rotate.csv
+features                            meta           raw           seq   stage1_A/e1   stage1_A/e3   stage1_B/e1   stage1_B/e2   stage1_B/e3   stage1_C/e1   stage1_C/e2   stage1_C/e3   stage1_D/e1   stage1_D/e2   stage1_D/e3  stage1_D3/e1  stage1_D3/e2  stage1_D3/e3
+dataset   family  window                                                                                                                                                                                                                                                
+edna_16S  nmf_k10 causal     0.105 [0/5]   0.121 [0/5]  -0.048 [0/5]    0.41 [0/5]   0.391 [1/5]   0.156 [0/5]   0.161 [0/5]   0.141 [0/5]   0.165 [0/5]    0.16 [0/5]   0.145 [0/5]   0.394 [2/5]   0.378 [2/5]   0.384 [2/5]   0.367 [1/5]   0.371 [1/5]   0.362 [1/5]
+                  retro      0.105 [0/5]   0.101 [0/5]  -0.048 [0/5]   0.446 [0/5]   0.438 [1/5]   0.161 [0/5]   0.161 [0/5]   0.146 [0/5]   0.161 [0/5]    0.16 [0/5]   0.151 [0/5]   0.419 [2/5]   0.375 [1/5]   0.386 [0/5]   0.413 [2/5]   0.388 [0/5]   0.395 [1/5]
+                  retro1     0.123 [0/5]   0.083 [0/5]  -0.041 [0/5]   0.402 [0/5]   0.381 [1/5]   0.186 [0/5]    0.19 [0/5]   0.122 [0/5]   0.187 [0/5]   0.188 [0/5]   0.138 [0/5]   0.372 [1/5]   0.336 [1/5]   0.362 [1/5]   0.394 [2/5]   0.372 [2/5]   0.375 [2/5]
+                  retro3     0.097 [0/5]   0.103 [0/5]   -0.05 [0/5]   0.422 [0/5]   0.422 [3/5]   0.175 [0/5]    0.18 [0/5]   0.123 [0/5]   0.179 [0/5]   0.178 [0/5]    0.14 [0/5]   0.404 [2/5]   0.353 [1/5]   0.383 [0/5]     0.4 [2/5]   0.384 [1/5]   0.389 [0/5]
+          nmf_k15 causal     0.085 [0/5]   0.113 [0/5]  -0.037 [0/5]   0.283 [0/5]   0.294 [3/5]   0.112 [0/5]   0.107 [0/5]   0.104 [0/5]   0.094 [0/5]   0.115 [0/5]   0.105 [0/5]   0.259 [2/5]   0.136 [0/5]   0.244 [2/5]   0.279 [3/5]   0.199 [2/5]   0.272 [3/5]
+                  retro      0.085 [0/5]    0.11 [0/5]  -0.037 [0/5]   0.308 [0/5]   0.343 [2/5]   0.116 [0/5]   0.117 [0/5]   0.078 [0/5]   0.108 [0/5]   0.115 [0/5]   0.106 [0/5]   0.251 [2/5]   0.135 [0/5]   0.258 [1/5]   0.255 [1/5]   0.172 [0/5]   0.262 [1/5]
+                  retro1      0.07 [0/5]    0.06 [0/5]  -0.053 [0/5]   0.285 [0/5]   0.277 [1/5]   0.097 [0/5]   0.109 [0/5]    0.07 [0/5]    0.11 [0/5]   0.108 [0/5]   0.097 [0/5]   0.236 [2/5]   0.177 [0/5]   0.223 [1/5]   0.236 [1/5]     0.2 [0/5]   0.233 [1/5]
+                  retro3     0.075 [0/5]   0.088 [0/5]  -0.034 [0/5]   0.278 [0/5]   0.272 [3/5]   0.102 [0/5]   0.113 [0/5]   0.059 [0/5]   0.115 [0/5]   0.108 [0/5]   0.061 [0/5]   0.233 [1/5]   0.172 [0/5]   0.223 [1/5]   0.252 [1/5]   0.205 [0/5]   0.273 [2/5]
+          nmf_k20 causal     0.039 [0/5]   0.043 [0/5]  -0.048 [0/5]   0.201 [0/5]   0.211 [4/5]    0.03 [0/5]   0.052 [0/5]   0.026 [0/5]   0.046 [0/5]   0.055 [0/5]   0.039 [0/5]   0.136 [0/5]   0.086 [0/5]   0.128 [1/5]    0.14 [0/5]    0.11 [0/5]   0.148 [1/5]
+                  retro      0.039 [0/5]   0.049 [0/5]  -0.048 [0/5]   0.215 [0/5]   0.212 [1/5]   0.036 [0/5]   0.057 [0/5]   0.008 [0/5]    0.05 [0/5]   0.059 [0/5]   0.031 [0/5]   0.112 [0/5]   0.061 [0/5]     0.1 [0/5]   0.145 [0/5]   0.079 [0/5]   0.108 [0/5]
+                  retro1     0.031 [0/5]   0.022 [0/5]  -0.046 [0/5]   0.187 [0/5]   0.172 [0/5]   0.049 [0/5]   0.076 [0/5]   0.009 [0/5]    0.06 [0/5]   0.075 [0/5]   0.034 [0/5]   0.133 [0/5]   0.108 [0/5]   0.116 [1/5]   0.141 [0/5]   0.096 [0/5]   0.117 [0/5]
+                  retro3     0.043 [0/5]   0.016 [0/5]  -0.047 [0/5]   0.179 [0/5]   0.167 [1/5]   0.058 [0/5]   0.066 [0/5]   0.016 [0/5]   0.053 [0/5]   0.074 [0/5]   0.033 [0/5]   0.144 [1/5]   0.089 [0/5]   0.123 [0/5]   0.153 [0/5]   0.091 [0/5]   0.123 [0/5]
+          nmf_k5  causal     0.224 [0/5]   0.324 [0/5]  -0.005 [0/5]   0.705 [0/5]   0.676 [0/5]   0.575 [0/5]   0.583 [0/5]    0.54 [0/5]   0.608 [1/5]    0.58 [0/5]   0.557 [0/5]   0.695 [1/5]   0.692 [1/5]   0.666 [0/5]   0.718 [3/5]   0.704 [2/5]   0.673 [0/5]
+                  retro      0.224 [0/5]   0.333 [0/5]  -0.005 [0/5]   0.709 [0/5]   0.685 [1/5]    0.58 [0/5]   0.584 [0/5]   0.492 [0/5]   0.596 [0/5]   0.575 [0/5]   0.541 [0/5]   0.718 [3/5]   0.683 [1/5]   0.672 [0/5]   0.724 [4/5]   0.691 [1/5]   0.669 [0/5]
+                  retro1     0.232 [0/5]   0.243 [0/5]  -0.021 [0/5]   0.648 [0/5]    0.64 [1/5]   0.527 [0/5]   0.563 [0/5]   0.471 [0/5]   0.554 [1/5]   0.554 [0/5]   0.512 [0/5]   0.685 [3/5]    0.67 [3/5]   0.657 [3/5]   0.703 [3/5]   0.695 [4/5]    0.65 [2/5]
+                  retro3     0.222 [0/5]   0.294 [0/5]  -0.009 [0/5]    0.69 [0/5]    0.68 [1/5]   0.564 [0/5]    0.57 [0/5]   0.529 [0/5]   0.577 [0/5]   0.564 [0/5]   0.565 [0/5]   0.699 [3/5]   0.678 [2/5]   0.668 [1/5]   0.713 [4/5]   0.686 [4/5]   0.661 [0/5]
+          pc      causal     0.063 [0/5]    0.08 [0/5]  -0.027 [0/5]   0.289 [0/5]   0.253 [1/5]   0.108 [0/5]   0.116 [0/5]   0.075 [0/5]   0.104 [0/5]   0.114 [0/5]   0.077 [0/5]   0.217 [0/5]   0.181 [0/5]    0.16 [0/5]   0.213 [0/5]   0.176 [0/5]   0.175 [0/5]
+                  retro      0.063 [0/5]    0.06 [0/5]  -0.027 [0/5]   0.305 [0/5]   0.324 [3/5]   0.109 [0/5]   0.116 [0/5]   0.073 [0/5]   0.101 [0/5]   0.114 [0/5]   0.088 [0/5]   0.213 [0/5]   0.194 [0/5]   0.183 [0/5]   0.227 [0/5]   0.165 [0/5]   0.215 [0/5]
+                  retro1     0.067 [0/5]    0.02 [0/5]  -0.041 [0/5]   0.284 [0/5]   0.261 [0/5]   0.079 [0/5]   0.111 [0/5]   0.023 [0/5]   0.084 [0/5]    0.11 [0/5]   0.042 [0/5]   0.223 [0/5]   0.203 [0/5]   0.175 [0/5]   0.225 [1/5]   0.202 [0/5]   0.196 [0/5]
+                  retro3     0.064 [0/5]   0.021 [0/5]  -0.035 [0/5]   0.305 [0/5]   0.291 [0/5]   0.095 [0/5]   0.112 [0/5]   0.055 [0/5]   0.105 [0/5]    0.11 [0/5]    0.07 [0/5]   0.196 [0/5]   0.198 [0/5]   0.159 [0/5]    0.22 [0/5]   0.194 [0/5]   0.168 [0/5]
+          phyto   causal     0.017 [0/5]   0.463 [0/5]  -0.026 [0/5]   0.584 [0/5]   0.568 [0/5]   0.421 [0/5]   0.428 [0/5]   0.352 [0/5]   0.424 [0/5]   0.425 [0/5]   0.384 [0/5]   0.547 [1/5]   0.531 [1/5]   0.524 [0/5]   0.554 [0/5]   0.534 [1/5]   0.521 [0/5]
+                  retro      0.017 [0/5]   0.434 [0/5]  -0.026 [0/5]   0.574 [0/5]    0.57 [2/5]   0.408 [0/5]   0.426 [0/5]   0.329 [0/5]   0.429 [0/5]   0.425 [0/5]   0.389 [0/5]   0.549 [1/5]   0.519 [1/5]   0.524 [1/5]    0.55 [2/5]    0.51 [1/5]    0.52 [1/5]
+                  retro1    -0.013 [0/5]   0.376 [0/5]  -0.018 [0/5]   0.583 [0/5]   0.571 [0/5]   0.369 [0/5]   0.445 [0/5]   0.341 [0/5]   0.422 [0/5]   0.441 [0/5]   0.393 [0/5]   0.556 [1/5]    0.51 [1/5]   0.529 [1/5]   0.541 [0/5]   0.512 [0/5]     0.5 [0/5]
+                  retro3     0.026 [0/5]   0.427 [0/5]  -0.021 [0/5]   0.562 [0/5]   0.563 [3/5]   0.429 [0/5]   0.434 [0/5]   0.329 [0/5]   0.444 [0/5]   0.433 [0/5]   0.377 [0/5]   0.532 [1/5]    0.52 [1/5]   0.524 [0/5]   0.536 [2/5]   0.517 [1/5]   0.506 [0/5]
+          taxon   causal     0.037 [0/5]   0.121 [0/5]  -0.023 [0/5]   0.231 [0/5]   0.219 [1/5]   0.134 [0/5]   0.136 [0/5]   0.099 [0/5]   0.135 [0/5]   0.135 [0/5]   0.117 [0/5]   0.199 [1/5]    0.16 [1/5]   0.202 [1/5]   0.207 [1/5]   0.166 [0/5]   0.186 [0/5]
+                  retro      0.037 [0/5]    0.12 [0/5]  -0.023 [0/5]    0.23 [0/5]    0.23 [3/5]   0.128 [0/5]   0.136 [0/5]   0.104 [0/5]   0.133 [0/5]   0.135 [0/5]   0.131 [0/5]   0.214 [1/5]   0.168 [0/5]    0.19 [1/5]   0.217 [1/5]   0.183 [1/5]   0.181 [0/5]
+                  retro1     0.035 [0/5]   0.092 [0/5]  -0.023 [0/5]   0.231 [0/5]   0.221 [1/5]   0.136 [0/5]   0.154 [0/5]   0.101 [0/5]   0.135 [0/5]   0.155 [0/5]   0.117 [0/5]    0.22 [2/5]   0.165 [0/5]   0.195 [1/5]   0.232 [2/5]   0.174 [0/5]   0.193 [1/5]
+                  retro3      0.03 [0/5]   0.088 [0/5]  -0.024 [0/5]   0.224 [0/5]   0.216 [1/5]   0.126 [0/5]   0.134 [0/5]   0.101 [0/5]   0.127 [0/5]   0.133 [0/5]    0.12 [0/5]   0.193 [1/5]   0.188 [2/5]   0.195 [1/5]   0.204 [1/5]   0.185 [1/5]   0.189 [1/5]
+edna_18S  nmf_k10 causal     0.081 [0/5]   0.107 [0/5]  -0.038 [0/5]   0.283 [0/5]   0.294 [3/5]   0.154 [0/5]   0.177 [0/5]    0.13 [0/5]   0.157 [0/5]   0.178 [0/5]   0.131 [0/5]   0.253 [2/5]   0.207 [1/5]   0.236 [1/5]   0.258 [3/5]   0.242 [1/5]   0.255 [2/5]
+                  retro      0.081 [0/5]   0.078 [0/5]  -0.038 [0/5]   0.305 [0/5]   0.331 [4/5]   0.153 [0/5]   0.177 [1/5]   0.132 [1/5]   0.146 [1/5]   0.178 [1/5]   0.159 [1/5]   0.272 [1/5]   0.199 [0/5]   0.259 [1/5]   0.279 [1/5]   0.227 [0/5]   0.276 [1/5]
+                  retro1     0.083 [0/5]    0.09 [0/5]  -0.033 [0/5]   0.305 [0/5]   0.303 [2/5]   0.157 [0/5]    0.19 [0/5]   0.127 [0/5]    0.18 [0/5]   0.188 [0/5]   0.151 [1/5]   0.288 [2/5]   0.271 [1/5]   0.299 [2/5]   0.292 [1/5]    0.28 [1/5]   0.288 [2/5]
+                  retro3     0.071 [0/5]   0.082 [0/5]  -0.039 [0/5]   0.327 [0/5]   0.314 [2/5]   0.166 [0/5]   0.191 [0/5]   0.113 [0/5]   0.177 [0/5]    0.18 [0/5]   0.145 [0/5]   0.281 [1/5]   0.254 [1/5]   0.264 [0/5]   0.287 [2/5]   0.267 [1/5]   0.276 [0/5]
+          nmf_k15 causal     0.082 [0/5]   0.091 [0/5]  -0.043 [0/5]   0.207 [0/5]   0.219 [4/5]   0.083 [0/5]   0.089 [0/5]   0.073 [0/5]   0.075 [0/5]    0.09 [0/5]   0.076 [0/5]   0.186 [1/5]   0.133 [0/5]   0.181 [0/5]   0.195 [3/5]   0.136 [1/5]   0.175 [2/5]
+                  retro      0.082 [0/5]   0.083 [0/5]  -0.043 [0/5]   0.219 [0/5]   0.243 [5/5]   0.079 [0/5]   0.089 [0/5]   0.071 [0/5]   0.076 [0/5]    0.09 [0/5]   0.087 [0/5]   0.176 [1/5]   0.131 [0/5]   0.163 [0/5]   0.187 [1/5]   0.135 [0/5]   0.189 [1/5]
+                  retro1     0.064 [0/5]   0.078 [0/5]  -0.043 [0/5]   0.232 [0/5]   0.242 [3/5]    0.09 [0/5]   0.093 [0/5]   0.054 [0/5]   0.082 [0/5]    0.09 [0/5]   0.065 [0/5]   0.201 [0/5]   0.183 [1/5]   0.177 [0/5]    0.22 [2/5]   0.182 [0/5]   0.201 [1/5]
+                  retro3     0.062 [0/5]   0.063 [0/5]  -0.049 [0/5]   0.217 [0/5]   0.248 [4/5]   0.082 [0/5]   0.098 [0/5]   0.062 [0/5]   0.082 [0/5]   0.075 [0/5]   0.066 [0/5]   0.197 [2/5]   0.155 [1/5]   0.193 [2/5]     0.2 [2/5]   0.163 [0/5]   0.199 [2/5]
+          nmf_k20 causal      0.05 [0/5]   0.086 [0/5]  -0.048 [0/5]   0.192 [0/5]   0.193 [3/5]   0.068 [0/5]   0.081 [0/5]   0.046 [0/5]   0.075 [0/5]   0.084 [0/5]   0.073 [0/5]   0.169 [2/5]   0.125 [0/5]   0.149 [0/5]   0.158 [1/5]   0.125 [1/5]   0.149 [0/5]
+                  retro       0.05 [0/5]   0.079 [0/5]  -0.048 [0/5]   0.199 [0/5]   0.202 [4/5]   0.063 [0/5]   0.081 [0/5]   0.041 [0/5]   0.062 [0/5]   0.084 [0/5]   0.068 [0/5]   0.167 [0/5]   0.128 [0/5]   0.151 [0/5]   0.177 [0/5]   0.135 [0/5]   0.155 [0/5]
+                  retro1     0.055 [0/5]   0.045 [0/5]  -0.044 [0/5]   0.175 [0/5]   0.178 [1/5]   0.073 [0/5]   0.082 [0/5]   0.033 [0/5]   0.078 [0/5]   0.081 [0/5]   0.058 [0/5]    0.14 [0/5]    0.12 [1/5]    0.13 [0/5]   0.154 [1/5]    0.14 [0/5]   0.134 [0/5]
+                  retro3     0.053 [0/5]   0.052 [0/5]  -0.051 [0/5]    0.18 [0/5]   0.178 [2/5]   0.074 [0/5]   0.089 [0/5]   0.053 [0/5]   0.074 [0/5]    0.08 [0/5]   0.073 [0/5]   0.159 [1/5]   0.132 [1/5]    0.15 [1/5]   0.176 [2/5]   0.139 [2/5]   0.164 [2/5]
+          nmf_k5  causal     0.175 [0/5]   0.205 [0/5]  -0.023 [0/5]   0.553 [0/5]   0.531 [1/5]   0.491 [1/5]   0.531 [3/5]   0.436 [0/5]   0.513 [2/5]   0.539 [3/5]   0.462 [0/5]    0.57 [3/5]   0.558 [3/5]   0.548 [2/5]   0.577 [4/5]   0.569 [3/5]    0.56 [3/5]
+                  retro      0.175 [0/5]   0.189 [0/5]  -0.023 [0/5]   0.567 [0/5]   0.551 [0/5]   0.513 [1/5]   0.531 [2/5]   0.433 [0/5]   0.535 [2/5]   0.537 [2/5]   0.466 [0/5]   0.591 [4/5]   0.558 [2/5]    0.55 [3/5]   0.589 [4/5]   0.562 [2/5]   0.551 [1/5]
+                  retro1      0.19 [0/5]   0.132 [0/5]  -0.026 [0/5]   0.495 [0/5]   0.497 [3/5]   0.505 [4/5]   0.538 [4/5]   0.435 [0/5]   0.527 [3/5]   0.509 [2/5]   0.471 [2/5]   0.546 [4/5]   0.552 [5/5]   0.542 [4/5]   0.556 [5/5]   0.564 [5/5]   0.509 [2/5]
+                  retro3     0.175 [0/5]   0.156 [0/5]  -0.023 [0/5]   0.555 [0/5]   0.527 [1/5]   0.523 [2/5]   0.537 [2/5]   0.435 [0/5]   0.533 [2/5]   0.505 [2/5]   0.471 [0/5]   0.554 [3/5]   0.563 [2/5]   0.532 [2/5]   0.542 [2/5]   0.581 [4/5]   0.519 [2/5]
+          pc      causal     0.032 [0/5]   0.037 [0/5]  -0.052 [0/5]    0.22 [0/5]   0.191 [0/5]   0.083 [0/5]   0.091 [0/5]   0.058 [0/5]   0.088 [0/5]    0.09 [0/5]   0.054 [0/5]    0.22 [3/5]   0.163 [1/5]   0.181 [0/5]   0.223 [3/5]   0.167 [1/5]   0.183 [0/5]
+                  retro      0.032 [0/5]  -0.002 [0/5]  -0.052 [0/5]   0.223 [0/5]   0.211 [2/5]   0.074 [0/5]   0.091 [0/5]   0.048 [0/5]   0.076 [0/5]   0.089 [0/5]   0.076 [0/5]   0.183 [1/5]   0.151 [1/5]    0.18 [2/5]   0.199 [1/5]   0.156 [1/5]   0.183 [1/5]
+                  retro1     0.044 [0/5]  -0.031 [0/5]  -0.042 [0/5]    0.21 [0/5]   0.208 [2/5]   0.073 [0/5]   0.095 [0/5]   0.059 [0/5]   0.061 [0/5]   0.093 [0/5]   0.048 [0/5]   0.204 [1/5]    0.15 [0/5]   0.192 [3/5]   0.215 [4/5]   0.171 [2/5]    0.18 [0/5]
+                  retro3     0.029 [0/5]  -0.016 [0/5]  -0.052 [0/5]   0.222 [0/5]   0.214 [3/5]   0.059 [0/5]   0.085 [0/5]    0.05 [0/5]   0.072 [0/5]   0.084 [0/5]   0.064 [0/5]   0.189 [1/5]   0.153 [1/5]   0.177 [1/5]   0.211 [1/5]   0.158 [1/5]   0.165 [1/5]
+          phyto   causal     0.065 [0/5]   0.245 [0/5]  -0.038 [0/5]   0.365 [0/5]   0.331 [1/5]   0.241 [0/5]   0.241 [0/5]    0.22 [0/5]   0.249 [0/5]   0.246 [0/5]   0.227 [0/5]   0.328 [1/5]   0.321 [1/5]   0.321 [0/5]   0.334 [1/5]   0.322 [0/5]   0.311 [0/5]
+                  retro      0.065 [0/5]   0.256 [0/5]  -0.038 [0/5]   0.352 [0/5]   0.357 [5/5]   0.242 [1/5]   0.241 [0/5]   0.164 [0/5]   0.244 [0/5]   0.242 [0/5]   0.191 [0/5]   0.351 [2/5]   0.324 [1/5]   0.334 [2/5]   0.337 [2/5]   0.336 [2/5]   0.329 [2/5]
+                  retro1     0.038 [0/5]   0.198 [1/5]  -0.035 [0/5]   0.318 [0/5]   0.306 [1/5]   0.232 [1/5]   0.233 [0/5]   0.194 [0/5]   0.235 [0/5]   0.238 [0/5]   0.214 [0/5]   0.303 [2/5]   0.284 [2/5]   0.279 [1/5]   0.305 [1/5]   0.282 [2/5]   0.284 [1/5]
+                  retro3     0.056 [0/5]   0.245 [0/5]  -0.038 [0/5]   0.353 [0/5]   0.322 [2/5]    0.24 [0/5]    0.24 [0/5]   0.192 [0/5]   0.238 [0/5]   0.245 [0/5]   0.197 [0/5]   0.338 [1/5]   0.308 [0/5]   0.308 [0/5]   0.323 [1/5]   0.314 [0/5]   0.301 [0/5]
+          taxon   causal    -0.027 [0/5]  -0.008 [0/5]  -0.034 [1/5]   0.045 [0/5]   0.031 [1/5]   0.007 [1/5]    0.01 [1/5]  -0.005 [1/5]   0.009 [1/5]   0.012 [1/5]   0.004 [1/5]   0.037 [2/5]   0.003 [0/5]   0.025 [0/5]   0.036 [1/5]   0.009 [1/5]   0.029 [1/5]
+                  retro     -0.027 [0/5]  -0.019 [0/5]  -0.034 [1/5]   0.031 [0/5]   0.027 [3/5]   0.012 [3/5]    0.01 [1/5]  -0.003 [1/5]   0.008 [1/5]   0.012 [1/5]     0.0 [1/5]   0.017 [2/5]   0.014 [1/5]   0.033 [3/5]   0.021 [2/5]   0.018 [2/5]   0.021 [2/5]
+                  retro1    -0.019 [0/5]  -0.009 [1/5]  -0.028 [0/5]   0.039 [0/5]   0.035 [2/5]   0.003 [0/5]   0.016 [0/5]   0.007 [0/5]   0.011 [0/5]   0.015 [0/5]   0.003 [0/5]   0.033 [2/5]   0.003 [0/5]   0.032 [2/5]   0.028 [0/5]   0.005 [0/5]   0.031 [2/5]
+                  retro3     -0.02 [1/5]  -0.023 [0/5]  -0.034 [1/5]   0.017 [0/5]   0.017 [3/5]   0.004 [3/5]   0.021 [3/5]   -0.01 [1/5]   0.014 [2/5]   0.023 [3/5]   0.005 [1/5]   0.021 [3/5]   0.008 [3/5]   0.017 [2/5]   0.021 [4/5]   0.013 [2/5]    0.02 [2/5]
+fish_crcp log1p   causal    -0.083 [2/4]  -0.042 [3/4]           NaN   -0.07 [0/4]  -0.051 [2/4]   -0.05 [3/4]  -0.043 [3/4]  -0.119 [1/4]   -0.03 [3/4]  -0.028 [3/4]  -0.079 [2/4]  -0.011 [4/4]  -0.025 [3/4]  -0.035 [3/4]  -0.022 [4/4]  -0.026 [3/4]  -0.039 [3/4]
+                  retro     -0.082 [2/4]  -0.073 [2/4]           NaN  -0.075 [0/4]  -0.051 [2/4]   -0.05 [2/4]  -0.031 [3/4]  -0.054 [3/4]  -0.028 [3/4]  -0.024 [3/4]  -0.045 [3/4]  -0.009 [4/4]  -0.022 [3/4]  -0.032 [3/4]  -0.028 [4/4]  -0.022 [3/4]  -0.027 [4/4]
+                  seasonal  -0.085 [4/4]   -0.07 [3/4]           NaN  -0.131 [0/4]  -0.103 [3/4]  -0.055 [4/4]  -0.042 [4/4]  -0.082 [4/4]  -0.044 [4/4]  -0.042 [4/4]  -0.054 [4/4]  -0.022 [4/4]  -0.036 [4/4]  -0.046 [4/4]  -0.029 [4/4]  -0.036 [4/4]  -0.046 [4/4]
+          present causal     0.539 [0/4]   0.613 [1/4]           NaN   0.639 [0/4]   0.632 [0/4]   0.581 [0/4]   0.604 [1/4]   0.584 [0/4]   0.592 [0/4]   0.604 [0/4]   0.593 [0/4]   0.628 [1/4]   0.607 [1/4]   0.627 [1/4]   0.637 [1/4]   0.613 [1/4]   0.627 [1/4]
+                  retro      0.537 [0/4]   0.606 [1/4]           NaN   0.638 [0/4]   0.629 [1/4]    0.58 [0/4]   0.604 [0/4]   0.595 [0/4]   0.592 [0/4]   0.604 [0/4]   0.598 [0/4]   0.633 [1/4]   0.607 [0/4]   0.626 [0/4]   0.634 [1/4]   0.614 [0/4]   0.623 [0/4]
+                  seasonal   0.539 [0/4]   0.613 [0/4]           NaN   0.644 [0/4]   0.632 [0/4]    0.58 [0/4]   0.602 [0/4]   0.585 [0/4]   0.593 [0/4]   0.603 [0/4]   0.594 [0/4]    0.63 [0/4]   0.605 [0/4]   0.627 [0/4]   0.639 [2/4]   0.613 [0/4]   0.631 [0/4]
+fish_maxn maxn    causal     0.055 [1/7]   0.023 [0/7]           NaN   0.083 [0/7]   0.084 [4/7]   0.018 [0/7]   0.019 [0/7]   0.024 [0/7]   0.038 [0/7]   0.019 [0/7]   0.026 [1/7]   0.058 [1/7]   0.021 [0/7]   0.042 [1/7]   0.064 [1/7]   0.028 [0/7]   0.055 [1/7]
+                  retro      0.053 [0/7]   0.044 [0/7]           NaN   0.097 [0/7]   0.095 [3/7]   0.037 [0/7]   0.028 [0/7]   0.029 [0/7]   0.049 [0/7]   0.029 [0/7]   0.035 [0/7]   0.075 [2/7]    0.03 [0/7]   0.064 [2/7]    0.07 [1/7]   0.033 [0/7]   0.064 [1/7]
+                  seasonal    0.07 [1/7]   0.042 [0/7]           NaN   0.101 [0/7]   0.104 [4/7]   0.051 [0/7]   0.015 [0/7]   0.035 [0/7]   0.061 [0/7]   0.019 [0/7]   0.045 [0/7]   0.078 [2/7]   0.019 [0/7]   0.071 [1/7]   0.073 [1/7]   0.023 [0/7]   0.074 [0/7]
+sfer      chl     causal     0.044 [0/8]   0.661 [0/8]           NaN   0.702 [0/8]   0.695 [3/8]   0.458 [0/8]   0.448 [0/8]   0.351 [0/8]   0.462 [0/8]   0.441 [0/8]   0.463 [0/8]   0.673 [2/8]   0.596 [0/8]   0.637 [1/8]   0.692 [3/8]   0.652 [2/8]   0.666 [3/8]
+                  retro      0.033 [0/8]   0.701 [1/8]           NaN   0.748 [0/8]   0.742 [2/8]   0.543 [0/8]   0.461 [0/8]   0.377 [0/8]   0.549 [0/8]   0.455 [0/8]   0.481 [0/8]   0.739 [2/8]   0.691 [1/8]   0.729 [2/8]   0.726 [1/8]   0.714 [1/8]   0.723 [1/8]
+                  retro1     0.024 [0/8]   0.702 [1/8]           NaN    0.76 [0/8]   0.752 [1/8]   0.459 [0/8]   0.434 [0/8]   0.378 [0/8]   0.495 [0/8]   0.426 [0/8]   0.429 [0/8]   0.758 [3/8]   0.668 [0/8]   0.737 [1/8]   0.758 [4/8]   0.688 [0/8]   0.743 [1/8]
+                  retro3      -0.0 [0/8]   0.698 [1/8]           NaN   0.741 [0/8]   0.732 [3/8]   0.531 [0/8]   0.439 [0/8]   0.382 [0/8]   0.533 [0/8]   0.434 [0/8]    0.48 [0/8]    0.74 [4/8]   0.676 [0/8]   0.721 [2/8]   0.732 [2/8]   0.699 [0/8]   0.713 [0/8]
+          no3     causal    -0.073 [5/8]  -0.118 [0/8]           NaN   -0.08 [0/8]  -0.086 [5/8]  -0.123 [3/8]  -0.072 [6/8]  -0.097 [3/8]  -0.119 [2/8]  -0.072 [6/8]  -0.095 [1/8]  -0.078 [3/8]  -0.075 [5/8]  -0.079 [4/8]  -0.093 [3/8]  -0.075 [6/8]  -0.085 [2/8]
+                  retro     -0.063 [3/8]  -0.092 [2/8]           NaN  -0.074 [0/8]  -0.083 [4/8]  -0.073 [4/8]  -0.059 [6/8]  -0.079 [2/8]  -0.062 [4/8]   -0.06 [6/8]  -0.071 [5/8]  -0.066 [6/8]  -0.058 [6/8]  -0.091 [4/8]  -0.075 [5/8]  -0.061 [6/8]   -0.09 [4/8]
+                  retro1    -0.069 [4/8]  -0.106 [2/8]           NaN   -0.09 [0/8]  -0.091 [3/8]  -0.071 [8/8]  -0.066 [7/8]  -0.077 [5/8]  -0.066 [7/8]  -0.067 [7/8]  -0.077 [6/8]  -0.065 [7/8]  -0.069 [7/8]  -0.066 [6/8]  -0.065 [7/8]  -0.076 [7/8]   -0.07 [6/8]
+                  retro3    -0.066 [4/8]  -0.107 [3/8]           NaN  -0.082 [0/8]  -0.078 [4/8]  -0.076 [4/8]  -0.065 [7/8]  -0.081 [3/8]  -0.071 [4/8]  -0.069 [6/8]  -0.076 [4/8]  -0.061 [7/8]  -0.067 [5/8]  -0.062 [5/8]  -0.072 [5/8]  -0.069 [5/8]   -0.07 [5/8]
+          po4     causal    -0.112 [1/8]  -0.041 [3/8]           NaN  -0.025 [0/8]  -0.017 [4/8]  -0.074 [5/8]   0.057 [8/8]   -0.07 [3/8]  -0.073 [7/8]   0.055 [8/8]  -0.034 [5/8]  -0.031 [6/8]    0.05 [8/8]  -0.054 [2/8]  -0.211 [5/8]   0.051 [8/8]  -0.077 [4/8]
+                  retro     -0.131 [3/8]  -0.094 [3/8]           NaN  -0.078 [0/8]  -0.106 [3/8]   0.008 [8/8]    0.01 [8/8]  -0.073 [4/8]   0.007 [8/8]    0.01 [8/8]  -0.028 [7/8]  -0.018 [8/8]   0.002 [8/8]  -0.074 [3/8]  -0.028 [7/8]   0.004 [8/8]  -0.064 [4/8]
+                  retro1    -0.103 [0/8]  -0.063 [0/8]           NaN  -0.001 [0/8]  -0.004 [5/8]   0.041 [7/8]   0.049 [8/8]  -0.026 [3/8]   0.042 [6/8]   0.045 [8/8]   0.005 [5/8]   0.042 [6/8]   0.042 [8/8]   0.035 [6/8]   0.038 [7/8]   0.041 [7/8]   0.011 [5/8]
+                  retro3    -0.125 [1/8]  -0.074 [3/8]           NaN  -0.038 [0/8]  -0.051 [3/8]   0.014 [7/8]   0.022 [8/8]  -0.046 [3/8]   0.013 [7/8]   0.021 [8/8]  -0.014 [5/8]   0.003 [6/8]   0.014 [8/8]  -0.023 [5/8]  -0.002 [6/8]   0.019 [8/8]  -0.017 [5/8]
+          si      causal    -0.038 [0/8]   0.299 [1/8]           NaN    0.34 [0/8]   0.347 [4/8]   0.337 [4/8]   0.338 [4/8]   0.215 [1/8]   0.339 [4/8]   0.344 [4/8]   0.278 [2/8]   0.371 [6/8]    0.35 [4/8]    0.35 [4/8]   0.351 [4/8]   0.357 [4/8]   0.348 [4/8]
+                  retro     -0.048 [0/8]   0.301 [2/8]           NaN   0.321 [0/8]   0.335 [4/8]   0.333 [5/8]   0.317 [4/8]     0.2 [0/8]   0.334 [5/8]   0.334 [6/8]   0.262 [1/8]   0.353 [6/8]   0.329 [4/8]   0.337 [4/8]   0.343 [6/8]   0.337 [4/8]   0.326 [4/8]
+                  retro1    -0.054 [0/8]   0.223 [0/8]           NaN   0.328 [0/8]   0.324 [3/8]    0.29 [2/8]   0.304 [4/8]   0.199 [0/8]   0.291 [1/8]   0.309 [4/8]   0.254 [0/8]   0.356 [7/8]     0.3 [4/8]   0.333 [4/8]   0.339 [6/8]   0.315 [4/8]   0.323 [4/8]
+                  retro3    -0.038 [0/8]    0.26 [0/8]           NaN   0.333 [0/8]   0.338 [3/8]   0.326 [4/8]   0.312 [4/8]   0.217 [0/8]    0.33 [3/8]   0.326 [4/8]   0.271 [0/8]   0.351 [6/8]    0.32 [4/8]   0.323 [3/8]   0.341 [6/8]   0.328 [4/8]    0.33 [5/8]
+Official split, paired bootstrap within groups: value (95% interval). robust_bootstrap.csv also has the difference to stage1_A/e1 and its interval
+features                                    meta                   raw                   seq          stage1_A/e1           stage1_A/e3          stage1_B/e1          stage1_B/e2          stage1_B/e3          stage1_C/e1         stage1_C/e2          stage1_C/e3         stage1_D/e1          stage1_D/e2          stage1_D/e3         stage1_D3/e1        stage1_D3/e2         stage1_D3/e3
+dataset   family  window                                                                                                                                                                                                                                                                                                                                                                        
+edna_16S  nmf_k10 causal       0.188 (0.12,0.23)     0.171 (0.13,0.27)   -0.007 (-0.05,-0.0)    0.423 (0.34,0.49)     0.411 (0.32,0.48)    0.186 (0.13,0.25)    0.176 (0.14,0.23)      0.161 (0.1,0.2)    0.196 (0.15,0.25)   0.171 (0.13,0.23)    0.181 (0.12,0.24)   0.406 (0.35,0.47)    0.362 (0.26,0.45)    0.343 (0.27,0.42)     0.419 (0.36,0.5)   0.394 (0.31,0.46)    0.343 (0.28,0.41)
+                  retro        0.188 (0.12,0.23)     0.197 (0.12,0.22)   -0.007 (-0.05,-0.0)    0.476 (0.42,0.56)     0.472 (0.41,0.53)    0.182 (0.12,0.24)    0.176 (0.14,0.23)     0.15 (0.09,0.18)    0.196 (0.15,0.24)   0.171 (0.13,0.23)    0.197 (0.14,0.24)   0.421 (0.36,0.48)     0.38 (0.28,0.45)    0.402 (0.33,0.47)     0.456 (0.4,0.53)   0.395 (0.29,0.45)    0.388 (0.33,0.46)
+                  retro1       0.195 (0.12,0.24)     0.142 (0.08,0.18)    -0.015 (-0.05,0.0)     0.47 (0.39,0.52)     0.419 (0.35,0.48)    0.238 (0.17,0.32)    0.243 (0.19,0.31)     0.176 (0.1,0.22)    0.256 (0.19,0.32)   0.239 (0.18,0.31)    0.198 (0.13,0.25)   0.389 (0.32,0.45)     0.31 (0.21,0.38)    0.361 (0.29,0.42)    0.376 (0.31,0.46)   0.322 (0.23,0.42)    0.364 (0.29,0.45)
+                  retro3        0.153 (0.1,0.23)     0.186 (0.11,0.23)   -0.012 (-0.06,-0.0)    0.459 (0.39,0.53)     0.471 (0.39,0.52)    0.245 (0.17,0.32)    0.231 (0.18,0.29)     0.18 (0.11,0.21)    0.261 (0.19,0.32)    0.23 (0.18,0.29)    0.174 (0.11,0.25)   0.404 (0.34,0.48)    0.343 (0.26,0.42)    0.395 (0.33,0.46)    0.391 (0.32,0.48)   0.345 (0.28,0.43)    0.403 (0.34,0.47)
+          nmf_k15 causal        0.151 (0.1,0.21)     0.125 (0.04,0.19)  -0.042 (-0.09,-0.02)    0.389 (0.32,0.48)     0.354 (0.24,0.46)    0.137 (0.03,0.19)    0.144 (0.03,0.21)     0.087 (0.0,0.17)    0.056 (0.02,0.16)   0.141 (0.03,0.21)     0.092 (0.0,0.16)    0.33 (0.22,0.37)    0.159 (0.07,0.26)    0.257 (0.18,0.31)    0.323 (0.24,0.38)     0.19 (0.1,0.28)     0.302 (0.2,0.35)
+                  retro         0.151 (0.1,0.21)      0.132 (0.05,0.2)  -0.042 (-0.09,-0.02)    0.297 (0.21,0.44)       0.481 (0.3,0.5)    0.141 (0.03,0.19)    0.144 (0.03,0.21)     0.061 (0.0,0.13)    0.131 (0.03,0.18)   0.141 (0.03,0.21)    0.104 (0.01,0.16)   0.318 (0.22,0.36)    0.144 (0.06,0.26)     0.273 (0.2,0.31)    0.328 (0.21,0.39)    0.204 (0.1,0.29)      0.35 (0.25,0.4)
+                  retro1        0.129 (0.08,0.2)     0.105 (0.03,0.15)  -0.028 (-0.08,-0.01)    0.455 (0.27,0.53)      0.446 (0.28,0.5)    0.146 (0.09,0.25)    0.193 (0.12,0.27)   0.111 (-0.04,0.18)    0.158 (0.09,0.24)   0.188 (0.11,0.26)      0.11 (-0.0,0.2)    0.305 (0.19,0.4)    0.272 (0.14,0.37)    0.285 (0.19,0.37)    0.351 (0.23,0.43)   0.294 (0.17,0.41)    0.295 (0.16,0.37)
+                  retro3        0.137 (0.09,0.2)      0.14 (0.02,0.17)  -0.039 (-0.09,-0.02)    0.332 (0.27,0.42)     0.271 (0.24,0.41)     0.08 (0.01,0.18)    0.095 (0.07,0.21)  -0.004 (-0.04,0.08)     0.139 (0.04,0.2)    0.093 (0.07,0.2)    0.03 (-0.02,0.16)   0.275 (0.19,0.34)    0.169 (0.09,0.32)    0.215 (0.15,0.32)     0.319 (0.2,0.38)   0.239 (0.11,0.35)    0.321 (0.17,0.38)
+          nmf_k20 causal       0.073 (0.03,0.12)      0.075 (0.0,0.12)   -0.067 (-0.1,-0.04)    0.297 (0.23,0.35)     0.288 (0.21,0.34)    0.062 (0.01,0.09)     0.07 (0.03,0.11)   0.049 (-0.01,0.07)    0.094 (0.04,0.12)   0.066 (0.02,0.11)    0.069 (0.03,0.11)    0.24 (0.18,0.29)     0.135 (0.08,0.2)    0.166 (0.11,0.21)    0.235 (0.18,0.28)   0.208 (0.17,0.26)    0.229 (0.14,0.27)
+                  retro        0.073 (0.03,0.12)     0.101 (0.01,0.14)   -0.067 (-0.1,-0.04)    0.312 (0.24,0.37)     0.295 (0.24,0.36)     0.06 (0.01,0.09)    0.069 (0.03,0.11)  -0.001 (-0.04,0.03)    0.093 (0.04,0.12)   0.066 (0.02,0.11)     0.054 (0.02,0.1)   0.199 (0.15,0.23)     0.138 (0.08,0.2)    0.199 (0.15,0.24)    0.274 (0.21,0.31)   0.213 (0.14,0.25)     0.18 (0.15,0.26)
+                  retro1        0.08 (0.04,0.11)     0.083 (0.01,0.11)  -0.035 (-0.07,-0.02)    0.309 (0.23,0.37)     0.293 (0.21,0.35)    0.139 (0.06,0.17)    0.132 (0.09,0.17)   0.021 (-0.03,0.08)    0.137 (0.07,0.18)   0.134 (0.09,0.18)     0.051 (0.0,0.11)   0.225 (0.15,0.27)    0.203 (0.12,0.26)    0.198 (0.13,0.24)    0.235 (0.16,0.29)   0.198 (0.13,0.28)    0.183 (0.13,0.25)
+                  retro3       0.085 (0.01,0.14)      0.03 (-0.02,0.1)   -0.058 (-0.1,-0.04)    0.248 (0.19,0.31)     0.241 (0.19,0.29)    0.085 (0.03,0.11)    0.092 (0.05,0.13)   0.022 (-0.03,0.06)    0.082 (0.04,0.13)   0.092 (0.05,0.13)    0.085 (0.03,0.11)   0.157 (0.12,0.22)    0.181 (0.09,0.24)    0.181 (0.11,0.23)    0.205 (0.15,0.26)   0.157 (0.09,0.25)     0.157 (0.1,0.24)
+          nmf_k5  causal        0.269 (0.2,0.34)     0.376 (0.28,0.47)    -0.008 (-0.05,0.0)    0.711 (0.64,0.78)     0.679 (0.61,0.75)    0.645 (0.31,0.74)     0.68 (0.61,0.74)    0.616 (0.39,0.65)    0.745 (0.67,0.79)    0.678 (0.6,0.74)     0.638 (0.43,0.7)   0.681 (0.56,0.77)    0.798 (0.72,0.83)    0.615 (0.48,0.72)     0.75 (0.62,0.82)   0.816 (0.74,0.84)    0.678 (0.53,0.75)
+                  retro         0.269 (0.2,0.34)     0.495 (0.41,0.56)    -0.008 (-0.05,0.0)    0.771 (0.65,0.83)      0.739 (0.61,0.8)    0.675 (0.47,0.73)      0.68 (0.6,0.74)    0.591 (0.51,0.64)    0.744 (0.68,0.79)    0.678 (0.6,0.74)    0.663 (0.59,0.71)   0.782 (0.67,0.84)    0.797 (0.72,0.83)    0.727 (0.62,0.79)    0.799 (0.68,0.86)   0.819 (0.74,0.84)    0.726 (0.58,0.79)
+                  retro1       0.266 (0.17,0.33)     0.234 (0.15,0.31)   -0.007 (-0.06,-0.0)     0.715 (0.58,0.8)     0.689 (0.54,0.77)    0.561 (0.18,0.71)    0.705 (0.61,0.76)    0.528 (0.07,0.65)    0.724 (0.56,0.77)   0.647 (0.52,0.74)     0.69 (0.47,0.72)    0.761 (0.6,0.83)    0.778 (0.67,0.81)     0.733 (0.58,0.8)    0.777 (0.63,0.84)   0.809 (0.68,0.83)    0.683 (0.49,0.77)
+                  retro3       0.272 (0.18,0.34)     0.449 (0.34,0.54)    -0.014 (-0.05,0.0)    0.776 (0.65,0.84)     0.747 (0.62,0.81)    0.673 (0.39,0.72)     0.674 (0.6,0.73)    0.623 (0.51,0.67)    0.737 (0.67,0.79)    0.672 (0.6,0.73)    0.689 (0.58,0.73)   0.763 (0.65,0.82)    0.788 (0.72,0.82)      0.738 (0.6,0.8)    0.789 (0.67,0.84)   0.784 (0.72,0.82)    0.728 (0.58,0.79)
+          pc      causal       0.104 (0.06,0.16)     0.141 (0.04,0.22)  -0.031 (-0.06,-0.01)     0.377 (0.3,0.45)     0.305 (0.26,0.38)    0.076 (0.03,0.13)    0.074 (0.03,0.14)   0.037 (-0.01,0.09)    0.053 (0.02,0.13)    0.07 (0.03,0.13)    0.04 (-0.01,0.09)   0.362 (0.27,0.42)    0.261 (0.21,0.34)    0.222 (0.14,0.28)     0.35 (0.26,0.42)   0.264 (0.16,0.35)    0.251 (0.18,0.31)
+                  retro        0.104 (0.06,0.16)     0.091 (0.02,0.17)  -0.031 (-0.06,-0.01)    0.439 (0.39,0.49)      0.454 (0.39,0.5)    0.077 (0.03,0.13)    0.074 (0.03,0.14)    0.063 (0.02,0.11)      0.05 (0.0,0.11)   0.069 (0.03,0.13)    0.079 (0.03,0.12)   0.325 (0.23,0.41)    0.284 (0.18,0.35)     0.27 (0.19,0.33)    0.356 (0.27,0.43)   0.235 (0.15,0.34)    0.322 (0.24,0.37)
+                  retro1       0.123 (0.07,0.16)    0.028 (-0.01,0.08)  -0.043 (-0.07,-0.02)    0.444 (0.35,0.49)     0.429 (0.34,0.47)      0.1 (0.01,0.19)    0.145 (0.08,0.22)   0.023 (-0.03,0.08)     0.113 (0.05,0.2)   0.138 (0.07,0.22)      0.037 (0.0,0.1)    0.296 (0.2,0.37)     0.276 (0.2,0.35)     0.25 (0.17,0.33)    0.322 (0.23,0.39)   0.319 (0.22,0.38)    0.252 (0.17,0.31)
+                  retro3       0.105 (0.06,0.16)    0.021 (-0.04,0.06)  -0.046 (-0.08,-0.02)    0.437 (0.38,0.48)     0.433 (0.36,0.48)    0.058 (0.01,0.14)    0.097 (0.04,0.16)    0.071 (0.01,0.12)    0.115 (0.04,0.19)   0.088 (0.04,0.15)     0.08 (0.03,0.13)   0.316 (0.21,0.38)    0.284 (0.19,0.36)    0.247 (0.17,0.34)     0.322 (0.25,0.4)    0.301 (0.2,0.38)    0.265 (0.21,0.35)
+          phyto   causal        0.12 (0.06,0.19)     0.492 (0.42,0.57)  -0.059 (-0.08,-0.01)     0.57 (0.51,0.65)      0.56 (0.49,0.63)    0.479 (0.39,0.55)    0.483 (0.39,0.55)     0.37 (0.28,0.45)    0.472 (0.38,0.55)   0.483 (0.39,0.55)    0.414 (0.33,0.49)   0.501 (0.41,0.59)    0.574 (0.49,0.64)    0.468 (0.39,0.57)    0.554 (0.47,0.63)    0.59 (0.51,0.65)    0.475 (0.41,0.57)
+                  retro         0.12 (0.06,0.19)     0.503 (0.42,0.58)  -0.059 (-0.08,-0.01)     0.602 (0.5,0.69)      0.599 (0.5,0.68)     0.44 (0.33,0.52)    0.483 (0.39,0.55)    0.375 (0.27,0.45)    0.472 (0.38,0.54)   0.483 (0.39,0.55)    0.457 (0.37,0.52)    0.571 (0.5,0.65)    0.563 (0.47,0.63)    0.502 (0.44,0.58)    0.546 (0.48,0.63)    0.585 (0.5,0.65)    0.478 (0.39,0.55)
+                  retro1       0.091 (0.03,0.16)      0.482 (0.4,0.55)   -0.028 (-0.07,-0.0)    0.691 (0.61,0.74)     0.687 (0.61,0.74)    0.355 (0.28,0.51)    0.561 (0.48,0.63)    0.392 (0.33,0.49)    0.517 (0.45,0.59)   0.543 (0.46,0.62)    0.444 (0.38,0.53)   0.654 (0.59,0.71)    0.579 (0.51,0.66)    0.577 (0.52,0.64)    0.625 (0.56,0.68)   0.587 (0.53,0.66)     0.534 (0.47,0.6)
+                  retro3        0.125 (0.06,0.2)      0.526 (0.45,0.6)  -0.041 (-0.07,-0.01)    0.654 (0.59,0.71)     0.655 (0.58,0.71)    0.491 (0.41,0.57)    0.513 (0.43,0.58)     0.37 (0.31,0.46)      0.5 (0.42,0.58)   0.512 (0.43,0.58)     0.45 (0.39,0.53)    0.584 (0.5,0.64)     0.577 (0.5,0.65)     0.565 (0.5,0.63)     0.531 (0.47,0.6)   0.589 (0.52,0.66)      0.53 (0.46,0.6)
+          taxon   causal       0.084 (0.03,0.11)     0.141 (0.09,0.16)  -0.012 (-0.05,-0.01)    0.304 (0.24,0.34)     0.274 (0.23,0.32)     0.167 (0.1,0.22)     0.147 (0.1,0.21)    0.117 (0.07,0.18)    0.144 (0.09,0.21)   0.141 (0.09,0.21)    0.141 (0.08,0.19)    0.242 (0.2,0.29)    0.161 (0.08,0.23)    0.239 (0.17,0.26)     0.26 (0.21,0.31)   0.168 (0.11,0.24)    0.221 (0.17,0.26)
+                  retro        0.084 (0.03,0.11)     0.141 (0.09,0.18)  -0.012 (-0.05,-0.01)    0.274 (0.23,0.34)      0.26 (0.21,0.32)    0.126 (0.06,0.19)     0.147 (0.1,0.21)    0.089 (0.03,0.14)    0.122 (0.06,0.18)   0.141 (0.09,0.21)     0.13 (0.06,0.17)    0.248 (0.2,0.29)    0.176 (0.12,0.24)    0.202 (0.14,0.25)      0.252 (0.2,0.3)   0.189 (0.13,0.24)    0.228 (0.16,0.26)
+                  retro1       0.077 (-0.01,0.1)      0.13 (0.06,0.16)  -0.029 (-0.06,-0.01)    0.242 (0.16,0.29)      0.25 (0.17,0.29)    0.129 (0.01,0.18)    0.167 (0.06,0.21)    0.103 (0.01,0.15)    0.141 (0.04,0.21)    0.168 (0.06,0.2)    0.126 (0.03,0.17)    0.259 (0.17,0.3)     0.14 (0.05,0.21)    0.233 (0.17,0.28)     0.279 (0.17,0.3)   0.157 (0.07,0.21)    0.231 (0.14,0.26)
+                  retro3      0.066 (-0.01,0.09)     0.118 (0.08,0.16)  -0.011 (-0.05,-0.01)    0.286 (0.22,0.33)       0.263 (0.2,0.3)     0.124 (0.05,0.2)    0.182 (0.11,0.24)    0.121 (0.04,0.16)    0.133 (0.06,0.19)    0.182 (0.1,0.23)     0.159 (0.09,0.2)   0.228 (0.18,0.27)    0.191 (0.12,0.25)    0.226 (0.17,0.26)    0.235 (0.18,0.28)   0.207 (0.14,0.26)    0.229 (0.17,0.26)
+edna_18S  nmf_k10 causal         0.151 (0.1,0.2)     0.071 (0.02,0.22)  -0.025 (-0.06,-0.01)    0.417 (0.35,0.48)     0.418 (0.34,0.47)     0.165 (0.1,0.25)    0.203 (0.13,0.27)    0.167 (0.09,0.22)    0.183 (0.11,0.25)   0.203 (0.13,0.27)    0.188 (0.11,0.24)   0.249 (0.18,0.38)    0.263 (0.14,0.39)    0.263 (0.18,0.38)      0.272 (0.2,0.4)    0.37 (0.28,0.42)    0.286 (0.23,0.42)
+                  retro          0.151 (0.1,0.2)    0.064 (-0.01,0.13)  -0.025 (-0.06,-0.01)    0.458 (0.37,0.51)     0.455 (0.37,0.51)    0.135 (0.05,0.23)    0.203 (0.13,0.27)    0.139 (0.05,0.18)    0.178 (0.08,0.24)   0.203 (0.13,0.27)    0.194 (0.11,0.25)   0.364 (0.27,0.45)    0.273 (0.15,0.39)    0.365 (0.29,0.42)    0.422 (0.33,0.49)    0.37 (0.28,0.43)    0.396 (0.32,0.45)
+                  retro1       0.109 (0.04,0.18)     0.195 (0.07,0.27)  -0.015 (-0.06,-0.01)    0.422 (0.33,0.48)      0.43 (0.32,0.49)    0.239 (0.11,0.31)    0.295 (0.21,0.36)    0.192 (0.04,0.23)     0.278 (0.2,0.34)   0.294 (0.21,0.36)      0.21 (0.1,0.26)    0.449 (0.35,0.5)    0.357 (0.27,0.43)    0.405 (0.33,0.48)    0.449 (0.34,0.51)    0.38 (0.27,0.47)     0.396 (0.3,0.46)
+                  retro3       0.109 (0.04,0.17)     0.086 (0.02,0.23)   -0.02 (-0.06,-0.01)    0.484 (0.37,0.53)     0.419 (0.33,0.48)    0.254 (0.17,0.33)    0.288 (0.19,0.34)    0.139 (0.04,0.19)    0.283 (0.18,0.35)   0.284 (0.19,0.34)    0.203 (0.09,0.27)   0.371 (0.27,0.46)    0.373 (0.27,0.44)    0.368 (0.27,0.43)    0.384 (0.27,0.47)   0.378 (0.27,0.44)    0.361 (0.24,0.44)
+          nmf_k15 causal       0.132 (0.06,0.16)     0.176 (0.11,0.22)  -0.027 (-0.05,-0.02)      0.345 (0.3,0.4)     0.359 (0.32,0.41)    0.121 (0.06,0.16)    0.124 (0.08,0.16)    0.121 (0.07,0.16)     0.11 (0.07,0.15)   0.126 (0.08,0.16)     0.11 (0.06,0.15)   0.322 (0.27,0.38)    0.203 (0.15,0.26)    0.298 (0.23,0.34)     0.37 (0.31,0.42)   0.214 (0.16,0.26)      0.349 (0.3,0.4)
+                  retro        0.132 (0.06,0.16)     0.141 (0.06,0.19)  -0.027 (-0.05,-0.02)    0.336 (0.32,0.42)     0.362 (0.32,0.42)    0.093 (0.02,0.15)    0.124 (0.08,0.16)     0.11 (0.06,0.15)    0.115 (0.04,0.17)   0.126 (0.08,0.16)    0.137 (0.07,0.18)   0.309 (0.24,0.35)    0.184 (0.13,0.24)    0.247 (0.19,0.31)    0.301 (0.27,0.37)   0.207 (0.15,0.26)    0.295 (0.26,0.35)
+                  retro1       0.087 (0.04,0.14)     0.122 (0.06,0.17)   -0.02 (-0.05,-0.01)    0.322 (0.26,0.41)     0.365 (0.27,0.43)    0.141 (0.08,0.21)     0.154 (0.1,0.24)     0.101 (0.0,0.16)     0.155 (0.1,0.23)    0.151 (0.1,0.23)    0.109 (0.05,0.16)   0.301 (0.25,0.38)     0.208 (0.15,0.3)    0.288 (0.24,0.37)    0.353 (0.27,0.41)   0.216 (0.19,0.33)     0.31 (0.25,0.39)
+                  retro3       0.095 (0.05,0.15)     0.071 (0.02,0.16)  -0.027 (-0.05,-0.02)    0.372 (0.32,0.45)     0.399 (0.31,0.45)    0.135 (0.09,0.19)     0.137 (0.1,0.21)     0.12 (0.06,0.17)       0.14 (0.1,0.2)    0.135 (0.1,0.21)     0.14 (0.07,0.19)   0.283 (0.24,0.33)     0.227 (0.17,0.3)    0.288 (0.25,0.34)    0.307 (0.27,0.38)   0.233 (0.19,0.31)    0.319 (0.28,0.39)
+          nmf_k20 causal       0.093 (0.05,0.13)      0.14 (0.09,0.16)  -0.038 (-0.05,-0.02)    0.284 (0.22,0.33)     0.285 (0.24,0.33)    0.069 (0.04,0.12)    0.106 (0.06,0.17)    0.081 (0.04,0.13)    0.107 (0.05,0.15)   0.109 (0.06,0.16)    0.109 (0.05,0.16)   0.224 (0.17,0.29)     0.145 (0.1,0.21)    0.182 (0.15,0.26)     0.265 (0.2,0.31)    0.142 (0.1,0.22)    0.233 (0.18,0.29)
+                  retro        0.093 (0.05,0.13)      0.119 (0.0,0.16)  -0.038 (-0.05,-0.02)     0.29 (0.23,0.33)     0.287 (0.24,0.34)    0.063 (0.04,0.12)    0.106 (0.06,0.17)     0.06 (0.03,0.12)    0.101 (0.04,0.15)   0.109 (0.06,0.16)    0.101 (0.04,0.13)    0.25 (0.16,0.28)     0.171 (0.1,0.21)    0.191 (0.15,0.25)     0.282 (0.2,0.32)   0.176 (0.12,0.22)    0.215 (0.16,0.27)
+                  retro1       0.087 (0.05,0.12)     0.089 (0.04,0.13)  -0.032 (-0.06,-0.02)    0.268 (0.22,0.34)     0.323 (0.23,0.35)    0.146 (0.04,0.19)    0.154 (0.07,0.21)     0.043 (0.0,0.14)    0.162 (0.06,0.22)   0.153 (0.07,0.21)    0.105 (0.03,0.17)    0.24 (0.18,0.29)    0.169 (0.12,0.26)    0.215 (0.15,0.27)    0.263 (0.21,0.32)    0.25 (0.15,0.29)    0.236 (0.16,0.27)
+                  retro3       0.063 (0.04,0.12)     0.067 (0.01,0.14)  -0.036 (-0.06,-0.02)    0.268 (0.23,0.33)     0.266 (0.22,0.34)    0.109 (0.05,0.19)    0.138 (0.07,0.21)     0.07 (0.02,0.12)    0.118 (0.06,0.21)   0.151 (0.07,0.21)    0.102 (0.04,0.18)   0.247 (0.19,0.29)    0.195 (0.13,0.27)    0.244 (0.17,0.28)    0.296 (0.21,0.32)   0.191 (0.13,0.28)     0.283 (0.2,0.32)
+          nmf_k5  causal       0.181 (0.11,0.25)     0.181 (0.02,0.29)   -0.013 (-0.03,-0.0)    0.489 (0.36,0.61)     0.419 (0.33,0.54)      0.4 (0.29,0.55)    0.573 (0.42,0.67)     0.31 (0.23,0.49)     0.46 (0.31,0.59)   0.578 (0.41,0.68)    0.359 (0.25,0.51)   0.417 (0.34,0.52)    0.567 (0.41,0.67)    0.359 (0.32,0.52)    0.451 (0.37,0.59)   0.615 (0.47,0.71)    0.423 (0.33,0.57)
+                  retro        0.181 (0.11,0.25)      0.185 (0.05,0.3)   -0.013 (-0.03,-0.0)    0.515 (0.41,0.65)      0.467 (0.39,0.6)     0.467 (0.26,0.6)    0.573 (0.42,0.67)    0.337 (0.14,0.49)    0.519 (0.34,0.63)   0.584 (0.42,0.68)    0.459 (0.28,0.57)   0.569 (0.42,0.68)    0.569 (0.41,0.67)    0.554 (0.41,0.65)    0.581 (0.43,0.69)    0.599 (0.45,0.7)    0.537 (0.38,0.65)
+                  retro1       0.166 (0.08,0.23)     0.152 (0.04,0.26)  -0.023 (-0.05,-0.01)     0.499 (0.4,0.64)     0.505 (0.37,0.64)    0.509 (0.29,0.66)     0.565 (0.4,0.67)    0.417 (0.18,0.57)     0.572 (0.4,0.68)   0.563 (0.39,0.67)     0.477 (0.28,0.6)   0.567 (0.41,0.67)      0.57 (0.4,0.68)    0.571 (0.42,0.67)     0.53 (0.36,0.66)    0.576 (0.4,0.69)     0.479 (0.3,0.62)
+                  retro3       0.157 (0.08,0.23)     0.132 (0.01,0.28)    -0.006 (-0.03,0.0)    0.554 (0.42,0.67)     0.462 (0.38,0.61)    0.578 (0.42,0.67)    0.586 (0.44,0.68)    0.443 (0.24,0.57)    0.584 (0.44,0.69)   0.581 (0.43,0.68)    0.492 (0.31,0.61)   0.507 (0.33,0.65)    0.584 (0.44,0.69)     0.52 (0.34,0.65)    0.504 (0.34,0.64)   0.624 (0.47,0.72)     0.46 (0.31,0.61)
+          pc      causal      0.057 (-0.01,0.11)       0.07 (0.0,0.13)  -0.031 (-0.06,-0.02)     0.22 (0.16,0.32)     0.215 (0.17,0.32)    0.103 (0.01,0.18)     0.123 (0.03,0.2)   0.054 (-0.02,0.11)    0.115 (0.01,0.18)    0.122 (0.03,0.2)   0.055 (-0.02,0.11)   0.264 (0.16,0.32)     0.16 (0.07,0.23)     0.202 (0.1,0.26)    0.245 (0.19,0.34)   0.171 (0.08,0.25)    0.214 (0.13,0.27)
+                  retro       0.057 (-0.01,0.11)    0.005 (-0.05,0.12)  -0.031 (-0.06,-0.02)     0.269 (0.2,0.36)     0.231 (0.16,0.33)   0.081 (-0.03,0.16)     0.123 (0.03,0.2)   0.051 (-0.05,0.11)   0.095 (-0.02,0.17)    0.122 (0.03,0.2)    0.079 (-0.0,0.13)   0.186 (0.12,0.28)    0.132 (0.05,0.22)    0.177 (0.12,0.28)    0.216 (0.16,0.32)   0.144 (0.08,0.23)     0.214 (0.16,0.3)
+                  retro1      0.055 (-0.01,0.09)     -0.0 (-0.05,0.04)   -0.041 (-0.1,-0.03)    0.214 (0.13,0.31)     0.209 (0.13,0.29)   0.036 (-0.05,0.15)     0.106 (0.0,0.21)    0.018 (-0.08,0.1)   0.046 (-0.04,0.16)    0.111 (0.0,0.21)   0.004 (-0.08,0.12)   0.213 (0.14,0.31)    0.114 (0.04,0.22)    0.225 (0.15,0.31)    0.218 (0.14,0.32)   0.121 (0.04,0.23)    0.186 (0.11,0.28)
+                  retro3      0.038 (-0.01,0.09)   -0.005 (-0.06,0.09)  -0.032 (-0.06,-0.02)    0.282 (0.21,0.37)       0.27 (0.2,0.36)   0.049 (-0.03,0.17)     0.12 (0.03,0.21)   0.063 (-0.03,0.12)    0.091 (0.01,0.19)   0.119 (0.02,0.21)    0.074 (0.01,0.15)    0.217 (0.16,0.3)    0.154 (0.07,0.23)    0.176 (0.12,0.27)    0.236 (0.18,0.33)   0.154 (0.07,0.24)    0.185 (0.14,0.29)
+          phyto   causal       0.185 (0.06,0.24)     0.256 (0.14,0.41)  -0.009 (-0.04,-0.01)    0.447 (0.31,0.56)      0.375 (0.25,0.5)    0.387 (0.27,0.49)     0.35 (0.22,0.46)    0.325 (0.23,0.41)     0.36 (0.22,0.48)   0.357 (0.23,0.47)    0.338 (0.22,0.44)    0.403 (0.28,0.5)    0.452 (0.29,0.55)    0.412 (0.29,0.49)     0.387 (0.28,0.5)    0.44 (0.29,0.54)    0.394 (0.29,0.48)
+                  retro        0.185 (0.06,0.24)     0.362 (0.17,0.48)  -0.009 (-0.04,-0.01)    0.379 (0.23,0.51)      0.38 (0.24,0.49)    0.388 (0.26,0.49)     0.35 (0.22,0.46)    0.261 (0.17,0.34)    0.371 (0.22,0.47)   0.339 (0.22,0.45)     0.302 (0.2,0.39)   0.452 (0.33,0.54)     0.466 (0.3,0.56)    0.441 (0.31,0.51)    0.422 (0.31,0.51)    0.459 (0.3,0.55)    0.405 (0.29,0.48)
+                  retro1       0.083 (0.04,0.13)      0.25 (0.14,0.33)   -0.003 (-0.05,-0.0)    0.367 (0.22,0.49)     0.323 (0.18,0.46)     0.336 (0.1,0.43)    0.302 (0.18,0.41)    0.279 (0.16,0.37)    0.341 (0.19,0.47)    0.31 (0.18,0.42)     0.31 (0.18,0.41)    0.46 (0.31,0.54)     0.413 (0.23,0.5)    0.417 (0.29,0.49)    0.438 (0.31,0.52)   0.357 (0.21,0.47)    0.376 (0.25,0.46)
+                  retro3       0.192 (0.09,0.24)      0.259 (0.11,0.4)   -0.018 (-0.04,-0.0)    0.431 (0.25,0.55)     0.292 (0.15,0.45)     0.343 (0.2,0.46)    0.329 (0.19,0.43)    0.282 (0.16,0.36)    0.309 (0.13,0.44)   0.334 (0.19,0.44)    0.281 (0.17,0.37)    0.47 (0.32,0.56)    0.427 (0.27,0.53)     0.418 (0.29,0.5)    0.423 (0.29,0.52)   0.415 (0.27,0.51)    0.364 (0.26,0.47)
+          taxon   causal      -0.03 (-0.05,-0.0)     0.02 (-0.04,0.04)  -0.034 (-0.06,-0.02)    0.096 (0.01,0.13)     0.062 (0.01,0.11)   0.007 (-0.03,0.07)   0.023 (-0.01,0.08)   0.015 (-0.03,0.05)   0.027 (-0.02,0.07)  0.034 (-0.01,0.08)   0.017 (-0.02,0.06)    0.105 (0.0,0.13)   0.008 (-0.03,0.07)     0.06 (-0.0,0.11)     0.095 (0.0,0.12)  0.016 (-0.04,0.07)     0.086 (0.0,0.11)
+                  retro       -0.03 (-0.05,-0.0)   -0.001 (-0.05,0.02)  -0.034 (-0.06,-0.02)    0.107 (0.01,0.13)     0.076 (0.01,0.12)    0.01 (-0.04,0.07)   0.023 (-0.01,0.08)   0.005 (-0.02,0.04)   0.028 (-0.04,0.06)  0.034 (-0.01,0.08)   0.031 (-0.01,0.07)   0.053 (-0.01,0.1)   0.009 (-0.03,0.08)     0.068 (0.0,0.11)    0.058 (0.01,0.11)  0.017 (-0.04,0.08)     0.062 (0.0,0.11)
+                  retro1    -0.016 (-0.08,-0.01)   -0.016 (-0.04,0.05)  -0.034 (-0.07,-0.02)    0.079 (0.02,0.11)     0.082 (0.04,0.12)   0.044 (-0.04,0.08)   0.066 (-0.02,0.09)   0.034 (-0.03,0.06)   0.062 (-0.03,0.08)  0.064 (-0.02,0.09)   0.039 (-0.03,0.08)   0.072 (0.02,0.12)    0.02 (-0.04,0.07)     0.07 (0.02,0.12)    0.062 (0.02,0.12)  0.029 (-0.04,0.08)     0.065 (0.02,0.1)
+                  retro3      -0.01 (-0.06,-0.0)   -0.009 (-0.05,0.02)  -0.041 (-0.06,-0.02)    0.063 (0.01,0.14)     0.076 (0.02,0.14)  -0.012 (-0.06,0.07)    0.069 (-0.03,0.1)  -0.003 (-0.03,0.05)    0.06 (-0.04,0.09)   0.072 (-0.03,0.1)   0.039 (-0.01,0.09)   0.097 (0.02,0.13)   0.018 (-0.05,0.09)    0.079 (0.02,0.12)    0.066 (0.01,0.12)  0.026 (-0.04,0.11)      0.07 (0.0,0.11)
+fish_crcp log1p   causal     -0.003 (-0.01,0.01)     0.033 (0.01,0.05)                   NaN  -0.008 (-0.03,0.02)     0.068 (0.04,0.09)   -0.005 (-0.01,0.0)     0.005 (0.0,0.02)    -0.01 (-0.01,0.0)    0.015 (0.01,0.03)   0.017 (0.01,0.02)     0.014 (0.0,0.02)    0.091 (0.06,0.1)    0.017 (0.01,0.02)    0.066 (0.04,0.09)    0.078 (0.05,0.09)   0.016 (0.01,0.02)    0.074 (0.05,0.09)
+                  retro        -0.01 (-0.02,0.0)    0.016 (-0.01,0.04)                   NaN   0.001 (-0.03,0.03)     0.093 (0.05,0.12)  -0.006 (-0.01,0.01)    0.004 (-0.0,0.02)     0.014 (0.0,0.03)     0.017 (0.0,0.02)   0.024 (0.01,0.03)    0.022 (0.01,0.03)     0.07 (0.05,0.1)    0.025 (0.01,0.03)    0.064 (0.04,0.08)    0.065 (0.05,0.09)   0.026 (0.01,0.03)    0.061 (0.05,0.08)
+                  seasonal      0.01 (-0.0,0.02)     0.054 (0.03,0.07)                   NaN  -0.124 (-0.17,-0.1)  -0.037 (-0.06,-0.01)    -0.0 (-0.01,0.01)     0.009 (0.0,0.02)  -0.004 (-0.01,0.01)    0.013 (0.01,0.02)   0.011 (0.01,0.02)   0.008 (-0.01,0.02)    0.074 (0.06,0.1)    0.016 (0.01,0.02)    0.056 (0.04,0.08)    0.094 (0.08,0.12)   0.014 (0.01,0.02)     0.074 (0.05,0.1)
+          present causal       0.536 (0.53,0.55)      0.585 (0.57,0.6)                   NaN    0.644 (0.63,0.65)     0.629 (0.62,0.64)    0.569 (0.56,0.58)    0.597 (0.59,0.61)    0.575 (0.56,0.59)    0.583 (0.57,0.59)   0.597 (0.59,0.61)     0.588 (0.58,0.6)   0.621 (0.61,0.63)    0.596 (0.59,0.61)    0.627 (0.62,0.64)    0.636 (0.63,0.65)   0.603 (0.59,0.61)    0.626 (0.61,0.64)
+                  retro        0.536 (0.53,0.55)      0.589 (0.58,0.6)                   NaN    0.642 (0.63,0.65)     0.632 (0.62,0.64)    0.567 (0.55,0.58)    0.596 (0.59,0.61)    0.605 (0.59,0.62)    0.581 (0.57,0.59)   0.596 (0.59,0.61)     0.593 (0.58,0.6)   0.631 (0.62,0.64)    0.595 (0.58,0.61)    0.634 (0.62,0.65)    0.638 (0.63,0.65)   0.605 (0.59,0.62)    0.626 (0.61,0.64)
+                  seasonal     0.538 (0.53,0.55)     0.605 (0.59,0.62)                   NaN    0.634 (0.62,0.64)     0.626 (0.62,0.64)    0.568 (0.55,0.58)    0.598 (0.59,0.61)    0.576 (0.56,0.59)    0.578 (0.57,0.59)   0.598 (0.59,0.61)    0.583 (0.57,0.59)   0.619 (0.61,0.63)    0.596 (0.59,0.61)    0.625 (0.61,0.64)    0.637 (0.63,0.65)   0.605 (0.59,0.62)    0.625 (0.61,0.64)
+fish_maxn maxn    causal        0.05 (0.03,0.07)    0.009 (-0.01,0.03)                   NaN     0.069 (0.03,0.1)      0.076 (0.04,0.1)    0.068 (0.03,0.09)    0.027 (0.01,0.04)   0.024 (-0.01,0.04)    0.055 (0.03,0.08)   0.034 (0.02,0.05)  -0.009 (-0.02,0.02)   0.063 (0.04,0.09)    0.036 (0.02,0.05)    0.048 (0.03,0.07)    0.064 (0.04,0.09)   0.042 (0.02,0.06)    0.061 (0.04,0.08)
+                  retro        0.051 (0.03,0.07)     0.019 (0.01,0.04)                   NaN    0.059 (0.04,0.09)     0.053 (0.04,0.08)    0.057 (0.03,0.09)    0.028 (0.01,0.05)    0.033 (0.01,0.05)    0.052 (0.03,0.09)   0.033 (0.02,0.05)     0.023 (0.0,0.05)    0.077 (0.05,0.1)    0.038 (0.02,0.06)    0.059 (0.04,0.07)     0.05 (0.04,0.08)   0.041 (0.02,0.06)    0.039 (0.02,0.07)
+                  seasonal     0.051 (0.03,0.07)     0.039 (0.02,0.06)                   NaN     0.075 (0.05,0.1)       0.07 (0.05,0.1)    0.059 (0.03,0.08)    0.022 (0.01,0.04)     0.029 (0.0,0.05)    0.065 (0.03,0.09)    0.03 (0.02,0.05)    0.023 (0.01,0.06)    0.079 (0.05,0.1)    0.033 (0.02,0.05)    0.067 (0.04,0.09)    0.074 (0.04,0.09)   0.035 (0.02,0.06)     0.073 (0.04,0.1)
+sfer      chl     causal     -0.08 (-0.15,-0.02)       0.74 (0.7,0.78)                   NaN      0.8 (0.77,0.83)     0.787 (0.76,0.81)    0.573 (0.52,0.63)    0.556 (0.49,0.62)    0.425 (0.36,0.48)    0.601 (0.54,0.65)   0.543 (0.47,0.61)    0.516 (0.45,0.58)   0.792 (0.76,0.82)    0.738 (0.69,0.78)    0.764 (0.73,0.79)      0.8 (0.77,0.83)   0.756 (0.72,0.79)    0.761 (0.73,0.79)
+                  retro      -0.08 (-0.15,-0.02)      0.771 (0.73,0.8)                   NaN    0.838 (0.81,0.86)     0.808 (0.78,0.83)     0.61 (0.55,0.66)    0.555 (0.49,0.62)    0.426 (0.35,0.48)     0.647 (0.6,0.69)   0.539 (0.47,0.61)     0.53 (0.47,0.58)    0.824 (0.8,0.85)    0.793 (0.76,0.82)    0.782 (0.75,0.81)     0.829 (0.8,0.85)   0.794 (0.76,0.82)     0.78 (0.75,0.81)
+                  retro1     -0.059 (-0.13,-0.0)     0.741 (0.69,0.78)                   NaN     0.81 (0.77,0.84)     0.798 (0.76,0.83)    0.496 (0.42,0.56)    0.508 (0.43,0.58)    0.365 (0.29,0.44)    0.555 (0.49,0.61)   0.498 (0.42,0.58)    0.474 (0.41,0.53)   0.803 (0.77,0.83)     0.751 (0.7,0.79)    0.774 (0.74,0.81)     0.81 (0.78,0.84)    0.766 (0.73,0.8)    0.787 (0.75,0.82)
+                  retro3    -0.081 (-0.15,-0.02)      0.763 (0.72,0.8)                   NaN    0.835 (0.81,0.86)     0.805 (0.77,0.83)    0.603 (0.54,0.66)     0.545 (0.48,0.6)     0.438 (0.37,0.5)    0.636 (0.59,0.68)   0.528 (0.45,0.59)    0.542 (0.48,0.59)   0.819 (0.79,0.85)     0.78 (0.74,0.81)    0.778 (0.75,0.81)     0.825 (0.8,0.85)   0.788 (0.75,0.82)    0.788 (0.76,0.82)
+          no3     causal     -0.016 (-0.11,0.05)  -0.079 (-0.15,-0.03)                   NaN   0.013 (-0.06,0.07)    0.016 (-0.06,0.07)    -0.044 (-0.1,0.0)    0.022 (-0.07,0.1)  -0.048 (-0.11,-0.0)   -0.044 (-0.11,0.0)   0.026 (-0.06,0.1)   -0.046 (-0.11,0.0)  0.011 (-0.05,0.06)   0.022 (-0.07,0.09)   0.029 (-0.05,0.09)  -0.004 (-0.06,0.04)   0.024 (-0.06,0.1)   0.003 (-0.06,0.05)
+                  retro       0.003 (-0.08,0.06)   -0.049 (-0.1,-0.01)                   NaN   0.022 (-0.04,0.07)    0.022 (-0.04,0.07)   0.023 (-0.04,0.08)    0.04 (-0.04,0.11)   0.008 (-0.05,0.05)    0.039 (-0.03,0.1)  0.044 (-0.04,0.11)   0.039 (-0.03,0.09)    0.064 (0.0,0.11)   0.042 (-0.04,0.11)   0.027 (-0.03,0.07)    0.01 (-0.04,0.05)  0.046 (-0.03,0.11)   0.017 (-0.04,0.06)
+                  retro1       -0.0 (-0.09,0.07)  -0.044 (-0.11,-0.01)                   NaN   0.011 (-0.09,0.08)    0.021 (-0.08,0.09)   0.036 (-0.05,0.11)   0.048 (-0.04,0.12)   0.035 (-0.03,0.09)   0.051 (-0.04,0.13)  0.052 (-0.04,0.13)    0.038 (-0.04,0.1)     0.1 (0.01,0.17)   0.051 (-0.03,0.13)    0.087 (-0.0,0.16)      0.09 (0.0,0.16)   0.05 (-0.04,0.13)    0.07 (-0.01,0.13)
+                  retro3      0.001 (-0.07,0.06)  -0.051 (-0.11,-0.01)                   NaN   0.021 (-0.06,0.09)    0.019 (-0.06,0.09)    0.02 (-0.05,0.08)   0.036 (-0.04,0.11)  -0.002 (-0.06,0.04)    0.038 (-0.03,0.1)   0.04 (-0.04,0.11)     0.0 (-0.06,0.05)    0.067 (0.0,0.12)   0.037 (-0.04,0.11)   0.075 (-0.01,0.15)    0.046 (-0.02,0.1)   0.04 (-0.04,0.11)    0.057 (-0.0,0.11)
+          po4     causal     -0.178 (-0.28,-0.1)   -0.049 (-0.17,0.04)                   NaN   0.012 (-0.14,0.13)   -0.029 (-0.19,0.09)   0.008 (-0.14,0.13)   0.073 (-0.09,0.21)  -0.029 (-0.18,0.08)   0.029 (-0.12,0.14)    0.066 (-0.1,0.2)   0.028 (-0.13,0.14)    0.04 (-0.1,0.14)   0.064 (-0.09,0.19)  -0.009 (-0.13,0.08)    -0.0 (-0.12,0.09)   0.077 (-0.08,0.2)   0.014 (-0.11,0.11)
+                  retro      -0.176 (-0.28,-0.1)   -0.064 (-0.18,0.02)                   NaN    0.026 (-0.1,0.12)   -0.042 (-0.17,0.06)   0.107 (-0.05,0.23)   0.082 (-0.08,0.21)   0.016 (-0.12,0.12)   0.083 (-0.09,0.21)   0.076 (-0.08,0.2)   0.043 (-0.09,0.15)  0.063 (-0.09,0.18)   0.069 (-0.09,0.19)  -0.011 (-0.13,0.07)   0.066 (-0.08,0.18)   0.081 (-0.07,0.2)   0.003 (-0.12,0.09)
+                  retro1     -0.24 (-0.38,-0.14)  -0.117 (-0.25,-0.01)                   NaN  -0.017 (-0.18,0.11)   -0.012 (-0.17,0.11)   -0.018 (-0.2,0.12)  -0.006 (-0.19,0.14)  -0.064 (-0.23,0.05)  -0.049 (-0.23,0.09)  -0.01 (-0.19,0.13)  -0.042 (-0.21,0.08)   -0.02 (-0.2,0.11)  -0.005 (-0.18,0.14)    -0.032 (-0.2,0.1)   0.001 (-0.16,0.13)  0.008 (-0.17,0.15)  -0.011 (-0.18,0.12)
+                  retro3    -0.197 (-0.31,-0.12)   -0.065 (-0.19,0.02)                   NaN    0.002 (-0.13,0.1)    -0.04 (-0.19,0.08)   0.065 (-0.09,0.19)   0.047 (-0.11,0.18)  -0.016 (-0.16,0.09)   0.024 (-0.14,0.16)  0.045 (-0.11,0.17)  -0.002 (-0.15,0.12)   0.045 (-0.1,0.16)    0.053 (-0.1,0.18)   0.015 (-0.12,0.12)   0.071 (-0.07,0.19)  0.066 (-0.09,0.19)   0.053 (-0.08,0.16)
+          si      causal      -0.012 (-0.04,0.0)     0.338 (0.24,0.43)                   NaN    0.378 (0.28,0.47)     0.404 (0.31,0.49)    0.406 (0.33,0.48)    0.411 (0.34,0.48)     0.231 (0.16,0.3)    0.404 (0.33,0.47)     0.4 (0.33,0.47)    0.319 (0.25,0.38)   0.404 (0.33,0.48)    0.421 (0.35,0.49)     0.381 (0.3,0.45)    0.449 (0.37,0.52)     0.43 (0.36,0.5)    0.411 (0.33,0.49)
+                  retro       -0.011 (-0.04,0.0)      0.36 (0.27,0.45)                   NaN    0.387 (0.28,0.48)      0.387 (0.3,0.47)    0.408 (0.34,0.47)    0.405 (0.33,0.48)    0.248 (0.18,0.31)    0.407 (0.33,0.47)   0.395 (0.32,0.47)     0.334 (0.26,0.4)    0.42 (0.34,0.49)     0.42 (0.35,0.49)    0.386 (0.31,0.46)    0.436 (0.35,0.52)    0.426 (0.35,0.5)    0.385 (0.31,0.46)
+                  retro1     -0.004 (-0.03,0.01)     0.283 (0.19,0.38)                   NaN    0.377 (0.27,0.47)      0.38 (0.28,0.48)    0.337 (0.26,0.41)     0.391 (0.3,0.47)    0.219 (0.15,0.28)    0.352 (0.27,0.43)   0.379 (0.29,0.46)    0.293 (0.22,0.37)    0.397 (0.3,0.49)    0.395 (0.31,0.47)    0.358 (0.27,0.45)    0.405 (0.31,0.49)   0.403 (0.31,0.48)    0.361 (0.27,0.45)
+                  retro3     -0.018 (-0.05,-0.0)     0.334 (0.24,0.42)                   NaN    0.367 (0.26,0.46)     0.362 (0.26,0.46)    0.417 (0.34,0.49)    0.401 (0.32,0.47)    0.255 (0.19,0.32)    0.409 (0.33,0.48)   0.406 (0.33,0.48)    0.339 (0.26,0.41)    0.424 (0.34,0.5)    0.413 (0.34,0.49)     0.387 (0.3,0.47)     0.421 (0.33,0.5)    0.42 (0.34,0.49)    0.393 (0.31,0.48)
+PACE era, visible - dropped (95% interval), probes trained and scored on samples with PACE:
+features                                                raw              stage1_A/e1              stage1_A/e3          stage1_B/e1           stage1_B/e2            stage1_B/e3           stage1_C/e1           stage1_C/e2           stage1_C/e3           stage1_D/e1          stage1_D/e2           stage1_D/e3          stage1_D3/e1         stage1_D3/e2          stage1_D3/e3
+dataset   family  window   mode                                                                                                                                                                                                                                                                                                                                                    
+edna_16S  nmf_k10 causal   grouped_cv    0.055 (-0.03,0.09)       0.003 (-0.06,0.05)      -0.019 (-0.11,0.04)  -0.001 (-0.03,0.02)        0.0 (-0.0,0.0)    -0.033 (-0.08,0.06)    -0.131 (-0.28,0.0)       -0.0 (-0.0,0.0)   -0.053 (-0.08,0.08)     0.04 (-0.08,0.11)      -0.0 (-0.0,0.0)   -0.003 (-0.08,0.07)    0.004 (-0.02,0.09)   -0.013 (-0.03,0.0)     0.069 (-0.0,0.12)
+                  retro    grouped_cv   -0.024 (-0.06,0.04)       0.019 (-0.06,0.04)      -0.002 (-0.04,0.03)      0.0 (-0.0,0.03)       -0.0 (-0.0,0.0)    -0.003 (-0.04,0.05)    0.005 (-0.01,0.08)     0.002 (-0.0,0.05)    0.004 (-0.06,0.04)   -0.009 (-0.07,0.02)    0.003 (-0.0,0.01)    0.033 (-0.09,0.09)    0.041 (-0.03,0.08)    -0.0 (-0.06,0.02)    0.041 (-0.04,0.07)
+                  retro1   grouped_cv     0.03 (-0.03,0.05)      -0.027 (-0.09,0.03)      -0.021 (-0.11,0.06)   0.009 (-0.07,0.05)       -0.0 (-0.0,0.0)     0.062 (-0.03,0.22)    -0.09 (-0.16,0.02)       -0.0 (-0.0,0.0)    0.101 (-0.06,0.18)    0.067 (-0.01,0.17)      -0.0 (-0.1,0.0)     0.121 (0.02,0.25)    0.062 (-0.04,0.11)   0.004 (-0.13,0.01)    0.048 (-0.08,0.16)
+                  retro3   grouped_cv    -0.021 (-0.1,0.04)      -0.027 (-0.09,0.01)      -0.006 (-0.06,0.06)   0.005 (-0.08,0.04)   -0.002 (-0.01,0.01)    -0.027 (-0.05,0.09)    0.052 (-0.01,0.09)    -0.001 (-0.0,0.01)   -0.033 (-0.07,0.05)    0.081 (-0.03,0.18)   -0.001 (-0.01,0.0)   -0.064 (-0.15,0.04)   -0.041 (-0.09,0.02)  -0.003 (-0.01,0.01)    0.056 (-0.03,0.14)
+          nmf_k15 causal   grouped_cv    0.051 (-0.04,0.09)      -0.042 (-0.11,0.07)        0.02 (-0.13,0.09)  -0.139 (-0.18,0.04)       0.0 (-0.0,0.01)     0.029 (-0.07,0.14)    -0.32 (-0.45,0.01)     0.119 (-0.0,0.27)    0.096 (-0.07,0.18)    0.072 (-0.04,0.13)  -0.001 (-0.03,0.02)    -0.015 (-0.1,0.08)   -0.031 (-0.07,0.17)  -0.028 (-0.04,0.01)    0.075 (-0.08,0.13)
+                  retro    grouped_cv    0.011 (-0.02,0.07)       -0.012 (-0.1,0.07)       0.117 (-0.02,0.18)  -0.008 (-0.05,0.05)        0.0 (-0.0,0.0)    -0.009 (-0.05,0.05)     0.039 (-0.04,0.1)      -0.0 (-0.0,0.12)    -0.002 (-0.1,0.05)    0.018 (-0.05,0.06)     0.0 (-0.01,0.03)     0.018 (-0.07,0.1)    0.007 (-0.04,0.09)     0.0 (-0.07,0.07)   -0.031 (-0.08,0.04)
+                  retro1   grouped_cv    0.028 (-0.07,0.12)      -0.057 (-0.13,0.04)      -0.113 (-0.14,0.11)   0.005 (-0.04,0.05)        0.0 (-0.0,0.0)     -0.05 (-0.11,0.12)   -0.003 (-0.13,0.05)       -0.0 (-0.0,0.0)   -0.003 (-0.05,0.18)   -0.014 (-0.05,0.12)    -0.001 (-0.0,0.0)    -0.02 (-0.11,0.15)    0.003 (-0.06,0.09)  -0.001 (-0.09,0.01)    -0.064 (-0.09,0.1)
+                  retro3   grouped_cv   -0.006 (-0.14,0.05)      -0.056 (-0.12,0.03)       -0.04 (-0.12,0.06)   -0.004 (-0.1,0.01)      -0.0 (-0.01,0.0)    -0.003 (-0.09,0.06)    0.059 (-0.02,0.15)      -0.0 (-0.11,0.0)    0.013 (-0.08,0.07)    0.174 (-0.05,0.22)     0.0 (-0.01,0.05)     0.063 (-0.09,0.1)   -0.011 (-0.12,0.08)   -0.016 (-0.04,0.0)     0.036 (-0.1,0.15)
+          nmf_k20 causal   grouped_cv   -0.031 (-0.07,0.01)      -0.036 (-0.07,0.06)      -0.076 (-0.12,0.02)   0.002 (-0.01,0.06)      0.001 (-0.0,0.0)     -0.02 (-0.06,0.04)   -0.151 (-0.19,-0.0)     0.033 (-0.0,0.07)   -0.034 (-0.11,0.06)    0.024 (-0.07,0.07)   -0.028 (-0.05,0.0)     0.011 (-0.08,0.1)    0.038 (-0.04,0.09)   0.028 (-0.01,0.07)    0.031 (-0.07,0.08)
+                  retro    grouped_cv   -0.019 (-0.07,0.05)        0.031 (-0.04,0.1)      -0.002 (-0.05,0.09)   0.001 (-0.01,0.01)     -0.001 (-0.0,0.0)     0.017 (-0.03,0.11)     0.001 (-0.0,0.05)     -0.0 (-0.01,0.03)   -0.012 (-0.07,0.03)   -0.036 (-0.07,0.01)    0.001 (-0.0,0.01)    0.028 (-0.04,0.07)   -0.042 (-0.07,0.03)    -0.0 (-0.01,0.02)    0.011 (-0.06,0.06)
+                  retro1   grouped_cv   -0.009 (-0.08,0.08)      -0.039 (-0.06,0.05)       -0.04 (-0.11,0.05)   0.002 (-0.01,0.04)      -0.0 (-0.01,0.0)    -0.029 (-0.03,0.14)    0.006 (-0.01,0.02)       -0.0 (-0.0,0.0)    0.062 (-0.01,0.17)    -0.04 (-0.05,0.05)      -0.0 (-0.0,0.0)    0.051 (-0.05,0.16)    0.004 (-0.05,0.02)    -0.0 (-0.01,0.02)    0.008 (-0.06,0.08)
+                  retro3   grouped_cv   -0.023 (-0.09,0.04)      -0.032 (-0.08,0.03)      -0.026 (-0.08,0.04)   0.014 (-0.02,0.03)     -0.002 (-0.0,0.0)     0.034 (-0.04,0.14)      0.051 (0.0,0.12)    -0.002 (-0.04,0.0)   -0.033 (-0.08,0.02)    0.019 (-0.05,0.06)    0.01 (-0.03,0.01)     0.01 (-0.07,0.07)     0.01 (-0.04,0.05)     -0.0 (-0.03,0.0)    0.045 (-0.03,0.09)
+          nmf_k5  causal   grouped_cv   -0.027 (-0.09,-0.0)      -0.053 (-0.14,0.05)       0.003 (-0.23,0.05)  -0.002 (-0.04,0.01)     0.015 (-0.0,0.03)    -0.019 (-0.15,0.07)   -0.418 (-0.89,0.02)      0.0 (-0.01,0.02)   -0.036 (-0.14,0.04)     0.03 (-0.07,0.08)     0.0 (-0.01,0.08)   -0.021 (-0.09,0.08)    -0.01 (-0.05,0.14)      -0.0 (-0.0,0.0)      0.0 (-0.07,0.07)
+                  retro    grouped_cv     0.016 (-0.04,0.1)      -0.009 (-0.02,0.04)      -0.027 (-0.25,0.02)  -0.002 (-0.01,0.01)    -0.001 (-0.02,0.0)     0.001 (-0.09,0.12)      0.0 (-0.01,0.01)     -0.001 (-0.0,0.0)   -0.003 (-0.11,0.11)   -0.085 (-0.16,0.04)    -0.001 (-0.0,0.0)   -0.106 (-0.23,0.02)    -0.049 (-0.1,0.17)   -0.003 (-0.02,0.0)     0.024 (-0.06,0.1)
+                  retro1   grouped_cv   -0.001 (-0.02,0.24)        0.005 (-0.1,0.04)     -0.009 (-0.14,-0.01)   0.004 (-0.05,0.08)        0.0 (-0.0,0.0)      0.049 (-0.07,0.3)    0.043 (-0.08,0.15)        0.0 (-0.0,0.0)    -0.02 (-0.16,0.27)    -0.005 (-0.05,0.1)    -0.0 (-0.05,0.06)    0.092 (-0.02,0.17)    0.027 (-0.06,0.11)     -0.0 (-0.0,0.01)     0.004 (-0.1,0.11)
+                  retro3   grouped_cv   -0.036 (-0.06,-0.0)       0.005 (-0.04,0.02)      -0.043 (-0.09,0.02)      -0.0 (-0.1,0.0)    -0.001 (-0.05,0.0)     0.057 (-0.11,0.14)   -0.001 (-0.11,0.01)      0.0 (-0.01,0.01)    0.005 (-0.04,0.11)    -0.116 (-0.2,0.05)   -0.001 (-0.02,0.0)    -0.11 (-0.17,-0.0)    -0.048 (-0.08,0.1)      0.0 (-0.03,0.0)    -0.04 (-0.13,0.21)
+          pc      causal   grouped_cv    -0.07 (-0.11,0.03)      -0.036 (-0.1,-0.01)      -0.069 (-0.13,0.01)      0.0 (-0.01,0.0)     0.001 (-0.0,0.05)    -0.009 (-0.08,0.07)   -0.001 (-0.01,0.02)       0.0 (-0.0,0.01)     0.03 (-0.03,0.08)     0.01 (-0.02,0.02)    0.004 (-0.0,0.01)    0.031 (-0.02,0.09)    0.008 (-0.06,0.04)   -0.002 (-0.01,0.0)    0.016 (-0.06,0.06)
+                  retro    grouped_cv   -0.025 (-0.06,0.03)       0.012 (-0.05,0.03)     -0.156 (-0.24,-0.05)     0.001 (-0.0,0.0)      0.0 (-0.01,0.02)     -0.05 (-0.07,0.04)    -0.001 (-0.0,0.01)     0.036 (-0.0,0.13)   -0.011 (-0.05,0.03)    0.024 (-0.04,0.04)    0.009 (-0.0,0.02)    -0.02 (-0.06,0.07)     0.01 (-0.08,0.08)    -0.001 (-0.0,0.0)    0.056 (-0.01,0.09)
+                  retro1   grouped_cv    -0.03 (-0.06,0.03)     -0.128 (-0.24,-0.01)       0.109 (-0.03,0.17)    0.003 (-0.0,0.01)       -0.0 (-0.0,0.0)      0.283 (0.05,0.42)     0.053 (-0.04,0.1)       -0.0 (-0.0,0.0)     0.104 (-0.0,0.22)    0.044 (-0.01,0.11)     0.0 (-0.08,0.02)     0.038 (-0.0,0.15)    0.012 (-0.01,0.04)   0.001 (-0.05,0.04)    0.044 (-0.09,0.11)
+                  retro3   grouped_cv    0.015 (-0.06,0.05)       0.002 (-0.13,0.02)      -0.115 (-0.14,-0.0)    -0.007 (-0.1,0.0)      -0.0 (-0.1,0.05)     0.001 (-0.04,0.05)       0.0 (-0.01,0.0)    -0.001 (-0.1,0.05)   -0.055 (-0.09,0.04)    0.002 (-0.08,0.02)   0.007 (-0.04,0.03)    0.057 (-0.03,0.13)    0.022 (-0.07,0.05)  -0.006 (-0.02,0.03)     0.017 (-0.04,0.1)
+          phyto   causal   grouped_cv     0.041 (0.02,0.06)       -0.012 (-0.03,0.0)       -0.05 (-0.11,0.11)   -0.003 (-0.01,0.0)       -0.0 (-0.0,0.0)   -0.197 (-0.32,-0.06)      0.0 (-0.01,0.01)       -0.0 (-0.0,0.0)   -0.018 (-0.05,0.02)    0.006 (-0.02,0.03)    -0.001 (-0.0,0.0)    0.015 (-0.05,0.07)   -0.006 (-0.04,0.01)   -0.001 (-0.0,-0.0)   -0.023 (-0.07,0.06)
+                  retro    grouped_cv    0.008 (-0.01,0.02)       0.013 (-0.01,0.07)       0.005 (-0.07,0.03)  -0.074 (-0.11,-0.0)       -0.0 (-0.0,0.0)      0.013 (-0.1,0.15)    0.002 (-0.01,0.02)       -0.0 (-0.0,0.0)    0.046 (-0.04,0.09)     0.098 (0.04,0.12)   -0.027 (-0.06,0.0)   -0.095 (-0.15,0.06)    0.006 (-0.02,0.06)       0.0 (-0.0,0.0)     0.007 (-0.03,0.1)
+                  retro1   grouped_cv    0.015 (-0.02,0.05)      -0.006 (-0.02,0.03)      -0.032 (-0.06,0.01)  -0.003 (-0.01,-0.0)        0.0 (-0.0,0.0)    -0.035 (-0.14,0.08)     -0.001 (-0.0,0.0)       -0.0 (-0.0,0.0)    0.046 (-0.02,0.18)   -0.001 (-0.04,0.02)    -0.001 (-0.0,0.0)   -0.019 (-0.06,0.04)   -0.018 (-0.04,0.02)   -0.004 (-0.01,0.0)   -0.025 (-0.09,0.01)
+                  retro3   grouped_cv    0.008 (-0.02,0.03)       0.018 (-0.01,0.04)       0.004 (-0.04,0.04)   -0.002 (-0.01,0.0)       -0.0 (-0.0,0.0)    -0.042 (-0.16,0.07)     0.02 (-0.01,0.04)     -0.001 (-0.0,0.0)     0.057 (-0.07,0.1)      0.0 (-0.06,0.14)  -0.027 (-0.06,0.01)     0.037 (-0.03,0.1)     0.02 (-0.03,0.08)     0.002 (-0.0,0.0)    0.082 (-0.01,0.17)
+          taxon   causal   grouped_cv     0.027 (-0.06,0.1)      -0.002 (-0.07,0.04)      -0.034 (-0.11,0.04)   -0.003 (-0.01,0.0)       -0.0 (-0.0,0.0)     0.003 (-0.03,0.05)    -0.016 (-0.04,0.0)       -0.0 (-0.0,0.0)    0.001 (-0.05,0.04)    0.012 (-0.02,0.04)       0.0 (-0.0,0.0)   -0.057 (-0.06,0.02)    0.003 (-0.03,0.03)      -0.0 (-0.0,0.0)    0.056 (-0.04,0.07)
+                  retro    grouped_cv    0.004 (-0.07,0.02)       0.013 (-0.01,0.08)       0.027 (-0.01,0.06)     -0.0 (-0.01,0.0)       0.0 (-0.05,0.0)    -0.004 (-0.03,0.03)    0.005 (-0.01,0.02)       -0.0 (-0.0,0.0)   -0.004 (-0.03,0.03)   -0.075 (-0.09,0.02)     0.001 (-0.0,0.0)     0.055 (-0.06,0.1)   -0.009 (-0.05,0.01)   -0.038 (-0.06,0.0)    0.025 (-0.04,0.07)
+                  retro1   grouped_cv   -0.004 (-0.05,0.03)      -0.017 (-0.05,0.02)       -0.011 (-0.11,0.0)  -0.007 (-0.03,0.01)       0.0 (-0.0,0.03)     0.023 (-0.06,0.07)      0.0 (-0.01,0.01)        0.0 (-0.0,0.0)     0.084 (-0.0,0.16)    0.018 (-0.02,0.06)      -0.0 (-0.0,0.0)    0.018 (-0.05,0.08)   -0.011 (-0.03,0.04)      -0.0 (-0.0,0.0)   -0.002 (-0.04,0.06)
+                  retro3   grouped_cv   -0.026 (-0.09,0.03)      -0.009 (-0.04,0.04)       0.025 (-0.05,0.05)   0.003 (-0.02,0.03)        0.0 (-0.0,0.0)     0.025 (-0.01,0.06)     0.002 (-0.01,0.0)        0.0 (-0.0,0.0)    0.005 (-0.03,0.05)    -0.087 (-0.14,0.0)      0.0 (-0.01,0.0)    0.008 (-0.06,0.08)   -0.042 (-0.08,0.02)   -0.001 (-0.05,0.0)   -0.033 (-0.09,0.01)
+edna_18S  nmf_k10 causal   grouped_cv   -0.007 (-0.09,0.03)        0.001 (-0.1,0.08)        0.022 (-0.1,0.07)   0.001 (-0.02,0.08)     0.071 (-0.0,0.17)    -0.059 (-0.13,0.02)   -0.005 (-0.03,0.02)    -0.002 (-0.11,0.0)    0.057 (-0.03,0.11)   -0.005 (-0.04,0.04)  -0.002 (-0.01,0.01)     0.014 (-0.05,0.1)    0.086 (-0.05,0.14)  -0.003 (-0.01,0.02)    0.026 (-0.08,0.08)
+                  retro    grouped_cv    0.012 (-0.02,0.02)       0.082 (-0.06,0.09)      -0.026 (-0.05,0.05)      0.0 (-0.0,0.08)       -0.0 (-0.0,0.0)      0.02 (-0.05,0.08)    -0.001 (-0.0,0.01)       0.0 (-0.0,0.01)    0.049 (-0.02,0.09)   -0.005 (-0.04,0.06)   -0.007 (-0.02,0.0)     0.01 (-0.06,0.06)   -0.001 (-0.06,0.08)       0.0 (-0.0,0.0)    0.007 (-0.03,0.08)
+                  retro1   grouped_cv   -0.007 (-0.02,0.01)        0.01 (-0.04,0.07)       -0.08 (-0.11,0.07)    0.002 (-0.0,0.06)       0.0 (-0.0,0.23)     -0.011 (-0.1,0.08)   -0.007 (-0.01,0.11)    0.002 (-0.06,0.01)   -0.129 (-0.21,0.07)   -0.067 (-0.12,0.07)   -0.002 (-0.01,0.0)    0.054 (-0.03,0.16)    0.006 (-0.09,0.13)    0.002 (-0.01,0.0)    0.036 (-0.07,0.11)
+                  retro3   grouped_cv    0.011 (-0.01,0.02)       0.015 (-0.02,0.13)        -0.06 (-0.09,0.0)  -0.002 (-0.01,0.04)        0.0 (-0.0,0.0)       0.02 (-0.07,0.1)   -0.011 (-0.03,0.02)      -0.0 (-0.0,0.01)     0.013 (-0.02,0.1)     0.023 (-0.1,0.07)     0.0 (-0.05,0.03)   -0.047 (-0.09,0.07)    0.052 (-0.06,0.09)    -0.001 (-0.0,0.0)    0.019 (-0.04,0.11)
+          nmf_k15 causal   grouped_cv    0.013 (-0.07,0.09)        0.01 (-0.06,0.12)      -0.007 (-0.08,0.07)  -0.007 (-0.04,0.11)     0.016 (-0.0,0.14)    -0.006 (-0.08,0.13)    0.001 (-0.01,0.01)       0.0 (-0.01,0.0)     0.026 (-0.05,0.1)     -0.0 (-0.06,0.09)      0.0 (-0.02,0.0)    0.006 (-0.07,0.08)    0.049 (-0.02,0.14)    -0.0 (-0.01,0.03)   -0.022 (-0.09,0.07)
+                  retro    grouped_cv   -0.038 (-0.06,0.04)      -0.009 (-0.08,0.08)        0.045 (-0.04,0.1)   0.078 (-0.03,0.12)      -0.0 (-0.07,0.0)     0.049 (-0.07,0.09)   -0.001 (-0.04,0.03)     -0.0 (-0.02,0.02)   -0.099 (-0.13,0.02)   -0.016 (-0.04,0.08)   -0.032 (-0.07,0.0)     -0.0 (-0.08,0.02)   -0.045 (-0.09,0.03)     -0.0 (-0.0,0.01)   -0.012 (-0.05,0.04)
+                  retro1   grouped_cv   -0.037 (-0.12,0.01)       0.007 (-0.11,0.07)      -0.025 (-0.13,0.11)  -0.001 (-0.01,0.11)        0.0 (-0.0,0.0)    -0.122 (-0.15,0.08)    0.007 (-0.03,0.05)   -0.004 (-0.01,0.01)   -0.112 (-0.21,0.11)    0.027 (-0.08,0.11)     0.0 (-0.01,0.01)    0.052 (-0.09,0.13)   -0.049 (-0.09,0.09)   0.004 (-0.01,0.01)     0.01 (-0.11,0.15)
+                  retro3   grouped_cv   -0.017 (-0.07,0.02)      -0.016 (-0.06,0.05)       0.056 (-0.04,0.09)  -0.006 (-0.02,0.06)      -0.0 (-0.01,0.0)     0.004 (-0.06,0.12)   -0.002 (-0.02,0.04)       0.0 (-0.0,0.01)   -0.067 (-0.11,0.06)   -0.011 (-0.08,0.04)    -0.06 (-0.08,0.0)   -0.007 (-0.06,0.06)    0.021 (-0.04,0.09)    0.007 (-0.0,0.05)    0.011 (-0.04,0.11)
+          nmf_k20 causal   grouped_cv    0.068 (-0.02,0.11)       0.023 (-0.03,0.12)       0.023 (-0.04,0.08)    -0.0 (-0.01,0.03)     0.033 (-0.0,0.08)     -0.07 (-0.11,0.05)     -0.0 (-0.02,0.01)       0.0 (-0.02,0.0)    0.007 (-0.03,0.06)    0.007 (-0.06,0.05)    -0.0 (-0.02,0.01)   -0.024 (-0.09,0.05)    0.022 (-0.04,0.08)   -0.003 (-0.01,0.0)   -0.041 (-0.08,0.05)
+                  retro    grouped_cv   -0.006 (-0.04,0.01)       0.001 (-0.11,0.03)       0.017 (-0.04,0.04)   -0.01 (-0.06,0.01)       -0.0 (-0.0,0.0)     0.027 (-0.06,0.06)      0.0 (-0.01,0.02)     0.005 (-0.0,0.02)   -0.017 (-0.06,0.04)   -0.002 (-0.06,0.05)       0.0 (-0.0,0.0)    -0.01 (-0.09,0.02)    0.024 (-0.05,0.06)    -0.001 (-0.0,0.0)    -0.02 (-0.08,0.04)
+                  retro1   grouped_cv   -0.016 (-0.07,0.04)       -0.07 (-0.13,0.06)        0.01 (-0.12,0.06)   0.008 (-0.07,0.11)    0.056 (-0.03,0.11)    -0.047 (-0.13,0.03)   -0.009 (-0.11,0.12)       0.0 (-0.0,0.07)    -0.04 (-0.12,0.06)    0.027 (-0.06,0.09)    0.001 (-0.01,0.0)    0.038 (-0.06,0.14)   -0.017 (-0.07,0.06)   0.003 (-0.11,0.03)   -0.046 (-0.11,0.08)
+                  retro3   grouped_cv    0.016 (-0.07,0.02)         0.0 (-0.08,0.03)       0.014 (-0.05,0.06)  -0.014 (-0.05,0.02)      0.0 (-0.02,0.01)      0.036 (-0.1,0.11)    0.002 (-0.01,0.01)      0.0 (-0.05,0.02)   -0.023 (-0.07,0.05)    0.115 (-0.01,0.16)      0.0 (-0.01,0.0)     0.027 (-0.05,0.1)    0.094 (-0.05,0.13)       0.0 (-0.0,0.0)     0.067 (-0.04,0.1)
+          nmf_k5  causal   grouped_cv     0.006 (-0.0,0.06)        0.033 (-0.1,0.09)       0.089 (-0.03,0.17)  -0.023 (-0.12,0.02)       -0.0 (-0.0,0.0)      -0.01 (-0.17,0.1)   -0.008 (-0.01,0.01)       0.0 (-0.01,0.0)   -0.074 (-0.23,0.11)   -0.015 (-0.07,0.05)   -0.001 (-0.0,0.01)    0.005 (-0.08,0.13)    0.087 (-0.01,0.14)  -0.007 (-0.01,0.02)    0.056 (-0.07,0.11)
+                  retro    grouped_cv    -0.01 (-0.02,0.18)      -0.005 (-0.04,0.04)       0.052 (-0.03,0.12)   0.058 (-0.04,0.25)       -0.0 (-0.0,0.0)      0.018 (-0.1,0.11)    0.028 (-0.01,0.04)       -0.0 (-0.0,0.0)    0.039 (-0.09,0.07)    0.037 (-0.12,0.06)      -0.0 (-0.0,0.0)   -0.035 (-0.11,0.12)   -0.026 (-0.07,0.08)    -0.002 (-0.0,0.0)    -0.019 (-0.12,0.1)
+                  retro1   grouped_cv    0.001 (-0.03,0.05)      -0.086 (-0.12,0.04)      -0.168 (-0.25,0.12)   0.003 (-0.02,0.25)       -0.0 (-0.0,0.0)    -0.076 (-0.26,0.07)      0.0 (-0.01,0.03)       -0.0 (-0.0,0.0)    0.029 (-0.12,0.22)     0.04 (-0.02,0.12)    -0.001 (-0.0,0.0)     0.075 (-0.2,0.29)    0.028 (-0.02,0.22)    -0.001 (-0.0,0.0)    0.044 (-0.15,0.26)
+                  retro3   grouped_cv   -0.033 (-0.11,0.12)       0.013 (-0.02,0.08)        0.02 (-0.04,0.13)  -0.002 (-0.06,0.12)        0.0 (-0.0,0.0)     0.222 (-0.04,0.46)   -0.003 (-0.05,0.12)       -0.0 (-0.0,0.0)    0.082 (-0.05,0.26)    -0.03 (-0.07,0.05)      -0.0 (-0.0,0.0)    0.036 (-0.07,0.19)     0.02 (-0.05,0.25)    -0.001 (-0.0,0.0)   -0.009 (-0.12,0.13)
+          pc      causal   grouped_cv    0.011 (-0.03,0.04)      -0.002 (-0.02,0.02)      -0.004 (-0.04,0.06)    -0.0 (-0.01,0.02)        0.0 (-0.0,0.0)     -0.01 (-0.08,0.06)      0.0 (-0.01,0.02)        0.0 (-0.0,0.0)   -0.038 (-0.08,0.01)     0.01 (-0.06,0.05)      0.0 (-0.01,0.0)   -0.028 (-0.09,0.07)   -0.019 (-0.04,0.05)      0.0 (-0.01,0.0)    0.006 (-0.04,0.07)
+                  retro    grouped_cv    0.017 (-0.03,0.03)       0.004 (-0.02,0.03)       0.011 (-0.07,0.06)       0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)     0.027 (-0.03,0.09)   -0.012 (-0.03,0.01)      0.001 (-0.0,0.0)   -0.004 (-0.02,0.03)    -0.073 (-0.13,0.0)    -0.001 (-0.0,0.0)    0.031 (-0.06,0.06)   -0.019 (-0.13,0.01)     0.002 (-0.0,0.0)   -0.002 (-0.05,0.09)
+                  retro1   grouped_cv    0.007 (-0.03,0.03)      -0.016 (-0.11,0.02)         0.04 (0.01,0.12)   -0.002 (-0.01,0.0)       -0.0 (-0.0,0.0)    -0.009 (-0.06,0.11)    0.009 (-0.01,0.09)       -0.0 (-0.0,0.0)   -0.033 (-0.07,0.04)   -0.001 (-0.16,0.08)      -0.0 (-0.0,0.0)    0.043 (-0.01,0.12)     0.149 (-0.01,0.2)       0.0 (-0.0,0.0)     0.089 (-0.0,0.19)
+                  retro3   grouped_cv   -0.014 (-0.11,0.02)       0.007 (-0.01,0.04)      -0.005 (-0.05,0.08)     0.0 (-0.01,0.02)        0.0 (-0.0,0.0)     0.021 (-0.05,0.13)     0.001 (-0.0,0.03)        0.0 (-0.0,0.0)    0.025 (-0.01,0.05)   -0.053 (-0.12,0.05)       0.0 (-0.0,0.0)    0.053 (-0.02,0.09)   -0.014 (-0.15,0.07)    0.001 (-0.01,0.0)    0.059 (-0.04,0.13)
+          phyto   causal   grouped_cv    0.002 (-0.04,0.04)     -0.179 (-0.34,-0.02)       0.192 (-0.19,0.41)   0.004 (-0.31,0.01)    0.001 (-0.03,0.09)     -0.074 (-0.2,0.03)   -0.006 (-0.01,0.05)   -0.001 (-0.05,0.08)     0.032 (-0.04,0.1)   -0.007 (-0.03,0.26)      -0.0 (-0.0,0.0)     0.142 (-0.0,0.29)    0.011 (-0.04,0.09)     0.001 (-0.0,0.0)     0.01 (-0.06,0.11)
+                  retro    grouped_cv   -0.001 (-0.02,0.06)       0.006 (-0.02,0.04)       0.028 (-0.02,0.28)   -0.001 (-0.01,0.0)       -0.0 (-0.0,0.0)     -0.051 (-0.16,0.1)    0.035 (-0.01,0.09)      -0.0 (-0.0,0.02)   -0.095 (-0.23,0.06)   -0.043 (-0.12,0.02)     -0.0 (-0.0,-0.0)   -0.002 (-0.07,0.11)   -0.059 (-0.24,0.18)    0.005 (-0.0,0.02)    -0.05 (-0.12,0.08)
+                  retro1   grouped_cv    0.003 (-0.06,0.04)      -0.006 (-0.08,0.04)        0.02 (-0.06,0.15)   -0.005 (-0.16,0.0)     -0.0 (-0.01,0.07)       0.1 (-0.04,0.16)   -0.003 (-0.25,0.03)     -0.0 (-0.02,0.01)    0.007 (-0.04,0.13)    0.005 (-0.06,0.04)     -0.0 (-0.0,0.01)    0.104 (-0.04,0.14)    0.048 (-0.01,0.12)     -0.0 (-0.0,0.01)    -0.039 (-0.13,0.1)
+                  retro3   grouped_cv   -0.001 (-0.01,0.02)      -0.034 (-0.08,0.02)        0.015 (-0.03,0.1)    0.01 (-0.03,0.11)   -0.007 (-0.03,0.01)      0.027 (-0.1,0.38)   -0.002 (-0.02,0.07)    0.002 (-0.04,0.04)   -0.085 (-0.12,0.12)   -0.045 (-0.14,0.02)     -0.0 (-0.01,0.0)    0.014 (-0.11,0.16)    0.097 (-0.15,0.24)   -0.003 (-0.01,0.0)   -0.032 (-0.16,0.02)
+          taxon   causal   grouped_cv    -0.045 (-0.1,0.02)        0.07 (-0.02,0.15)       0.107 (-0.02,0.13)   0.001 (-0.05,0.02)      0.0 (-0.03,0.01)    -0.011 (-0.11,0.04)   -0.006 (-0.03,0.01)    -0.001 (-0.03,0.0)    0.027 (-0.06,0.08)    0.004 (-0.03,0.05)  -0.001 (-0.04,0.01)   -0.016 (-0.08,0.06)    0.023 (-0.02,0.09)     -0.0 (-0.0,0.03)     0.06 (-0.05,0.09)
+                  retro    grouped_cv    0.007 (-0.04,0.02)       -0.03 (-0.11,0.01)      -0.002 (-0.04,0.06)   0.003 (-0.02,0.02)       -0.0 (-0.0,0.0)     0.026 (-0.03,0.08)    -0.015 (-0.08,0.0)       -0.0 (-0.0,0.0)   -0.016 (-0.06,0.07)    0.021 (-0.02,0.07)      -0.0 (-0.0,0.0)   -0.012 (-0.06,0.04)   -0.028 (-0.07,0.03)       0.0 (-0.0,0.0)   -0.007 (-0.08,0.03)
+                  retro1   grouped_cv    0.064 (-0.04,0.08)       -0.025 (-0.1,0.01)      -0.019 (-0.06,0.06)  -0.007 (-0.02,0.03)      0.0 (-0.02,0.13)     0.099 (-0.04,0.13)    0.005 (-0.08,0.05)     -0.0 (-0.14,0.03)     0.057 (-0.05,0.1)   -0.023 (-0.04,0.06)   -0.001 (-0.02,0.0)     0.128 (0.02,0.21)    -0.03 (-0.09,0.03)     -0.0 (-0.01,0.0)    0.042 (-0.02,0.11)
+                  retro3   grouped_cv    0.005 (-0.06,0.06)      -0.025 (-0.08,0.04)        -0.03 (-0.1,0.04)     -0.0 (-0.03,0.0)       -0.0 (-0.0,0.0)     -0.005 (-0.1,0.08)    0.001 (-0.01,0.01)       -0.0 (-0.0,0.0)   -0.017 (-0.09,0.04)    0.016 (-0.04,0.08)  -0.001 (-0.01,0.01)    0.027 (-0.04,0.06)    0.089 (-0.05,0.08)   -0.033 (-0.09,0.0)    0.065 (-0.02,0.11)
+fish_crcp log1p   causal   grouped_cv    0.008 (-0.02,0.02)      -0.001 (-0.01,0.02)      -0.004 (-0.02,0.01)      -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)    -0.015 (-0.03,-0.0)        0.0 (-0.0,0.0)        0.0 (-0.0,0.0)    -0.005 (-0.02,0.0)   -0.011 (-0.01,0.01)      -0.0 (-0.0,0.0)     -0.02 (-0.03,0.0)      0.0 (-0.01,0.01)      -0.0 (-0.0,0.0)   -0.009 (-0.02,0.01)
+                  retro    grouped_cv    -0.02 (-0.04,-0.0)       -0.004 (-0.01,0.0)       0.001 (-0.02,0.01)     -0.0 (-0.0,0.01)       -0.0 (-0.0,0.0)    -0.014 (-0.02,0.01)     0.002 (-0.0,0.01)        0.0 (-0.0,0.0)   -0.001 (-0.01,0.01)    0.002 (-0.01,0.01)      -0.0 (-0.0,0.0)    0.007 (-0.01,0.02)    0.006 (-0.01,0.01)    -0.001 (-0.0,0.0)    0.002 (-0.01,0.01)
+                  seasonal grouped_cv   -0.001 (-0.01,0.01)         0.01 (-0.0,0.02)      -0.002 (-0.01,0.01)      -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)     -0.004 (-0.01,0.0)     -0.001 (-0.0,0.0)        0.0 (-0.0,0.0)    -0.002 (-0.01,0.0)   -0.002 (-0.01,0.01)      -0.0 (-0.0,0.0)    0.013 (-0.01,0.02)    -0.003 (-0.01,0.0)      -0.0 (-0.0,0.0)     -0.0 (-0.01,0.01)
+          present causal   grouped_cv     -0.001 (-0.0,0.0)         0.004 (0.0,0.01)          -0.0 (-0.0,0.0)      -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)       0.009 (0.0,0.01)    -0.001 (-0.0,-0.0)         0.0 (0.0,0.0)      0.008 (0.0,0.01)     -0.001 (-0.0,0.0)   -0.002 (-0.0,-0.0)   -0.006 (-0.01,-0.0)     -0.002 (-0.0,0.0)   -0.001 (-0.0,-0.0)  -0.015 (-0.02,-0.01)
+                  retro    grouped_cv  -0.009 (-0.01,-0.01)       -0.003 (-0.0,-0.0)          -0.0 (-0.0,0.0)      -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)     -0.01 (-0.02,-0.0)      0.006 (0.0,0.01)        0.0 (-0.0,0.0)   -0.006 (-0.01,-0.0)   -0.005 (-0.01,-0.0)     -0.0 (-0.0,-0.0)     -0.001 (-0.0,0.0)        0.0 (-0.0,0.0)      -0.0 (-0.0,0.0)      0.005 (0.0,0.01)
+                  seasonal grouped_cv      0.002 (-0.0,0.0)        -0.001 (-0.0,0.0)          -0.0 (-0.0,0.0)   -0.002 (-0.0,-0.0)        0.0 (-0.0,0.0)       0.005 (0.0,0.01)    -0.001 (-0.0,-0.0)        0.0 (-0.0,0.0)     -0.001 (-0.0,0.0)    -0.003 (-0.0,-0.0)      -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)    -0.002 (-0.0,-0.0)   -0.001 (-0.0,-0.0)        0.0 (-0.0,0.0)
+fish_maxn maxn    causal   grouped_cv    0.054 (-0.02,0.11)     -0.43 (-20.17,17.45)  -59.336 (-98.62,-21.17)   0.646 (-0.23,0.95)  -11.8 (-26.89,-3.91)  -10.767 (-23.32,4.04)    0.258 (-0.53,0.78)  -3.116 (-16.74,2.78)  -5.433 (-11.04,-0.5)  -2.833 (-5.41,-0.66)   -3.26 (-5.49,3.53)     3.733 (0.58,6.48)  -5.363 (-7.07,-1.52)  -3.251 (-10.29,1.6)    0.553 (-0.17,2.02)
+                  retro    grouped_cv  -0.069 (-0.08,-0.01)  -27.659 (-39.04,-14.34)       9.486 (3.63,16.08)   0.036 (-0.15,0.22)    2.734 (-0.46,5.45)     -1.737 (-3.93,0.3)     0.042 (-0.4,0.29)    0.397 (-4.57,2.92)    0.831 (-0.04,1.44)     1.202 (0.19,2.38)  -0.651 (-1.97,1.28)   -0.142 (-0.54,0.46)  -1.702 (-2.24,-0.13)   0.964 (-3.65,4.36)     0.837 (-0.1,1.56)
+                  seasonal grouped_cv    -0.023 (-0.04,0.0)     -4.564 (-8.27,-1.81)    -12.444 (-17.75,-2.8)   -0.03 (-0.14,0.07)     0.48 (-0.42,2.64)     0.464 (-3.05,3.24)  -0.461 (-0.64,-0.03)   -0.638 (-1.26,1.81)     1.092 (-0.3,2.23)    -1.134 (-1.6,0.49)  -0.623 (-1.57,0.09)     0.548 (0.25,0.97)    -0.52 (-2.08,1.34)  -0.895 (-1.66,0.91)     0.67 (-0.14,1.08)
+sfer      chl     causal   split           0.016 (0.0,0.03)        0.008 (-0.0,0.02)     -0.025 (-0.04,-0.01)  -0.008 (-0.01,-0.0)        0.0 (-0.0,0.0)    -0.028 (-0.06,0.01)   -0.011 (-0.02,-0.0)         0.0 (0.0,0.0)   -0.023 (-0.05,0.01)      0.013 (0.0,0.02)     0.011 (0.0,0.02)     0.036 (0.01,0.06)     0.005 (-0.0,0.01)     0.006 (0.0,0.01)    0.001 (-0.02,0.02)
+                  retro    split        -0.003 (-0.02,0.01)        0.024 (0.01,0.04)       -0.011 (-0.02,0.0)   -0.003 (-0.01,0.0)       -0.0 (-0.0,0.0)    -0.006 (-0.04,0.03)  -0.015 (-0.02,-0.01)       -0.0 (-0.0,0.0)   -0.003 (-0.02,0.01)     0.037 (0.03,0.05)   -0.004 (-0.01,0.0)      0.031 (0.0,0.05)     0.029 (0.02,0.04)    -0.002 (-0.0,0.0)     0.026 (-0.0,0.05)
+                  retro1   split          0.035 (0.02,0.05)     -0.027 (-0.04,-0.02)     -0.034 (-0.05,-0.02)   -0.007 (-0.02,0.0)       -0.0 (-0.0,0.0)    -0.033 (-0.06,-0.0)    -0.004 (-0.01,0.0)        0.0 (-0.0,0.0)    0.004 (-0.01,0.02)    -0.006 (-0.02,0.0)   0.002 (-0.01,0.01)      0.0 (-0.02,0.02)     0.004 (-0.0,0.01)    0.031 (0.02,0.05)    0.004 (-0.01,0.02)
+                  retro3   split          0.007 (-0.0,0.02)       -0.005 (-0.02,0.0)       -0.011 (-0.02,0.0)  -0.005 (-0.01,-0.0)       -0.0 (-0.0,0.0)     0.009 (-0.01,0.03)  -0.014 (-0.02,-0.01)       -0.0 (-0.0,0.0)   -0.002 (-0.02,0.02)     0.019 (0.01,0.03)  -0.001 (-0.01,0.01)     0.029 (-0.0,0.06)     0.015 (0.01,0.02)    -0.001 (-0.0,0.0)     0.053 (0.03,0.08)
+          no3     causal   split          0.086 (0.02,0.15)       0.049 (-0.05,0.15)        0.002 (-0.0,0.01)       0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)        -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)        0.0 (-0.0,0.0)     -0.002 (-0.0,0.0)     0.005 (-0.0,0.01)       0.0 (-0.0,0.0)     0.095 (0.06,0.14)       0.001 (0.0,0.0)      -0.0 (-0.0,0.0)     0.018 (0.01,0.03)
+                  retro    split       -0.051 (-0.09,-0.01)         0.001 (-0.0,0.0)        0.002 (-0.0,0.01)      -0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)     0.001 (-0.01,0.01)        0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)    0.001 (-0.01,0.01)    0.003 (-0.01,0.01)      -0.0 (-0.0,0.0)   -0.035 (-0.07,-0.0)       -0.0 (-0.0,0.0)      -0.0 (-0.0,0.0)   -0.08 (-0.13,-0.03)
+                  retro1   split       -0.103 (-0.17,-0.04)          0.002 (0.0,0.0)        0.019 (0.01,0.03)     0.001 (-0.0,0.0)        0.0 (-0.0,0.0)      0.004 (-0.0,0.01)         0.0 (0.0,0.0)       -0.0 (-0.0,0.0)  -0.096 (-0.18,-0.02)       -0.0 (-0.0,0.0)     -0.0 (-0.0,-0.0)     0.003 (-0.0,0.01)       0.001 (0.0,0.0)      -0.0 (-0.0,0.0)      0.007 (0.0,0.01)
+                  retro3   split        -0.035 (-0.07,0.01)         0.001 (-0.0,0.0)         0.001 (-0.0,0.0)       0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)    -0.001 (-0.01,0.01)       -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)    0.001 (-0.01,0.01)     0.02 (-0.01,0.05)       0.0 (-0.0,0.0)  -0.043 (-0.07,-0.02)       -0.0 (-0.0,0.0)       0.0 (-0.0,0.0)  -0.075 (-0.13,-0.02)
+          po4     causal   split           0.002 (-0.0,0.0)        -0.001 (-0.0,0.0)         0.001 (-0.0,0.0)      0.001 (0.0,0.0)         0.0 (0.0,0.0)       0.001 (-0.0,0.0)      0.002 (-0.0,0.0)       -0.0 (-0.0,0.0)     0.009 (-0.0,0.02)      0.004 (0.0,0.01)        0.0 (0.0,0.0)     0.031 (0.02,0.05)      0.003 (0.0,0.01)        0.0 (0.0,0.0)      0.011 (0.0,0.02)
+                  retro    split          0.003 (-0.0,0.01)     -0.013 (-0.02,-0.01)      -0.013 (-0.05,0.02)       0.0 (-0.0,0.0)        0.0 (-0.0,0.0)         0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)     -0.001 (-0.0,0.0)     0.002 (-0.0,0.01)        0.0 (0.0,0.0)    -0.012 (-0.02,0.0)      0.003 (0.0,0.01)        0.0 (0.0,0.0)     0.032 (0.01,0.05)
+                  retro1   split           0.004 (0.0,0.01)         0.001 (-0.0,0.0)        0.046 (0.02,0.07)       0.0 (-0.0,0.0)        0.0 (-0.0,0.0)      0.003 (-0.0,0.01)        0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)      0.006 (0.0,0.01)     -0.001 (-0.0,0.0)      -0.0 (-0.0,0.0)       0.003 (0.0,0.0)     -0.001 (-0.0,0.0)       0.0 (-0.0,0.0)       0.002 (0.0,0.0)
+                  retro3   split           0.004 (0.0,0.01)     -0.018 (-0.03,-0.01)      -0.011 (-0.02,-0.0)      -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)     -0.007 (-0.01,0.0)       -0.0 (-0.0,0.0)        0.0 (-0.0,0.0)     -0.001 (-0.0,0.0)        0.0 (-0.0,0.0)        0.0 (0.0,0.0)    -0.014 (-0.03,0.0)      0.002 (-0.0,0.0)        0.0 (0.0,0.0)   -0.001 (-0.01,0.01)
+          si      causal   split          0.003 (-0.0,0.01)      -0.01 (-0.01,-0.01)     -0.015 (-0.02,-0.01)  -0.003 (-0.01,-0.0)       -0.0 (-0.0,0.0)    -0.009 (-0.02,-0.0)   -0.008 (-0.01,-0.0)       -0.0 (-0.0,0.0)   -0.006 (-0.02,0.01)   -0.005 (-0.01,-0.0)      -0.0 (-0.0,0.0)   -0.002 (-0.01,0.01)   -0.005 (-0.01,-0.0)      -0.0 (-0.0,0.0)   -0.014 (-0.02,-0.0)
+                  retro    split           0.005 (0.0,0.01)      -0.008 (-0.01,-0.0)       -0.007 (-0.02,0.0)  -0.004 (-0.01,-0.0)       -0.0 (-0.0,0.0)     -0.002 (-0.01,0.0)  -0.048 (-0.06,-0.03)       -0.0 (-0.0,0.0)    -0.01 (-0.02,-0.0)   -0.007 (-0.01,-0.0)     -0.0 (-0.0,-0.0)  -0.017 (-0.03,-0.01)   -0.006 (-0.01,-0.0)      -0.0 (-0.0,0.0)  -0.013 (-0.02,-0.01)
+                  retro1   split           0.026 (0.0,0.05)       -0.002 (-0.01,0.0)        0.028 (0.02,0.04)      -0.0 (-0.0,0.0)       -0.0 (-0.0,0.0)      0.001 (-0.0,0.01)    -0.002 (-0.01,0.0)        0.0 (-0.0,0.0)     -0.0 (-0.01,0.01)     0.003 (-0.0,0.01)     -0.0 (-0.0,-0.0)     0.017 (0.01,0.03)      0.004 (0.0,0.01)      -0.0 (-0.0,0.0)     0.007 (-0.0,0.02)
+                  retro3   split           0.005 (0.0,0.01)     -0.011 (-0.02,-0.01)     -0.072 (-0.09,-0.06)  -0.004 (-0.01,-0.0)       -0.0 (-0.0,0.0)      0.026 (0.01,0.04)    -0.01 (-0.01,-0.0)       -0.0 (-0.0,0.0)   -0.007 (-0.01,-0.0)   -0.008 (-0.01,-0.0)      -0.0 (-0.0,0.0)   -0.013 (-0.02,-0.0)   -0.005 (-0.01,-0.0)       0.0 (-0.0,0.0)    -0.007 (-0.01,0.0)
+retention causal: 10021 samples, 65 months, 15 feature sets
+retention retro: 9996 samples, 63 months, 15 feature sets
+retention retro1: 3103 samples, 41 months, 15 feature sets
+retention retro3: 3559 samples, 41 months, 15 feature sets
+retention seasonal: 6758 samples, 49 months, 15 feature sets
+Retention of input reflectance quantities (cross-validated R^2, grouped by month). All bands: robust_retention.csv
+features                       meta  stage1_A/e1  stage1_A/e3  stage1_B/e1  stage1_B/e2  stage1_B/e3  stage1_C/e1  stage1_C/e2  stage1_C/e3  stage1_D/e1  stage1_D/e2  stage1_D/e3  stage1_D3/e1  stage1_D3/e2  stage1_D3/e3
+window   quantity                                                                                                                                                                                                           
+causal   band_443             0.222        0.971        0.974        0.124        0.120        0.065        0.178        0.141        0.109        0.976        0.876        0.974         0.971         0.860         0.972
+         band_547             0.501        0.988        0.987        0.580        0.540        0.510        0.577        0.493        0.547        0.986        0.937        0.982         0.985         0.931         0.985
+         log_blue_green_oc3m  0.425        0.990        0.990        0.700        0.642        0.644        0.716        0.598        0.691        0.980        0.924        0.978         0.980         0.930         0.976
+         log_brightness       0.379        0.981        0.982        0.296        0.284        0.227        0.316        0.273        0.264        0.983        0.916        0.980         0.981         0.901         0.981
+retro    band_443             0.266        0.977        0.979        0.197        0.160        0.108        0.227        0.179        0.145        0.980        0.918        0.977         0.976         0.905         0.976
+         band_547             0.529        0.989        0.988        0.619        0.571        0.539        0.637        0.521        0.570        0.986        0.954        0.985         0.986         0.950         0.985
+         log_blue_green_oc3m  0.421        0.990        0.990        0.702        0.645        0.618        0.727        0.592        0.690        0.980        0.932        0.977         0.980         0.935         0.979
+         log_brightness       0.426        0.984        0.984        0.363        0.329        0.280        0.386        0.318        0.304        0.985        0.947        0.984         0.983         0.937         0.983
+retro1   band_443             0.269        0.947        0.934        0.154        0.197        0.066        0.156        0.192        0.080        0.921        0.829        0.938         0.919         0.842         0.929
+         band_547             0.326        0.983        0.980        0.570        0.584        0.445        0.579        0.583        0.467        0.986        0.941        0.984         0.985         0.942         0.984
+         log_blue_green_oc3m  0.149        0.966        0.970        0.709        0.699        0.600        0.713        0.702        0.665        0.954        0.880        0.954         0.958         0.895         0.956
+         log_brightness       0.343        0.981        0.974        0.324        0.362        0.210        0.331        0.358        0.212        0.985        0.925        0.984         0.982         0.933         0.982
+retro3   band_443             0.292        0.961        0.972        0.233        0.231        0.118        0.244        0.231        0.137        0.975        0.924        0.976         0.973         0.925         0.973
+         band_547             0.331        0.985        0.984        0.616        0.577        0.495        0.622        0.586        0.515        0.987        0.958        0.985         0.987         0.956         0.986
+         log_blue_green_oc3m  0.147        0.987        0.983        0.781        0.731        0.670        0.791        0.736        0.726        0.974        0.918        0.969         0.976         0.928         0.971
+         log_brightness       0.351        0.979        0.981        0.377        0.361        0.251        0.385        0.369        0.265        0.985        0.954        0.985         0.985         0.952         0.984
+seasonal band_443             0.369        0.975        0.972        0.255        0.183        0.142        0.323        0.220        0.308        0.975        0.883        0.973         0.970         0.868         0.968
+         band_547             0.587        0.989        0.988        0.704        0.644        0.655        0.700        0.597        0.707        0.987        0.944        0.986         0.986         0.947         0.986
+         log_blue_green_oc3m  0.534        0.990        0.989        0.778        0.711        0.728        0.793        0.646        0.774        0.980        0.902        0.980         0.980         0.922         0.978
+         log_brightness       0.517        0.984        0.982        0.501        0.440        0.430        0.524        0.430        0.521        0.984        0.936        0.982         0.982         0.927         0.981
+Amplitude check on trained weights (design document: log-amplitude R^2 >= 0.95, relative distance > 0.05; blue/green R^2 reported only):
+run                        stage1_A    stage1_B    stage1_C    stage1_D   stage1_D3
+level metric                                                                       
+e1    log_amplitude_r2   0.926 FAIL       0.985       0.984  0.897 FAIL  0.944 FAIL
+      log_blue_green_r2      -1.549       0.916       0.921      -1.223      -0.719
+      rel_distance_x0.5       0.388  0.002 FAIL  0.001 FAIL       0.684       0.599
+      rel_distance_x2.0       0.278  0.003 FAIL  0.001 FAIL       0.567       0.469
+token log_amplitude_r2        0.988       0.987       0.987       0.987       0.988
+      log_blue_green_r2       0.909       0.908       0.909       0.908       0.908
+      rel_distance_x0.5       0.865  0.034 FAIL  0.034 FAIL       0.128       0.179
+      rel_distance_x2.0        0.86       0.052       0.052       0.136       0.176
+focused phyto edna_16S/causal: 46 PACE-era samples, 3 cruises, 3 targets, MOANA yes
+focused phyto edna_18S/causal: 46 PACE-era samples, 3 cruises, 5 targets, MOANA yes
+focused phyto edna_16S/retro: 50 PACE-era samples, 3 cruises, 3 targets, MOANA yes
+focused phyto edna_18S/retro: 50 PACE-era samples, 3 cruises, 5 targets, MOANA yes
+focused phyto edna_16S/retro1: 27 PACE-era samples in 3 cruises; skipped
+focused phyto edna_18S/retro1: 27 PACE-era samples in 3 cruises; skipped
+focused phyto edna_16S/retro3: 50 PACE-era samples, 3 cruises, 3 targets, MOANA yes
+focused phyto edna_18S/retro3: 50 PACE-era samples, 3 cruises, 5 targets, MOANA yes
+PACE-era phytoplankton groups (leave-one-cruise-out): median R^2 over groups [95% bootstrap within cruises]
+dataset                            edna_16S                                                             edna_18S                                              
+window                               causal                  retro                 retro3                 causal                  retro                 retro3
+n                                        46                     50                     50                     46                     50                     50
+features     pace                                                                                                                                             
+meta         -         -0.471 [-0.9, -0.22]  -0.324 [-0.67, -0.11]  -0.324 [-0.67, -0.11]  -0.068 [-0.29, -0.01]    -0.079 [-0.23, 0.0]    -0.079 [-0.23, 0.0]
+moana        -           0.333 [0.18, 0.46]       0.562 [0.4, 0.7]       0.562 [0.4, 0.7]  -0.077 [-0.31, -0.05]  -0.224 [-0.39, -0.14]  -0.224 [-0.39, -0.14]
+raw          drop       0.161 [-0.08, 0.31]   -0.073 [-0.32, 0.08]   -0.075 [-0.33, 0.08]  -0.652 [-1.01, -0.28]   -0.499 [-0.94, -0.3]   -0.36 [-0.81, -0.17]
+             visible    0.065 [-0.17, 0.23]   -0.008 [-0.27, 0.14]   -0.005 [-0.26, 0.15]  -0.306 [-0.75, -0.09]  -0.475 [-0.81, -0.24]  -0.461 [-0.77, -0.22]
+seq          -        -0.155 [-0.38, -0.04]   -0.123 [-0.34, 0.01]   -0.123 [-0.34, 0.01]  -0.069 [-0.32, -0.06]   -0.148 [-0.3, -0.08]   -0.148 [-0.3, -0.08]
+stage1_A/e1  drop       0.108 [-0.18, 0.24]    0.195 [-0.12, 0.36]    0.191 [-0.14, 0.35]  -0.687 [-0.97, -0.19]  -0.251 [-0.46, -0.06]  -0.234 [-0.45, -0.06]
+             visible    0.154 [-0.14, 0.34]    0.113 [-0.11, 0.29]    0.105 [-0.13, 0.28]  -0.655 [-0.97, -0.17]  -0.363 [-0.78, -0.19]  -0.362 [-0.74, -0.18]
+stage1_B/e1  drop       0.077 [-0.32, 0.24]   -0.002 [-0.25, 0.11]    0.009 [-0.24, 0.13]   -0.706 [-0.97, -0.2]  -0.291 [-0.51, -0.06]   -0.291 [-0.5, -0.06]
+             visible    0.078 [-0.32, 0.24]    0.005 [-0.24, 0.13]    0.007 [-0.24, 0.13]  -0.706 [-1.02, -0.21]  -0.291 [-0.59, -0.06]  -0.291 [-0.56, -0.05]
+stage1_C/e1  drop       -0.072 [-0.3, 0.07]    -0.057 [-0.33, 0.1]    -0.057 [-0.33, 0.1]   -0.465 [-0.86, -0.1]  -0.155 [-0.31, -0.07]  -0.155 [-0.31, -0.07]
+             visible    -0.071 [-0.3, 0.07]    -0.056 [-0.33, 0.1]    -0.057 [-0.33, 0.1]  -0.519 [-0.95, -0.08]  -0.155 [-0.31, -0.07]  -0.154 [-0.31, -0.07]
+stage1_D/e1  drop       0.016 [-0.18, 0.16]    0.091 [-0.16, 0.17]    0.087 [-0.16, 0.17]   -0.289 [-0.73, 0.02]    0.131 [-0.21, 0.27]    0.126 [-0.24, 0.25]
+             visible    0.008 [-0.18, 0.15]     0.113 [-0.15, 0.2]     0.114 [-0.15, 0.2]   -0.375 [-0.77, 0.02]     0.14 [-0.26, 0.27]     0.15 [-0.26, 0.27]
+stage1_D3/e1 drop       0.076 [-0.19, 0.15]    0.108 [-0.14, 0.24]    0.124 [-0.15, 0.24]  -0.297 [-0.76, -0.03]     0.072 [-0.2, 0.27]    0.032 [-0.25, 0.24]
+             visible   -0.049 [-0.28, 0.07]    0.168 [-0.11, 0.27]    0.164 [-0.11, 0.26]  -0.722 [-1.02, -0.25]     0.09 [-0.16, 0.26]    0.109 [-0.14, 0.26]
+E1 PACE visible minus dropped, and minus MOANA:
+ dataset window     features  delta_vs_drop  delta_vs_drop_lo  delta_vs_drop_hi  p_better_vs_drop  delta_vs_moana  delta_vs_moana_lo  delta_vs_moana_hi  p_better_vs_moana
+edna_16S causal  stage1_A/e1          0.047            -0.012             0.135             0.950          -0.178             -0.506              0.095              0.089
+edna_16S causal  stage1_B/e1          0.001            -0.008             0.007             0.394          -0.255             -0.619             -0.097              0.002
+edna_16S causal  stage1_C/e1          0.000            -0.008             0.017             0.508          -0.404             -0.623             -0.254              0.000
+edna_16S causal  stage1_D/e1         -0.008            -0.054             0.049             0.406          -0.325             -0.519             -0.162              0.000
+edna_16S causal stage1_D3/e1         -0.125            -0.161            -0.014             0.004          -0.382             -0.622             -0.227              0.000
+edna_18S causal  stage1_A/e1          0.032            -0.102             0.119             0.616          -0.578             -0.813             -0.086              0.008
+edna_18S causal  stage1_B/e1          0.000            -0.097             0.001             0.486          -0.628             -0.905             -0.083              0.007
+edna_18S causal  stage1_C/e1         -0.055            -0.296             0.183             0.477          -0.442             -0.799              0.080              0.064
+edna_18S causal  stage1_D/e1         -0.086            -0.167             0.270             0.264          -0.297             -0.627              0.146              0.126
+edna_18S causal stage1_D3/e1         -0.425            -0.645             0.038             0.088          -0.645             -0.911             -0.141              0.002
+edna_16S  retro  stage1_A/e1         -0.082            -0.204             0.108             0.242          -0.449             -0.721             -0.166              0.000
+edna_16S  retro  stage1_B/e1          0.007            -0.008             0.126             0.585          -0.556             -0.812             -0.374              0.000
+edna_16S  retro  stage1_C/e1          0.001            -0.007             0.002             0.751          -0.618             -0.909             -0.399              0.000
+edna_16S  retro  stage1_D/e1          0.023            -0.017             0.053             0.790          -0.448             -0.734             -0.295              0.000
+edna_16S  retro stage1_D3/e1          0.061            -0.003             0.090             0.958          -0.393             -0.682             -0.225              0.000
+edna_18S  retro  stage1_A/e1         -0.112            -0.538            -0.033             0.002          -0.139             -0.518              0.014              0.033
+edna_18S  retro  stage1_B/e1          0.000            -0.283             0.221             0.614          -0.067             -0.359              0.183              0.330
+edna_18S  retro  stage1_C/e1          0.000            -0.001             0.001             0.641           0.069             -0.041              0.273              0.819
+edna_18S  retro  stage1_D/e1          0.009            -0.154             0.076             0.397           0.364             -0.033              0.546              0.958
+edna_18S  retro stage1_D3/e1          0.018            -0.050             0.088             0.653           0.314              0.044              0.548              0.989
+edna_16S retro3  stage1_A/e1         -0.086            -0.204             0.103             0.266          -0.457             -0.734             -0.172              0.000
+edna_16S retro3  stage1_B/e1         -0.002            -0.008             0.003             0.216          -0.555             -0.811             -0.371              0.000
+edna_16S retro3  stage1_C/e1          0.001            -0.008             0.002             0.732          -0.618             -0.909             -0.399              0.000
+edna_16S retro3  stage1_D/e1          0.028            -0.013             0.057             0.838          -0.448             -0.736             -0.296              0.000
+edna_16S retro3 stage1_D3/e1          0.040             0.000             0.068             0.978          -0.398             -0.687             -0.231              0.000
+edna_18S retro3  stage1_A/e1         -0.129            -0.546             0.001             0.029          -0.138             -0.479              0.028              0.047
+edna_18S retro3  stage1_B/e1          0.000            -0.273             0.230             0.640          -0.067             -0.332              0.199              0.371
+edna_18S retro3  stage1_C/e1          0.000            -0.000             0.001             0.677           0.069             -0.041              0.273              0.819
+edna_18S retro3  stage1_D/e1          0.024            -0.131             0.115             0.594           0.373             -0.029              0.550              0.965
+edna_18S retro3 stage1_D3/e1          0.077            -0.022             0.173             0.944           0.333              0.068              0.546              0.993
+-> /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/focused_phyto.csv, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/focused_phyto_summary.csv
+focused fish fish_crcp/causal/official: train 1942, test 1057, 20 species
+focused fish fish_crcp/causal/2018: train 2246, test 753, 20 species
+focused fish fish_crcp/causal/2021: train 2635, test 364, 20 species
+focused fish fish_crcp/causal/2022: train 2174, test 825, 20 species
+focused fish fish_maxn/causal/official: train 2764, test 616, 10 species
+focused fish fish_maxn/causal/2018: train 3143, test 237, 10 species
+focused fish fish_maxn/causal/2019: train 3141, test 239, 10 species
+focused fish fish_maxn/causal/2020: train 2796, test 584, 10 species
+focused fish fish_maxn/causal/2021: train 2826, test 554, 10 species
+focused fish fish_maxn/causal/2022: train 2800, test 580, 10 species
+focused fish fish_maxn/causal/2023: train 2810, test 570, 10 species
+focused fish fish_crcp/seasonal/official: train 1961, test 1057, 20 species
+focused fish fish_crcp/seasonal/2018: train 2246, test 772, 20 species
+focused fish fish_crcp/seasonal/2021: train 2654, test 364, 20 species
+focused fish fish_crcp/seasonal/2022: train 2193, test 825, 20 species
+focused fish fish_maxn/seasonal/official: train 3189, test 616, 10 species
+focused fish fish_maxn/seasonal/2018: train 3459, test 346, 10 species
+focused fish fish_maxn/seasonal/2019: train 3251, test 554, 10 species
+focused fish fish_maxn/seasonal/2020: train 3221, test 584, 10 species
+focused fish fish_maxn/seasonal/2021: train 3251, test 554, 10 species
+focused fish fish_maxn/seasonal/2022: train 3224, test 581, 10 species
+focused fish fish_maxn/seasonal/2023: train 3235, test 570, 10 species
+Fish, official split, Poisson ridge with habitat covariates: median over species (D^2 | D^2 level-free | Spearman); delta D^2 vs habitat [95% bootstrap]
+  dataset   window     features    d2  d2_level_free  spearman  delta_d2_vs_habitat  delta_d2_lo  delta_d2_hi  p_better_than_habitat
+fish_crcp   causal      habitat 0.097          0.162     0.401                0.000        0.000        0.000                  0.000
+fish_crcp   causal         meta 0.145          0.188     0.480                0.048        0.016        0.077                  0.999
+fish_crcp   causal          raw 0.118          0.152     0.426                0.021       -0.011        0.034                  0.851
+fish_crcp   causal  stage1_A/e1 0.135          0.179     0.469                0.038       -0.009        0.072                  0.933
+fish_crcp   causal  stage1_B/e1 0.122          0.186     0.409                0.025        0.005        0.043                  0.995
+fish_crcp   causal  stage1_C/e1 0.126          0.196     0.418                0.029        0.005        0.048                  0.992
+fish_crcp   causal  stage1_D/e1 0.150          0.198     0.449                0.053        0.024        0.074                  1.000
+fish_crcp   causal stage1_D3/e1 0.150          0.212     0.444                0.054        0.027        0.080                  1.000
+fish_maxn   causal      habitat 0.069          0.077     0.215                0.000        0.000        0.000                  0.000
+fish_maxn   causal         meta 0.093          0.098     0.324                0.024       -0.001        0.063                  0.968
+fish_maxn   causal          raw 0.069          0.084     0.277               -0.000       -0.034        0.032                  0.414
+fish_maxn   causal  stage1_A/e1 0.075          0.080     0.306                0.006       -0.021        0.047                  0.735
+fish_maxn   causal  stage1_B/e1 0.100          0.109     0.286                0.030        0.003        0.054                  0.992
+fish_maxn   causal  stage1_C/e1 0.099          0.110     0.305                0.030        0.006        0.059                  0.988
+fish_maxn   causal  stage1_D/e1 0.089          0.102     0.280                0.020        0.001        0.045                  0.976
+fish_maxn   causal stage1_D3/e1 0.081          0.088     0.270                0.012       -0.011        0.038                  0.864
+fish_crcp seasonal      habitat 0.095          0.162     0.401                0.000        0.000        0.000                  0.000
+fish_crcp seasonal         meta 0.151          0.183     0.476                0.056        0.017        0.076                  0.999
+fish_crcp seasonal          raw 0.140          0.183     0.447                0.045        0.022        0.066                  1.000
+fish_crcp seasonal  stage1_A/e1 0.059          0.179     0.461               -0.036       -0.078        0.018                  0.117
+fish_crcp seasonal  stage1_B/e1 0.109          0.188     0.407                0.014       -0.000        0.038                  0.970
+fish_crcp seasonal  stage1_C/e1 0.135          0.197     0.421                0.040        0.007        0.053                  0.993
+fish_crcp seasonal  stage1_D/e1 0.172          0.233     0.441                0.077        0.036        0.091                  1.000
+fish_crcp seasonal stage1_D3/e1 0.167          0.230     0.466                0.072        0.039        0.093                  1.000
+fish_maxn seasonal      habitat 0.071          0.078     0.215                0.000        0.000        0.000                  0.000
+fish_maxn seasonal         meta 0.087          0.095     0.312                0.017       -0.002        0.061                  0.962
+fish_maxn seasonal          raw 0.086          0.101     0.315                0.015       -0.009        0.053                  0.908
+fish_maxn seasonal  stage1_A/e1 0.097          0.107     0.316                0.027       -0.011        0.072                  0.928
+fish_maxn seasonal  stage1_B/e1 0.090          0.099     0.285                0.020       -0.003        0.052                  0.941
+fish_maxn seasonal  stage1_C/e1 0.100          0.110     0.309                0.030       -0.003        0.060                  0.953
+fish_maxn seasonal  stage1_D/e1 0.083          0.094     0.292                0.012       -0.006        0.046                  0.924
+fish_maxn seasonal stage1_D3/e1 0.081          0.093     0.273                0.011       -0.011        0.045                  0.863
+Test-year rotation: mean over held-out years of the median D^2 and Spearman
+                                    d2  d2_level_free  spearman  delta_d2_vs_habitat
+dataset   window   features                                                         
+fish_crcp causal   habitat      -0.024          0.114     0.331                0.000
+                   meta         -0.030          0.135     0.350               -0.006
+                   raw          -0.030          0.120     0.341               -0.006
+                   stage1_A/e1  -0.081          0.129     0.386               -0.057
+                   stage1_B/e1  -0.023          0.132     0.365                0.001
+                   stage1_C/e1  -0.023          0.146     0.379                0.001
+                   stage1_D/e1  -0.025          0.140     0.377               -0.001
+                   stage1_D3/e1 -0.018          0.148     0.400                0.006
+          seasonal habitat      -0.026          0.115     0.330                0.000
+                   meta         -0.045          0.130     0.345               -0.019
+                   raw          -0.073          0.119     0.356               -0.047
+                   stage1_A/e1  -0.110          0.126     0.404               -0.084
+                   stage1_B/e1  -0.023          0.135     0.358                0.003
+                   stage1_C/e1  -0.016          0.146     0.373                0.011
+                   stage1_D/e1  -0.027          0.145     0.385               -0.001
+                   stage1_D3/e1 -0.015          0.154     0.402                0.012
+fish_maxn causal   habitat       0.054          0.077     0.241                0.000
+                   meta          0.134          0.154     0.350                0.080
+                   raw           0.085          0.103     0.273                0.031
+                   stage1_A/e1   0.099          0.113     0.315                0.044
+                   stage1_B/e1   0.071          0.094     0.276                0.017
+                   stage1_C/e1   0.089          0.106     0.274                0.035
+                   stage1_D/e1   0.086          0.100     0.287                0.031
+                   stage1_D3/e1  0.091          0.106     0.302                0.037
+          seasonal habitat       0.051          0.079     0.248                0.000
+                   meta          0.136          0.162     0.351                0.085
+                   raw           0.097          0.125     0.309                0.046
+                   stage1_A/e1   0.095          0.126     0.324                0.044
+                   stage1_B/e1   0.066          0.095     0.274                0.015
+                   stage1_C/e1   0.073          0.096     0.280                0.022
+                   stage1_D/e1   0.082          0.108     0.297                0.032
+                   stage1_D3/e1  0.089          0.111     0.298                0.038
+Caveat: CRCP sites are optically shallow (reef bottom reflectance contaminates Rrs).
+-> /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/focused_fish.csv, /scratch/ptolemy/users/hmp278/ocean_ecology_foundation_model/data/runs/eval_stage1_5/focused_fish_summary.csv
+Job finished: Thu Nov 26 02:38:19 PM CST 2026
