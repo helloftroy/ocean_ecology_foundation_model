@@ -54,6 +54,13 @@ def run(cfg: Config, points_csv: Path | None = None, log=print) -> Path | None:
     idx = pd.read_parquet(idx_path, columns=["product", "family", "output_path", "row", "tile_id", "time_utc"])
     idx = idx[~idx["product"].str.endswith("sfrefl")]  # SFREFL is a separate optional view
     idx["t"] = pd.to_datetime(idx["time_utc"], utc=True, format="ISO8601")
+    from .exclusions import drop_excluded
+
+    idx["ts"] = (idx["t"] - pd.Timestamp(0, tz="UTC")) / pd.Timedelta(seconds=1)
+    n0 = len(idx)
+    idx = drop_excluded(cfg, idx, grid, t_col="ts")      # same exclusion windows as training (eclipse)
+    if len(idx) < n0:
+        log(f"Excluded {n0 - len(idx):,} observations in processing.exclude_windows")
     by_tile = {k: g for k, g in idx.groupby("tile_id")}
     cache: dict[str, object] = {}
 

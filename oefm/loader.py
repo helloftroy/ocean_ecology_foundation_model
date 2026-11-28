@@ -180,6 +180,9 @@ class TileSequences:
         # microseconds, so .astype("int64") / 1e9 would be 1,000 times too small)
         df["t"] = ((pd.to_datetime(df["time_utc"], utc=True, format="ISO8601") - pd.Timestamp(0, tz="UTC"))
                    / pd.Timedelta(seconds=1)).astype("f8")
+        from .exclusions import drop_excluded
+
+        df = drop_excluded(cfg, df, self.grids)          # e.g. the 2024-04-08 eclipse (processing.exclude_windows)
         df["t_label"] = temporal_labels(cfg, df["t"].to_numpy())
         geo = geographic_labels(cfg, self.grids)
         df["g_label"] = df["tile_id"].map(geo).fillna("none")
