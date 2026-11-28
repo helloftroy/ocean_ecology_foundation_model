@@ -176,7 +176,8 @@ def match_eval(cfg: Config, log=print) -> Path | None:
     d = eval_dir(cfg)
     cov_p = tiles_root(cfg) / "index" / "eval_coverage.csv"
     files = sorted(d.glob("*.csv.gz"))
-    files = [f for f in files if "_components" not in f.name]
+    # target sets only: NMF component tables and side products (moana_matchups.csv.gz) live here too
+    files = [f for f in files if "_components" not in f.name and not f.name.startswith("moana_")]
     if not files:
         log(f"No evaluation targets in {d}: copy them from the laptop (step 2.7).")
         return None
@@ -189,6 +190,9 @@ def match_eval(cfg: Config, log=print) -> Path | None:
     rows = []
     for f in files:
         t = pd.read_csv(f, dtype={"sample_id": str})
+        if not {"dataset", "sample_id", "label_split"} <= set(t.columns):
+            log(f"  {f.name}: not a target set (no dataset/sample_id/label_split); skipped")
+            continue
         ds = t["dataset"].iloc[0]
         m = t.merge(cov[cov["dataset"] == ds].drop(columns=["dataset", "time_utc"]), on="sample_id", how="left")
         fam = [c for c in m.columns if c.startswith("causal_")]
