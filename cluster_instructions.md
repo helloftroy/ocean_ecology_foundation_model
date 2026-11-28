@@ -364,8 +364,9 @@ Login-node commands use the project venv, not a conda env:
    (outside rhos valid_min/valid_max -0.05..1.5), all cloud-flagged; tiling now treats them as fill before
    averaging (`processing.v3_store.mask_valid_range: [pace_oci_sfrefl]`; store attr
    `variables.refl.mask_valid_range`). Rrs products are unchanged (out-of-range Rrs <= 1e-4 of values,
-   on flagged pixels; Florida and Bio-GO-SHIP stay consistent). The eclipse granule is excluded by the
-   loader (`processing.exclude_windows`). Re-tile Florida SFREFL (raw still there), then purge:
+   on flagged pixels; Florida and Bio-GO-SHIP stay consistent). The eclipse is excluded from training,
+   evaluation embeddings and matchup counts (`processing.exclude_windows`, 2024-04-08 15:30-21:30 UTC
+   over the Americas; `oefm/exclusions.py`). Re-tile Florida SFREFL (raw still there), then purge:
    ```bash
    git pull     # safe while the Bio-GO-SHIP stream runs: the change only affects SFREFL
    sbatch --account=191001-366746 --export=ALL,STEPS=tiles3,PRODUCTS=pace_oci_sfrefl,FORCE=1 cluster/prep.sbatch
@@ -1783,6 +1784,7 @@ Newest first. Add a line when something notable happens.
 
 | Date | Job | What happened |
 |---|---|---|
+| 2026-11-28 | - | Eclipse exclusion widened to 2024-04-08 15:30-21:30 UTC, lon -120..-50, lat 0..60 (your call: partial phase over the Americas to ~21 UTC; one day, generous margin). Applied to imagery in training, evaluation embeddings (incl. raw baseline features and Bio-GO-SHIP points; all via loader.TileSequences) and evaluation matchup counts (evalcover), via oefm/exclusions.py; in-situ samples are never dropped. Stage 1/1.5 training and step I (116711) ran before it; refresh the matchups (evalcover + evalsets) |
 | 2026-11-26 | 116711 | step I evaluate, five runs, TAG=stage1_5 ✅ finished 14:38 CST (only the last 50 lines pasted so far). Focused fish, test-year rotation (median D^2 / Spearman, delta vs habitat): CRCP causal: habitat -0.024/0.331, meta -0.030, raw -0.030, A -0.081/0.386, B -0.023, C -0.023/0.379, D -0.025/0.377, D3 -0.018/0.400 (+0.006); seasonal: A -0.110 (-0.084), C -0.016 (+0.011), D -0.027, D3 -0.015/0.402 (+0.012). MaxN causal: habitat 0.054, meta 0.134 (+0.080), raw 0.085, A 0.099, B 0.071, C 0.089, D 0.086, D3 0.091; seasonal: meta 0.136 (+0.085), raw 0.097, A 0.095, D 0.082, D3 0.089. No embedding beats metadata on MaxN; CRCP all D^2 <= 0 (shallow reefs) |
 | 2026-11-26 | 116714 | K1c.5 re-tile Florida SFREFL with valid-range masking ✅ 1,776/1,776 done, 6.4 s per granule wall, clipped 0 (was 291,515,357); stored tiles 3,301,817 and overpasses 7,773,498 unchanged. Next: purge SFREFL raw |
 | 2026-11-26 | login, 116712 | Bio-GO-SHIP stream (7 products, no SFREFL/BGC, CHAIN=5) submitted. Range check read like tiling: SFREFL rhos valid range -0.05..1.5 (file attrs); above valid_max 1e-4..9e-4 of values (479-56,914 per sampled granule), all on CLDICE pixels (100 %), mostly HISATZEN, in 719-835 nm (values to 52.8) and 346-375 nm (to 2.4); below valid_min <= 375 per granule. Eclipse granule 20240408T181326: 3.25 % of values below valid_min (UV to -0.97), 210,648 of 544,416 pixels, 1.1 % with no flag set. PACE AOP Rrs (valid -0.01..0.10): below valid_min 0-1,583 values per granule (<= 1.1e-4; floor -0.01553 = int16 minimum) in 346-~400 nm, above 0-119; all on flagged pixels (PRODWARN, STRAYLIGHT, CHLFAIL, MAXAERITER, ATMWARN); 0 clipped in K2. purge-raw report: 22,559 of 22,559 non-SFREFL Florida raw files tiled (2,641.9 GB) |
