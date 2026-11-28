@@ -285,6 +285,32 @@ class TestEvaluate(unittest.TestCase):
                 self.assertTrue(p.loc[~cont, "test_auc"].notna().all())
                 # same samples for every feature set within a dataset and window
                 self.assertEqual(p.groupby(["dataset", "window"])["n_test"].nunique().max(), 1)
+                # external features (e.g. Granite): eDNA only, half the samples -> eDNA scored on that half,
+                # SFER untouched; embeddings read from the first evaluation (--embeddings-from)
+                ek = np.load(out / "embeddings_causal_visible.npz")["key"]
+                m16 = pd.read_csv(sorted((ev.eval_dir(cfg) / "matched").glob("*16S*.csv.gz"))[0], dtype={"sample_id": str})
+                k16 = (m16["lat"].round(5).astype(str) + "|" + m16["lon"].round(5).astype(str) + "|"
+                       + m16["time_utc"].astype(str)).to_numpy()
+                k16 = np.array([k for k in k16 if k in set(ek)])
+                Xe = np.random.default_rng(0).normal(size=(len(k16), 6)).astype("f4")
+                Xe[::2] = np.nan
+                np.savez(out / "ext.npz", key=k16, datasets=np.array(["edna_16S"]), **{"ext/strict": Xe})
+                out2 = cfg.data_root / "runs" / "eval_t2"
+                out2.mkdir()
+                try:
+                    ev.EXTRA_FEATURES[:] = [out / "ext.npz"]
+                    ev.EMB_DIR = out
+                    ev.probes(cfg, out2, ["causal"], ["visible"], log=logs.append)
+                finally:
+                    ev.EXTRA_FEATURES[:] = []
+                    ev.EMB_DIR = None
+                p2 = pd.read_csv(out2 / "probes.csv")
+                e2 = p2[p2["dataset"] == "edna_16S"]
+                self.assertIn("ext/strict", set(e2["features"]))
+                self.assertEqual(e2["n_test"].nunique(), 1)
+                n1 = p[(p["dataset"] == "edna_16S") & (p["window"] == "causal")]["n_test"].iloc[0]
+                self.assertLess(e2["n_test"].iloc[0], n1)
+                self.assertNotIn("ext/strict", set(p2.loc[p2["dataset"] == "sfer", "features"]))
                 # robustness (test periods = quarters in this one-year synthetic set)
                 from oefm.model import robust as rb
 

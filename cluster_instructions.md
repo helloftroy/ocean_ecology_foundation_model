@@ -185,6 +185,29 @@ Also paste back from the finished prep, if not done yet: `tail -80 logs/oefm_pre
 `cat data/processed/regional/tiles/v2/index/summary_by_product.csv data/processed/regional/tiles/v2/index/eval_coverage_summary.csv`,
 and copy back `data/processed/regional/tiles/v2/examples/`.
 
+**I2. Granite benchmark on the eDNA probes (2026-11-28)** ▶️. Your question: is Granite
+(`ibm-granite/granite-geospatial-ocean`, from `multimodal_granite`) better than our runs on the same
+eDNA targets? If so, that argues against continuing this training. Granite's embedding per eDNA event:
+the last hidden state mean-pooled over one whole 42 x 42 OLCI tile (~12.6 km), the overpass nearest in
+time (median 0.43 d, max 5 d) and up to 25 km away (median 6.9 km). All 913 of our eDNA evaluation
+samples have one (`edna_event_id` = our `sample_id`). Two runs, same targets, splits and ridge probe:
+- `granite/tile`: Granite as used in that work (913 samples).
+- `granite/strict`: only samples inside their tile (<= 6.3 km) and <= 3 d from the overpass (393
+  samples: 311 train, 82 test); every feature set is scored on that subset. Compare with our retro3.
+Built on the laptop by `scripts/granite_features.py` (-> `eval_results/granite/*.npz`). Copy both
+files to `data/eval_external/` on Ptolemy, then (CPU only, minutes; reads stage1_5's embeddings):
+```bash
+git pull
+mkdir -p data/eval_external   # put granite_tile.npz and granite_strict.npz here
+for v in tile strict; do
+  sbatch --account=191001-366746 --partition=gpu-a100-mig7 --gres=none --job-name=oefm_granite_${v} \
+    --export=ALL,RUNS="stage1_A stage1_D3",TAG=granite_${v},EXTRA="--embeddings-from stage1_5 --extra-features data/eval_external/granite_${v}.npz --windows causal retro retro1 retro3 --steps probes robust --robust rotate bootstrap" cluster/evaluate.sbatch
+done
+```
+If `--gres=none` is refused, use `--gres=gpu:a100_1g.10gb:1`. Paste back
+`grep -A80 "Median test R" logs/oefm_granite_<v>_<id>.out | head -90` and
+`grep -A60 "Test-year rotation" logs/oefm_granite_<v>_<id>.out | head -70` for each.
+
 **J. Bio-GO-SHIP global benchmark (2026-11-23; runs alongside H on `service`)** ▶️. A downstream
 test outside Florida: the Granite / Bio-GO-SHIP metagenome benchmark (same samples, targets and
 protocol; instructions in `multimodal_seusmbol/instructions_agent_biogoship.md`). Decision log:

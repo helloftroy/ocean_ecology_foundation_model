@@ -456,6 +456,14 @@ def _metrics(y, p, binary: bool) -> dict:
     return out
 
 
+# External feature sets for the probes (e.g. Granite embeddings), set by --extra-features: npz files
+# with "key" (lat|lon|time_utc, as below), optional "datasets" (the evaluation sets they are for; samples
+# of different sets can share a key) and one or more 2-D arrays named "<model>/<variant>". A sample
+# without a finite row is left out of `common`, so every feature set is scored on the same samples.
+EXTRA_FEATURES: list[Path] = []
+EMB_DIR: Path | None = None       # --embeddings-from TAG: read embeddings_*.npz of another evaluation
+
+
 def probe_inputs(cfg, out_dir: Path, window: str, paces, seq_covariates_mode: str = "both", log=print):
     """Per evaluation set (one window): features aligned to the labelled samples, targets and masks,
     shared by the probes and the robustness step. Yields dicts with: ds, df, fsets {(features,
@@ -466,9 +474,10 @@ def probe_inputs(cfg, out_dir: Path, window: str, paces, seq_covariates_mode: st
 
     emb = {}
     for pace in paces:
-        f = out_dir / f"embeddings_{window}_{pace}.npz"
+        f = (EMB_DIR or out_dir) / f"embeddings_{window}_{pace}.npz"
         if f.exists():
             emb[pace] = dict(np.load(f, allow_pickle=False))
+    extra = [dict(np.load(p, allow_pickle=False)) for p in EXTRA_FEATURES]
     if not emb:
         log(f"probes: no embeddings for window {window}; run --steps embed first")
         return
@@ -491,6 +500,23 @@ def probe_inputs(cfg, out_dir: Path, window: str, paces, seq_covariates_mode: st
             for k, v in e.items():
                 if "__" in k:
                     fsets[(k.replace("__", "/"), pace)] = v[ix]
+        for ex in extra:
+            if "datasets" in ex and ds not in set(ex["datasets"].tolist()):
+                continue
+            pos = {k: i for i, k in enumerate(ex["key"])}
+            rows = df["key"].map(pos)
+            if rows.notna().sum() == 0:      # this external set does not cover the dataset
+                continue
+            for name, v in ex.items():
+                if name in ("key", "datasets"):
+                    continue
+                X = np.full((len(df), v.shape[1]), np.nan, dtype="f8")
+                ok = rows.notna().to_numpy()
+                X[ok] = v[rows[ok].astype(int).to_numpy()]
+                for pace in emb:
+                    fsets[(name, pace)] = X
+            log(f"probes {ds}/{window}: extra features {', '.join(k for k in ex if k not in ('key', 'datasets'))}: "
+                f"{int(np.isfinite(X).all(1).sum())} of {len(df)} samples")
         # raw: a band missing for a sample (sensor range) -> fill with the training mean of that band
         common = np.ones(len(df), bool)
         for (name, pace), X in fsets.items():
@@ -816,10 +842,17 @@ def main(argv=None) -> None:
     ap.add_argument("--seq-covariates", default="both", choices=["on", "off", "both"],
                     help="eDNA probes: sequencing platform/depth as unpenalised covariates: with (on), without "
                          "(off) or both (default)")
+    ap.add_argument("--extra-features", nargs="*", default=[],
+                    help="npz files of external features (key + '<model>/<variant>' arrays) added to the probes")
+    ap.add_argument("--embeddings-from", default=None,
+                    help="tag whose embeddings_*.npz the probes read (default: this tag)")
     args = ap.parse_args(argv)
 
     cfg = load_config()
     out_dir = cfg.data_root / "runs" / f"eval_{args.tag}"
+    global EMB_DIR
+    EXTRA_FEATURES[:] = [Path(p) for p in args.extra_features]
+    EMB_DIR = cfg.data_root / "runs" / f"eval_{args.embeddings_from}" if args.embeddings_from else None
     out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     models, tcfg = [], None
